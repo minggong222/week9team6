@@ -2,6 +2,7 @@
 #include "MathUtility.h"
 #include "Matrix.h"
 #include "EngineMath.h"
+#include <stdexcept>
 
 /* Constructor */
 
@@ -35,6 +36,20 @@ FMatrix::FMatrix(
 }
 
 /* Functions */
+
+float FMatrix::GetElement(int32 Row, int32 Column) const
+{
+	if (Row < 0 || Row >= 4 || Column < 0 || Column >= 4)
+		throw std::out_of_range("FMatrix indices must be in [0, 3]");
+	return M[Row][Column];
+}
+
+void FMatrix::SetElement(int32 Row, int32 Column, float Value)
+{
+	if (Row < 0 || Row >= 4 || Column < 0 || Column >= 4)
+		throw std::out_of_range("FMatrix indices must be in [0, 3]");
+	M[Row][Column] = Value;
+}
 
 FMatrix FMatrix::ApplyScale(float Scale) const
 {
@@ -174,8 +189,16 @@ void FMatrix::SetAxis(int32 i, const FVector& Axis)
 	M[i][2] = Axis.Z;
 }
 
+void FMatrix::GetScaledAxis(FVector4& X, FVector4& Y, FVector4& Z) const
+{
+	X = FVector4(M[0][0], M[0][1], M[0][2], 0.0f);
+	Y = FVector4(M[1][0], M[1][1], M[1][2], 0.0f);
+	Z = FVector4(M[2][0], M[2][1], M[2][2], 0.0f);
+}
+
 void FMatrix::GetUnitAxis(FVector4& X, FVector4& Y, FVector4& Z) const
 {
+	GetScaledAxis(X, Y, Z);
 	X = X.Normalized();
 	Y = Y.Normalized();
 	Z = Z.Normalized();

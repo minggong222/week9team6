@@ -1,3 +1,4 @@
+#include "EnginePCH.h"
 #include "Lua.h"
 
 #include "Core/EngineLog.h"
@@ -29,14 +30,19 @@ bool FLua::LoadFromFile(FStringView InPath)
     return true;
 }
 
-// API/LuaActor.cpp
-extern void LuaRegisterActor(sol::state& State);
 
-// API/LuaMath.cpp
+// 여러개의 Cpp 파일로 분리
+extern void LuaRegisterObject(sol::state& State);
+extern void LuaRegisterActor(sol::state& State);
 extern void LuaRegisterMath(sol::state& State);
+extern void LuaRegisterComponent(sol::state& State);
+extern void LuaRegisterInput(sol::state& State);
 
 void FLua::RegisterAPI()
 {
+    LuaRegisterObject(State);
     LuaRegisterActor(State);
     LuaRegisterMath(State);
+    LuaRegisterComponent(State);
+    LuaRegisterInput(State);
 }

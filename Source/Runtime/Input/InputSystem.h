@@ -33,6 +33,7 @@ public:
     static inline int32 GetMouseDeltaX() { return DeltaX; }
     static inline int32 GetMouseDeltaY() { return DeltaY; }
 
+    // TODO: WheelDelta를 소모하지 않는 경로가 있어야할 듯
     static inline int32 GetWheelDelta() 
     { 
         int32 Delta = WheelDelta;
