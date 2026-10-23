@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 // 등장방형(equirectangular) 파노라마를 배경으로 그린다.
 // 정점 버퍼 없이 화면을 덮는 삼각형 하나를 SV_VertexID로 만든다.
@@ -15,8 +16,6 @@ cbuffer SkyboxConstants : register(b0)
 
 Texture2D    PanoramaTexture : register(t0);
 SamplerState LinearSampler   : register(s0);
-
-static const float PI = 3.14159265f;
 
 struct PSInput
 {
@@ -52,8 +51,8 @@ float4 mainPS(PSInput Input) : SV_TARGET
     // 엔진 좌표계는 Z-up / X-forward / Y-right (언리얼 규약).
     // 따라서 수평면은 XY, 위쪽은 Z다. Y-up 기준 공식을 쓰면 하늘이 누워서 나온다.
     float2 PanoUV;
-    PanoUV.x = atan2(Direction.y, Direction.x) / (2.0f * PI) + 0.5f;  // 경도: XY 평면
-    PanoUV.y = acos(clamp(Direction.z, -1.0f, 1.0f)) / PI;            // 위도: +Z가 천정
+    PanoUV.x = atan2(Direction.y, Direction.x) / (2.0f * PI_PRECISE) + 0.5f;  // 경도: XY 평면
+    PanoUV.y = acos(clamp(Direction.z, -1.0f, 1.0f)) / PI_PRECISE;            // 위도: +Z가 천정
 
     // Sample이 아니라 SampleLevel.
     // atan2가 -PI/+PI 경계에서 U를 1.0 -> 0.0으로 점프시키는데,

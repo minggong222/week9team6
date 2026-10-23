@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 Texture2D<float4> Panorama : register(t0);
 TextureCube<float4> Environment : register(t1);
 RWTexture2DArray<float4> OutputCube : register(u0);
@@ -10,9 +11,6 @@ cbuffer SkyComputeConstants : register(b0)
     uint bSourceIsLinear;
     uint SampleCount;
 };
-
-static const float PI = 3.14159265358979323846f;
-static const float GoldenAngle = 2.39996322972865332f;
 
 float3 CubeDirection(uint Face, float2 UV)
 {
@@ -39,8 +37,8 @@ void BuildEnvironmentCube(uint3 Texel : SV_DispatchThreadID)
     if (Texel.x >= OutputSize || Texel.y >= OutputSize || Texel.z >= 6) return;
     float2 UV = (float2(Texel.xy) + 0.5f) / OutputSize;
     float3 Direction = CubeDirection(Texel.z, UV);
-    float2 PanoramaUV = float2(atan2(Direction.y, Direction.x) / (2.0f * PI) + 0.5f,
-        acos(clamp(Direction.z, -1.0f, 1.0f)) / PI);
+    float2 PanoramaUV = float2(atan2(Direction.y, Direction.x) / (2.0f * PI_PRECISE) + 0.5f,
+        acos(clamp(Direction.z, -1.0f, 1.0f)) / PI_PRECISE);
     PanoramaUV.y = clamp(PanoramaUV.y, 0.5f / PanoramaHeight,
         1.0f - 0.5f / PanoramaHeight);
     float3 Color = Panorama.SampleLevel(LinearSampler, PanoramaUV, 0).rgb;
@@ -60,7 +58,7 @@ void BuildIrradianceCube(uint3 Texel : SV_DispatchThreadID)
     {
         float Z = 1.0f - 2.0f * (Index + 0.5f) / SampleCount;
         float Radius = sqrt(max(0.0f, 1.0f - Z * Z));
-        float Phi = Index * GoldenAngle;
+        float Phi = Index * GOLDEN_ANGLE;
         float3 L = float3(Radius * cos(Phi), Radius * sin(Phi), Z);
         Sum += Environment.SampleLevel(LinearSampler, L, 0).rgb * max(dot(Normal, L), 0.0f);
     }

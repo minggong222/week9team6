@@ -1,4 +1,5 @@
 #pragma once
+#include "Math/MathUtility.h"
 #include "Math/Transform.h"
 #include "Mesh.h"
 #include "Shader.h"
@@ -54,7 +55,7 @@ struct FViewContext
 			: (CameraPosition - WorldPosition).Normalized();
 		FVector Up = FVector(0.0f, 0.0f, 1.0f);
 		FVector Right = FVector::Cross(Up, Facing).Normalized();
-		if (Right.Length() <= 1e-6f)
+		if (Right.Length() <= EPSILON_1E_6)
 		{
 			Up = FVector(0.0f, 1.0f, 0.0f);
 			Right = FVector::Cross(Up, Facing).Normalized();

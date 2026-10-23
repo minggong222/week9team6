@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 cbuffer GridCB : register(b0)
 {
@@ -57,7 +58,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float fadeDist = clamp(abs(input.camPos.z) * HeightToFadeRatio, MinFadeDistance, MaxFadeDistance);
 
     // 화면 1픽셀당 월드 좌표의 변화량
-    float2 derivative = max(fwidth(input.coords), float2(1.0e-6, 1.0e-6));
+    float2 derivative = max(fwidth(input.coords), float2(EPSILON_1E_6, EPSILON_1E_6));
 
     // 값 / (해당 픽셀의 변화량)을 통해 화면 픽셀(Screen Space) 단위의 거리를 구합니다.
     float2 subGrid = abs(frac(input.coords / SubCellSize - 0.5) - 0.5) * SubCellSize / derivative;

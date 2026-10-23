@@ -1,4 +1,5 @@
 ﻿#include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "StaticMeshData.h"
 
 #include <algorithm>
@@ -217,8 +218,8 @@ void FStaticMeshData::BuildTriangleBVH()
 void FStaticMeshData::BuildTangentSpace() {
 	const int32 VertexCount{ Vertices.Num() };
 	const int32 IndexCount{ Indices.Num() };
-	constexpr float UVTolerance{ 1.0e-8f };
-	constexpr float VectorToleranceSquared{ 1.0e-12f };
+	constexpr float UVTolerance{ EPSILON_1E_8 };
+	constexpr float VectorToleranceSquared{ EPSILON_1E_12 };
 
 	TArray<FVector> TangentSums{};
 	TArray<FVector> BitangentSums{};
@@ -269,7 +270,7 @@ void FStaticMeshData::BuildTangentSpace() {
 		FVector Tangent{ TangentSums[Index] - Normal * Normal.Dot(TangentSums[Index]) };
 
 		if (Tangent.SizeSquared() <= VectorToleranceSquared) {
-			const FVector Axis{ std::abs(Normal.X) < 0.9f ? FVector{ 1.0f, 0.0f, 0.0f } : FVector{ 0.0f, 1.0f, 0.0f } };
+			const FVector Axis{ std::abs(Normal.X) < THRESH_SAFE_AXIS_ALIGNMENT ? FVector{ 1.0f, 0.0f, 0.0f } : FVector{ 0.0f, 1.0f, 0.0f } };
 			Tangent = Axis - Normal * Normal.Dot(Axis);
 		}
 

@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "GameFramework/Actor/ProjectileActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/FireBallComponent.h"
@@ -47,7 +48,7 @@ AProjectileActor::AProjectileActor()
 
 void AProjectileActor::Launch(const FVector& Position, const FVector& Direction, bool bUseStaticMesh)
 {
-    if (!GetWorld() || GetWorld()->GetWorldType() != EWorldType::PIE || Direction.Dot(Direction) <= 0.0001f)
+    if (!GetWorld() || GetWorld()->GetWorldType() != EWorldType::PIE || Direction.Dot(Direction) <= EPSILON_1E_4)
         return;
     ReturnToPool();
     const FVector Forward = Direction.Normalized();

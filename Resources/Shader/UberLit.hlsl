@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 
 #include "LightData.hlsli"
@@ -126,7 +127,7 @@ float3 DecodeMapNormal(float3 Sample, float Encoding)
 float3 GetShadingNormal(VS_OUT Input)
 {
     float LengthSquared = dot(Input.WorldNormal, Input.WorldNormal);
-    float3 N = LengthSquared > 1.0e-8f
+    float3 N = LengthSquared > EPSILON_1E_8
         ? Input.WorldNormal * rsqrt(LengthSquared)
         : float3(0.0f, 0.0f, 1.0f);
     if (SurfaceParams.w > 0.5f)
@@ -135,13 +136,13 @@ float3 GetShadingNormal(VS_OUT Input)
         if (SurfaceParams.x > 0.5f) MapNormal.y = -MapNormal.y;
         float3 T = Input.WorldTangent.xyz - N * dot(N, Input.WorldTangent.xyz);
         float TangentLengthSquared = dot(T, T);
-        if (TangentLengthSquared > 1.0e-8f)
+        if (TangentLengthSquared > EPSILON_1E_8)
         {
             T *= rsqrt(TangentLengthSquared);
             float3 B = cross(N, T) * Input.WorldTangent.w;
             float3 MappedNormal = T * MapNormal.x + B * MapNormal.y + N * MapNormal.z;
             float MappedLengthSquared = dot(MappedNormal, MappedNormal);
-            if (MappedLengthSquared > 1.0e-8f)
+            if (MappedLengthSquared > EPSILON_1E_8)
                 N = MappedNormal * rsqrt(MappedLengthSquared);
         }
     }
@@ -187,9 +188,9 @@ void CalculatePointLight(inout FLightResult Result, FLightRenderParameters Info,
     float3 ToLight = Info.Position - P;
     float DistanceSquared = dot(ToLight, ToLight);
     float RadiusSquared = Info.Radius * Info.Radius;
-    if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < 1.0e-8f)
+    if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < EPSILON_1E_8)
         return;
-    float Distance = sqrt(max(DistanceSquared, 1.0e-6f));
+    float Distance = sqrt(max(DistanceSquared, EPSILON_1E_6));
     // Deferred와 동일하게 Point Light의 RadiusFallOff를 반경 감쇠 지수로 사용한다.
     float Fade = pow(saturate(1.0f - Distance / Info.Radius), max(Info.FalloffExponent, 0.0f));
     if (Fade <= 0.0f) return;
@@ -204,10 +205,10 @@ void CalculateSpotLight(inout FLightResult Result, FLightRenderParameters Info, 
     float DistanceSquared = dot(ToLight, ToLight);
     float RadiusFade = CalculateDistanceAttenuation(DistanceSquared, Info.Radius * Info.Radius);
     if (RadiusFade <= 0.0f) return;
-    float3 L = ToLight / sqrt(max(DistanceSquared, 1.0e-6f));
+    float3 L = ToLight / sqrt(max(DistanceSquared, EPSILON_1E_6));
 	float ConeCos = dot(-L, normalize(Info.Direction));
 	float ConeFade = CalculateConeAttenuation(ConeCos, Info.InnerConeCos, Info.OuterConeCos);
-	ConeFade = pow(ConeFade, max(Info.FalloffExponent, 0.0001f));
+	ConeFade = pow(ConeFade, max(Info.FalloffExponent, EPSILON_1E_4));
 
 	float3 Radiance = Info.Color * max(Info.Intensity, 0.0f) * ConeFade * RadiusFade;
 
@@ -240,10 +241,10 @@ void CalculateRectLight(inout FLightResult Result, FLightRenderParameters Info,
 	float3 ToLight = ClosestPoint - P;
 	float DistanceSquared = dot(ToLight, ToLight);
 	float RadiusSquared = Radius * Radius;
-	if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < 1.0e-8f)
+	if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < EPSILON_1E_8)
 		return;
 
-	float Distance = sqrt(max(DistanceSquared, 1.0e-6f));
+	float Distance = sqrt(max(DistanceSquared, EPSILON_1E_6));
 	float3 L = ToLight / Distance;
 
 	float Attenuation = pow(saturate(1.0f - Distance / max(Radius, 0.001f)), max(FalloffExponent, 0.001f));
@@ -255,7 +256,7 @@ void CalculateRectLight(inout FLightResult Result, FLightRenderParameters Info,
 	if (BarnDoorLength > 0.0f)
 	{
 		float3 EmitterToSurface = P - ClosestPoint;
-		float EmitterDist = max(length(EmitterToSurface), 0.0001f);
+		float EmitterDist = max(length(EmitterToSurface), EPSILON_1E_4);
 		float ForwardDist = dot(EmitterToSurface, Direction);
 		float LateralX = abs(dot(EmitterToSurface, Right));
 		float LateralY = abs(dot(EmitterToSurface, Up));
@@ -382,7 +383,7 @@ FLightResult CalculateLighting(float3 PixelPosition, float3 P, float ViewDepth, 
 {
     float3 N = normalize(Normal);
     float3 ToCamera = CameraPosition.xyz - P;
-    float3 V = ToCamera * rsqrt(max(dot(ToCamera, ToCamera), 1.0e-8f));
+    float3 V = ToCamera * rsqrt(max(dot(ToCamera, ToCamera), EPSILON_1E_8));
     FLightResult Result = CalculateBaseLighting(PixelPosition, P, ViewDepth, N, V, bIncludeSpecular);
     AddAllLocalLights(Result, PixelPosition, P, N, V, bIncludeSpecular);
     return Result;
@@ -393,7 +394,7 @@ FLightResult CalculateTiledLighting(float3 PixelPosition, float3 P, float ViewDe
 {
     float3 N = normalize(Normal);
     float3 ToCamera = CameraPosition.xyz - P;
-    float3 V = ToCamera * rsqrt(max(dot(ToCamera, ToCamera), 1.0e-8f));
+    float3 V = ToCamera * rsqrt(max(dot(ToCamera, ToCamera), EPSILON_1E_8));
     FLightResult Result = CalculateBaseLighting(PixelPosition, P, ViewDepth, N, V, bIncludeSpecular);
 
     if (GridMode == LIGHT_GRID_MODE_OFF)

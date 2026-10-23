@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 
 cbuffer ViewConstants : register(b0)
@@ -49,7 +50,7 @@ float3 ResolveWorldNormal(float3 WorldNormal, float4 WorldTangent, float3 MapNor
 {
     float3 N = normalize(WorldNormal);
     float3 T = WorldTangent.xyz - N * dot(N, WorldTangent.xyz);
-    T *= rsqrt(max(dot(T, T), 1.0e-8f));
+    T *= rsqrt(max(dot(T, T), EPSILON_1E_8));
     float3 B = cross(N, T) * WorldTangent.w;
     return normalize(T * MapNormal.x + B * MapNormal.y + N * MapNormal.z);
 }

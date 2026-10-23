@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 // 2.5D Tiled 라이트 컬링 (Harada 2012).
 // 그룹 하나 = 16×16 타일, 스레드 하나 = 픽셀 하나.
 // Depth Prepass 결과로 타일의 실제 깊이 범위 [MinZ, MaxZ]를 재고, 그 범위를 32칸으로 나눈 깊이 마스크로
@@ -54,7 +55,7 @@ void mainCS(uint3 GroupID : SV_GroupID, uint3 DispatchID : SV_DispatchThreadID, 
     const float MinZ = asfloat(sMinZ);
     const float MaxZ = asfloat(sMaxZ);
     const bool bEmpty = MinZ > MaxZ;                    // 픽셀이 하나도 없는 타일 (그룹 전체가 같은 값)
-    const float InvBinSize = 32.0f / max(MaxZ - MinZ, 1e-4f);
+    const float InvBinSize = 32.0f / max(MaxZ - MinZ, EPSILON_1E_4);
 
     // 3) 깊이 마스크
     if (bValid)

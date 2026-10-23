@@ -1,4 +1,5 @@
 #pragma once
+#include "MathUtility.h"
 #include <cmath>
 #include "Vector.h"
 #include "Vector2.h"
@@ -11,13 +12,8 @@
 #include "VectorRegister.h"
 #include "MatrixRegister.h"
 
-#define PI 3.141592f
-#define INDEX_NONE -1
-
 namespace FMath
 {
-	//static float PI = std::acosf(-1);
-
 	template <typename T>
 	static inline T Min(const T& A, const T& B)
 	{
@@ -54,12 +50,12 @@ namespace FMath
 		return static_cast<T>(std::log2(InValue));
 	}
 
-	static inline bool IsNearlyZero(float Value, float ErrorTolerance = 1e-20f)
+	static inline bool IsNearlyZero(float Value, float ErrorTolerance = EPSILON_1E_20)
 	{
 		return std::abs(Value) <= ErrorTolerance;
 	}
 
-	static inline bool IsNearlyEqual(float Value1, float Value2, float ErrorTolerance = 1e-4f)
+	static inline bool IsNearlyEqual(float Value1, float Value2, float ErrorTolerance = EPSILON_1E_4)
 	{
 		return std::abs(Value1 - Value2) <= ErrorTolerance;
 	}
@@ -81,11 +77,11 @@ namespace FMath
 
 	static inline float RadiansToDegrees(float Radian)
 	{
-		return Radian * (180.0f / PI);
+		return Radian * RADIANS_TO_DEGREES;
 	}
 
 	static inline float DegreesToRadians(float Degree)
 	{
-		return Degree * (PI / 180.0f);
+		return Degree * DEGREES_TO_RADIANS;
 	}
 }

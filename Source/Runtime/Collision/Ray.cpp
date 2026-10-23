@@ -1,4 +1,5 @@
 ﻿#include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "Ray.h"
 
 #include <algorithm>
@@ -64,7 +65,7 @@ bool RayIntersectsTriangle(const FRay& Ray, const FVector& v1, const FVector& v2
 
 bool RayIntersectsTriangleEdges(const FRay& Ray, const FVector& V0, const FVector& Edge1, const FVector& Edge2, float& OutT)
 {
-    constexpr float epsilon = 1e-5f;
+    constexpr float epsilon = EPSILON_1E_5;
 
     FVectorRegister edge1 = VectorSIMD::LoadFloat3(&Edge1.X);
     FVectorRegister edge2 = VectorSIMD::LoadFloat3(&Edge2.X);
@@ -182,7 +183,7 @@ FVector2 WorldToScreen(const FVector& WorldPos, const FMatrix& ViewProj, int Scr
 {
     FVector4 clip = FVector4(WorldPos.X, WorldPos.Y, WorldPos.Z, 1.0f) * ViewProj;
 
-    if (clip.W < 0.0001f)
+    if (clip.W < EPSILON_1E_4)
         return FVector2(-FLT_MAX, -FLT_MAX);
 
     float ndcX = clip.X / clip.W;
@@ -199,7 +200,7 @@ float DistanceToSegment(const FVector2& P, const FVector2& A, const FVector2& B)
     FVector2 seg = B - A;
     float segLenSq = seg.X * seg.X + seg.Y * seg.Y;
 
-    if (segLenSq < 1e-6f)
+    if (segLenSq < EPSILON_1E_6)
     {
         FVector2 d = P - A;
         return sqrtf(d.X * d.X + d.Y * d.Y);
@@ -219,7 +220,7 @@ bool RayIntersectsPlane(const FRay& Ray, const FVector& PlanePoint, const FVecto
 {
     float denom = Ray.Direction.Dot(PlaneNormal);
 
-    if (fabsf(denom) < 1e-6f)
+    if (fabsf(denom) < EPSILON_1E_6)
         return false;
 
     OutT = (PlanePoint - Ray.Origin).Dot(PlaneNormal) / denom;

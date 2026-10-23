@@ -310,7 +310,7 @@ float FGizmo::ComputeAngleOnPlane(const FVector& Point, int Axis) const
 
 	if (DraggingAxis >= 0)
 	{
-		FVector Ref = (fabsf(DragAxisDirection.Z) > 0.9f) ? FVector(1, 0, 0) : FVector(0, 0, 1);
+		FVector Ref = (fabsf(DragAxisDirection.Z) > THRESH_SAFE_AXIS_ALIGNMENT) ? FVector(1, 0, 0) : FVector(0, 0, 1);
 		u = Ref.Cross(DragAxisDirection).Normalized();
 		v = DragAxisDirection.Cross(u);
 	}

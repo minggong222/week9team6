@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "Editor/Settings/SettingsPanel.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
@@ -374,7 +375,7 @@ bool FSettingsPanel::LoadSettings()
 			const FQuat& Rotation = Settings.ViewRotation[Index];
 			const float LengthSquared = Rotation.X * Rotation.X + Rotation.Y * Rotation.Y +
 				Rotation.Z * Rotation.Z + Rotation.W * Rotation.W;
-			if (LengthSquared > 1.0e-12f)
+			if (LengthSquared > EPSILON_1E_12)
 			{
 				Settings.ViewRotation[Index] = Rotation.Normalized();
 				Settings.bViewRotationSaved[Index] = true;

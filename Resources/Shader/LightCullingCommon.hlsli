@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 // 라이트 컬링 CS(Clustered/Tiled, 2.5D)가 함께 쓰는 정의와 검사 함수.
 // 구조체·cbuffer는 C++(SceneManagement.h, Renderer.h)과 바이트 단위로 같아야 한다.
 #pragma pack_matrix(row_major)
@@ -44,7 +45,7 @@ void GetCullSphere(FLightRenderParameters L, out float3 Center, out float Radius
         const float CosA = L.OuterConeCos;
         const float SinA = sqrt(saturate(1.0f - CosA * CosA));
 
-        if (CosA < 0.70710678f)     // 바깥 각도 > 45도: 넓은 원뿔
+        if (CosA < SQRT_HALF)     // 바깥 각도 > 45도: 넓은 원뿔
         {
             Center = L.Position + L.Direction * (L.Radius * CosA);
             Radius = L.Radius * SinA;

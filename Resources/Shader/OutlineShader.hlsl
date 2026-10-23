@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 // View별 행렬과 렌더 타깃 픽셀 크기·Outline 확장량을 전달한다.
 cbuffer constants : register(b0)
@@ -43,7 +44,7 @@ PS_INPUT mainVS(VS_INPUT input)
     
     const float lengthSquared = dot(pixelDirection, pixelDirection);
     
-    if (clipPosition.w > 1.0e-6f && lengthSquared > 1.0e-12f)
+    if (clipPosition.w > EPSILON_1E_6 && lengthSquared > EPSILON_1E_12)
     {
         pixelDirection *= rsqrt(lengthSquared);
         clipPosition.xy += pixelDirection * (2.0f * ViewportAndThickness.z / viewportSize) * clipPosition.w;

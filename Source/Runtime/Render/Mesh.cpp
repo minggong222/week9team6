@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "Mesh.h"
 #include "Renderer.h"
 #include "Asset/AssetManager.h"
@@ -56,7 +57,7 @@ void UStaticMesh::RebuildRenderData()
     }
     // Include a small geometric margin and round outwards.
     LocalLODSphere.RadiusSquared = std::nextafter(
-        static_cast<float>(RadiusSquared * (1.0 + 2e-5)), std::numeric_limits<float>::infinity());
+        static_cast<float>(RadiusSquared * (1.0 + MESH_BOUNDS_RELATIVE_MARGIN)), std::numeric_limits<float>::infinity());
     RenderStates.clear();
     for (FPrimitiveSceneProxy* Proxy : RenderProxies)
         Proxy->OnMeshRenderDataChanged();

@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 
 #include "LightData.hlsli"
@@ -59,7 +60,7 @@ void AccumulateLocalLight(inout float3 Diffuse, inout float3 Specular,
 
     float3 H = L + V;
     float HLengthSquared = dot(H, H);
-    if (HLengthSquared <= 1.0e-8f) return;
+    if (HLengthSquared <= EPSILON_1E_8) return;
     H *= rsqrt(HLengthSquared);
 
     float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), Albedo, saturate(Metallic));
@@ -80,12 +81,12 @@ float4 mainPS(FPSInput Input) : SV_Target
     float3 Albedo = MaterialData.rgb;
     float Metallic = MaterialData.a;
     float Roughness = NormalData.a;
-    float3 N = NormalData.xyz * rsqrt(max(dot(NormalData.xyz, NormalData.xyz), 1.0e-8f));
+    float3 N = NormalData.xyz * rsqrt(max(dot(NormalData.xyz, NormalData.xyz), EPSILON_1E_8));
     
     float2 UV = (float2(Pixel) + 0.5f) / ViewportSize.xy;
     float2 NDC = float2(UV.x * 2.0f - 1.0f, 1.0f - UV.y * 2.0f);
     float4 WorldH = mul(float4(NDC, Depth, 1.0f), InverseViewProjection);
-    if (!isfinite(WorldH.w) || abs(WorldH.w) < 1.0e-6f)
+    if (!isfinite(WorldH.w) || abs(WorldH.w) < EPSILON_1E_6)
         return 0.0f;
     float3 WorldPosition = WorldH.xyz / WorldH.w;
 
@@ -132,7 +133,7 @@ float4 mainPS(FPSInput Input) : SV_Target
     // 직교 투영의 시선 광선은 평행하므로 시선 방향이 위치에 따라 달라지지 않는다.
     float3 ToCamera = CameraPosition.w > 0.5f
         ? CameraPosition.xyz - WorldPosition : -CameraForward.xyz;
-    float3 V = ToCamera * rsqrt(max(dot(ToCamera, ToCamera), 1.0e-8f));
+    float3 V = ToCamera * rsqrt(max(dot(ToCamera, ToCamera), EPSILON_1E_8));
 
     float3 LocalDiffuse = 0.0f;
     float3 LocalSpecular = 0.0f;
@@ -146,10 +147,10 @@ float4 mainPS(FPSInput Input) : SV_Target
         float DistanceSquared = dot(ToLight, ToLight);
         float RadiusSquared = Light.Radius * Light.Radius;
 
-        if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < 1.0e-8f)
+        if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < EPSILON_1E_8)
             continue;
 
-        float Distance = sqrt(max(DistanceSquared, 1.0e-6f));
+        float Distance = sqrt(max(DistanceSquared, EPSILON_1E_6));
         float3 L = ToLight / Distance;
 
         float x = Distance / Light.Radius;
@@ -199,14 +200,14 @@ float4 mainPS(FPSInput Input) : SV_Target
         float3 ToLight = Light.Position - WorldPosition;
         float DistanceSquared = dot(ToLight, ToLight);
         float RadiusSquared = Light.Radius * Light.Radius;
-        if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < 1.0e-8f)
+        if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < EPSILON_1E_8)
             continue;
 
-        float Distance = sqrt(max(DistanceSquared, 1.0e-6f));
+        float Distance = sqrt(max(DistanceSquared, EPSILON_1E_6));
         float3 L = ToLight / Distance;
 		float ConeCos = dot(-L, normalize(Light.Direction));
 		float ConeFade = pow(smoothstep(Light.OuterConeCos, Light.InnerConeCos, ConeCos),
-			max(Light.FalloffExponent, 0.0001f));
+			max(Light.FalloffExponent, EPSILON_1E_4));
 		float DistanceFactor = saturate(1.0f - Distance / Light.Radius);
 		float RadiusFade = DistanceFactor * DistanceFactor;
         
@@ -255,10 +256,10 @@ float4 mainPS(FPSInput Input) : SV_Target
         float3 ToLight = ClosestPoint - WorldPosition;
         float DistanceSquared = dot(ToLight, ToLight);
         float RadiusSquared = Radius * Radius;
-        if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < 1.0e-8f)
+        if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < EPSILON_1E_8)
             continue;
 
-        float Distance = sqrt(max(DistanceSquared, 1.0e-6f));
+        float Distance = sqrt(max(DistanceSquared, EPSILON_1E_6));
         float3 L = ToLight / Distance;
 
         float Attenuation = pow(saturate(1.0f - Distance / max(Radius, 0.001f)), max(FalloffExponent, 0.001f));
@@ -270,7 +271,7 @@ float4 mainPS(FPSInput Input) : SV_Target
         if (BarnDoorLength > 0.0f)
         {
             float3 EmitterToSurface = WorldPosition - ClosestPoint;
-            float EmitterDist = max(length(EmitterToSurface), 0.0001f);
+            float EmitterDist = max(length(EmitterToSurface), EPSILON_1E_4);
             float ForwardDist = dot(EmitterToSurface, Direction);
             float LateralX = abs(dot(EmitterToSurface, Right));
             float LateralY = abs(dot(EmitterToSurface, Up));
