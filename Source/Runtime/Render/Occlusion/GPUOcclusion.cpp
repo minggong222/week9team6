@@ -90,7 +90,7 @@ bool IsOccluded(FCullItem Item)
 	{
 		const float3 Sign = float3((c & 1) ? 1.0f : -1.0f, (c & 2) ? 1.0f : -1.0f, (c & 4) ? 1.0f : -1.0f);
 		const float4 Clip = mul(float4(Item.Center + Item.Extent * Sign, 1.0f), ViewProjection);
-		if (Clip.w <= EPSILON_1E_5 || Clip.z < 0.0f)
+		if (Clip.w <= EPSILON_1E_6 || Clip.z < 0.0f)
 			return false;                   // 근평면에 걸침 → 보이는 것으로
 		const float3 Ndc = Clip.xyz / Clip.w;
 		NdcMin = min(NdcMin, Ndc.xy);

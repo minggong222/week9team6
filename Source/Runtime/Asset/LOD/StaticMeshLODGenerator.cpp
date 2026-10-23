@@ -100,7 +100,7 @@ namespace
             const FVector Cross = FVector::Cross(B - A, C - A);
 
             const float LengthSquared = Cross.Dot(Cross);
-            if (LengthSquared <= EPSILON_1E_20)
+            if (LengthSquared <= LOD_MIN_TRIANGLE_CROSS_SQUARED)
             {
                 OutError = "LOD0 contains a degenerate triangle";
                 return false;
@@ -165,7 +165,7 @@ namespace
         if (End.Cost < Best.Cost) Best = End;
 
         // 이차 함수의 최소점이 있으면 edge 범위 [0,1]로 제한한다.
-        if (Quadratic > DOUBLE_EPSILON_1E_20)
+        if (Quadratic > LOD_MIN_QEM_CURVATURE)
         {
             const double UnclampedT = -Linear / (2.0 * Quadratic);
             const float T = static_cast<float>(std::clamp(UnclampedT, 0.0, 1.0));
@@ -204,7 +204,7 @@ namespace
             {
                 if (std::abs(M[Row][Col]) > std::abs(M[Pivot][Col])) Pivot = Row;
             }
-            if (std::abs(M[Pivot][Col]) <= Scale * DOUBLE_EPSILON_1E_12) return false;
+            if (std::abs(M[Pivot][Col]) <= Scale * LOD_QEM_RELATIVE_PIVOT_TOLERANCE) return false;
 
             if (Pivot != Col)
             {
@@ -242,7 +242,7 @@ namespace
         // 간선 밖 위치에서도 UV와 Color는 간선에 투영한 T로 보간한다.
         const FVector Direction = B - A;
         const float LengthSquared = Direction.Dot(Direction);
-        const float T = LengthSquared > EPSILON_1E_20
+        const float T = LengthSquared > LOD_MIN_EDGE_LENGTH_SQUARED
             ? std::clamp((Position - A).Dot(Direction) / LengthSquared, 0.0f, 1.0f)
             : 0.0f;
 
@@ -694,7 +694,7 @@ namespace
                 NewPositions[1] - NewPositions[0],
                 NewPositions[2] - NewPositions[0]);
 
-            if (NewCross.Dot(NewCross) <= EPSILON_1E_20 ||
+            if (NewCross.Dot(NewCross) <= LOD_MIN_TRIANGLE_CROSS_SQUARED ||
                 OldCross.Dot(NewCross) <= 0.0f)
             {
                 return ECollapseCheck::Flip;
@@ -1286,7 +1286,7 @@ FLODGenerateResult FStaticMeshLODGenerator::Generate(const FStaticMeshData& LOD0
         }
 
         Result.ActualTriangles[LOD] = Work.LiveTriangles;
-        if (std::abs(BaseVolume) > DOUBLE_EPSILON_1E_12)
+        if (std::abs(BaseVolume) > LOD_MIN_REFERENCE_VOLUME)
             Result.VolumeRatio[LOD] = static_cast<float>(ComputeSignedVolume(Snapshot) / BaseVolume);
         OutLODs.Add(std::move(Snapshot));
     }

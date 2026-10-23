@@ -65,7 +65,7 @@ bool RayIntersectsTriangle(const FRay& Ray, const FVector& v1, const FVector& v2
 
 bool RayIntersectsTriangleEdges(const FRay& Ray, const FVector& V0, const FVector& Edge1, const FVector& Edge2, float& OutT)
 {
-    constexpr float epsilon = EPSILON_1E_5;
+    constexpr float epsilon = EPSILON_1E_6;
 
     FVectorRegister edge1 = VectorSIMD::LoadFloat3(&Edge1.X);
     FVectorRegister edge2 = VectorSIMD::LoadFloat3(&Edge2.X);

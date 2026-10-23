@@ -748,7 +748,7 @@ void FSceneRenderer::GatherRenderPackets(FScene& Scene, FSceneRenderData& Data,
 		{
 			const FAABB& Bounds = Proxy->GetBounds();
 			const float Distance = (Bounds.Center - View.CameraPosition).Length();
-			const float ScreenSize = Bounds.Extent.Length() / std::max(Distance, EPSILON_1E_3);
+			const float ScreenSize = Bounds.Extent.Length() / std::max(Distance, SHADOW_CASTER_MIN_DISTANCE);
 			if (ScreenSize >= MinShadowCasterScreenSize)
 				Data.ShadowCasterProxies.Add(Proxy);
 			else

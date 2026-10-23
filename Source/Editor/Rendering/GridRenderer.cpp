@@ -114,9 +114,9 @@ bool GetVisibleGridBounds(const FGridFrustum &Frustum, EGridPlane Plane,
       const FVector A = Frustum.Corners[Index],
                     B = Frustum.Corners[Index | Bit];
       const float DA = Distance(A), DB = Distance(B);
-      if (std::fabs(DA) < EPSILON_1E_5)
+      if (std::fabs(DA) < EPSILON_1E_6)
         Include(A);
-      if (std::fabs(DB) < EPSILON_1E_5)
+      if (std::fabs(DB) < EPSILON_1E_6)
         Include(B);
       if ((DA < 0) != (DB < 0))
         Include(A + (B - A) * (DA / (DA - DB)));
