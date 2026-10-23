@@ -32,7 +32,7 @@ private:
 	static FDelegateHandle Generate()
 	{
 		static std::atomic<uint64> NextID{ 1 };
-		return FDelegateHandle{ NextID.fetch_and(1, std::memory_order_relaxed) };
+		return FDelegateHandle{ NextID.fetch_add(1, std::memory_order_relaxed) };
 	}
 	uint64 ID = 0;
 	template<typename... Args>
@@ -49,7 +49,9 @@ public:
 	FDelegateHandle Add(const HandlerType& handler)
 	{
 		FDelegateHandle Handle = FDelegateHandle::Generate();
+
 		Handlers.push_back({Handle, handler });
+
 		return Handle;
 	}
 
