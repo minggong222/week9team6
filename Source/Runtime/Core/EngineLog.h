@@ -1,5 +1,7 @@
 #pragma once
 
+#include <format>
+
 enum class ELogVerbosity
 {
 	Input,
