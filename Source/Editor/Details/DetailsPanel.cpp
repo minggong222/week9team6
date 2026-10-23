@@ -2,28 +2,35 @@
 #include "Editor/Details/DetailsPanel.h"
 
 #include "imgui_internal.h"
+#include "Editor/EditorUI/ImGuiRenderer.h"
 #include "Editor/HitoriEd/EditorDragDrop.h"
+#include "Core/EngineLog.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/Actor.h"
+
 #include "Components/PrimitiveComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/ParticleSubUVComponent.h"
-#include "Components/SpotLightComponent.h"
-#include "Editor/EditorUI/ImGuiRenderer.h"
+
 #include "Components/DirectionalLightComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/SpotLightComponent.h"
 #include "Components/RectLightComponent.h"
 #include "Components/SkyLightComponent.h"
 
 #include "Components/RotatingMovementComponent.h"
 #include "Components/ProjectileMovementComponent.h"
 #include "Components/FireBallComponent.h"
+
+#include "Components/BoxComponent.h"
+#include "Components/SphereComponent.h"
+#include "Components/CapsuleComponent.h"
+
 #include "Asset/AssetManager.h"
 #include "Render/Material.h"
 #include "Render/Texture2D.h"
 #include "Text/Font.h"
-#include "UObject/UObjectIterator.h"
-#include "GameFramework/Actor.h"
-#include "Core/EngineLog.h"
 
 
 namespace
@@ -820,12 +827,16 @@ namespace
 			ImGui::Text("Component Name:");
 			ImGui::SameLine();
 			ImGui::InputText("##Component Name", ComponentNameInputBuf, sizeof(ComponentNameInputBuf));
+
 			TArray<UClass*> Classes;
 			GetDerivedClasses(UActorComponent::StaticClass(), Classes);
-			// 이름순 정렬하면 메뉴가 안정적
+
 			for (UClass* Class : Classes)
 			{
-				//if (!IsSpawnableComponent(Class)) continue;
+				// Constructor가 nullptr인 추상 클래스들은 메뉴에서 표시 제외
+				if (!Class->Constructor)
+					continue;
+
 				if (ImGui::MenuItem(Class->Name.c_str()))
 				{
 					OutSelectedComponent = Actor->AddComponent(Class, FString(ComponentNameInputBuf));
@@ -909,7 +920,6 @@ void FDetailsPanel::DrawShadowPreview()
 	}
 }
 
-
 void FDetailsPanel::OnRender()
 {
 	ImGui::SetNextWindowSize(ImVec2(400, 200), ImGuiCond_FirstUseEver);
@@ -967,7 +977,6 @@ void FDetailsPanel::OnRender()
 	}	
 	ImGui::End();
 }
-
 
 void FDetailsPanel::SelectComponent(UActorComponent* Component)
 {
