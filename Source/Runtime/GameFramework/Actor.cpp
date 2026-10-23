@@ -37,6 +37,7 @@ void AActor::BeginPlay()
 	for (UActorComponent* Component : Components)
 		if (Component) Component->BeginPlayComponent();
 	RegisterAllActorTickFunctions(true);
+	//Test.AddDynamic(this, &AActor::TestF);
 }
 
 void AActor::RegisterAllActorTickFunctions(bool bRegister)
