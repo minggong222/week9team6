@@ -124,6 +124,9 @@ void FEditorUI::DrawMainMenuBar()
 			if (ImGui::MenuItem("Save")) { if (OnSaveScene) OnSaveScene(); }
 			if (ImGui::MenuItem("Save As...")) { if (OnSaveSceneAs) OnSaveSceneAs(); }
 
+			ImGui::Separator();
+			if (ImGui::MenuItem("Package Game...")) { if (OnPackageGame) OnPackageGame(); }
+
 			ImGui::EndMenu();
 		}
 

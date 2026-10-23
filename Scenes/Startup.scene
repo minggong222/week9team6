@@ -1,0 +1,139 @@
+{
+    "Version": 4,
+    "World": {
+        "PersistentLevel": {
+            "Actors": [
+                {
+                    "Class": "ASkyLightActor",
+                    "Components": [
+                        {
+                            "Class": "USceneComponent",
+                            "Name": "DefaultSceneRoot",
+                            "Parent": "",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0.0,
+                                        "Y": 0.0,
+                                        "Z": 0.0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0.0,
+                                        "Roll": 0.0,
+                                        "Yaw": 0.0
+                                    },
+                                    "Scale": {
+                                        "X": 1.0,
+                                        "Y": 1.0,
+                                        "Z": 1.0
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bHiddenInGame": false,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "USkyLightComponent",
+                            "Name": "USkyLightComponent",
+                            "Parent": "",
+                            "Properties": {
+                                "Intensity": 1.0,
+                                "LightColor": 4294967295,
+                                "ShadowBias": 0.009999999776482582,
+                                "ShadowResolutionScale": 1.0,
+                                "ShadowSharpen": 0.0,
+                                "ShadowSlopeBias": 0.009999999776482582,
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0.0,
+                                        "Y": 0.0,
+                                        "Z": 0.0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0.0,
+                                        "Roll": 0.0,
+                                        "Yaw": 0.0
+                                    },
+                                    "Scale": {
+                                        "X": 1.0,
+                                        "Y": 1.0,
+                                        "Z": 1.0
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bCastShadows": true,
+                                "bHiddenInGame": false,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UBillboardComponent",
+                            "Material": {
+                                "Base": "BillboardMaterial",
+                                "Instance": {
+                                    "BaseColor": {
+                                        "W": 1.0,
+                                        "X": 1.0,
+                                        "Y": 1.0,
+                                        "Z": 1.0
+                                    },
+                                    "BlendState": "AlphaBlend",
+                                    "FlipNormalY": false,
+                                    "PSOType": 14,
+                                    "Properties": {},
+                                    "SamplerState": "LinearClamp",
+                                    "Shininess": 32.0,
+                                    "SpecularColor": {
+                                        "X": 1.0,
+                                        "Y": 1.0,
+                                        "Z": 1.0
+                                    },
+                                    "Textures": [
+                                        "Assets/Icons/Sky.png"
+                                    ],
+                                    "UVScrollSpeed": [
+                                        0.0,
+                                        0.0
+                                    ]
+                                }
+                            },
+                            "Name": "UBillboardComponent",
+                            "Parent": "USkyLightComponent",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0.0,
+                                        "Y": 0.0,
+                                        "Z": 0.0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0.0,
+                                        "Roll": 0.0,
+                                        "Yaw": 0.0
+                                    },
+                                    "Scale": {
+                                        "X": 1.0,
+                                        "Y": 1.0,
+                                        "Z": 1.0
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bCastShadow": false,
+                                "bHiddenInGame": true,
+                                "bReceiveShadow": false,
+                                "bVisible": true
+                            }
+                        }
+                    ],
+                    "Name": "ASkyLightActor_0",
+                    "Properties": {
+                        "bActorEnableCollision": true
+                    }
+                }
+            ],
+            "Properties": {}
+        },
+        "Properties": {}
+    }
+}

@@ -758,7 +758,7 @@ bool UWorld::LineTraceSingle(const FRay& WorldRay, FHitResult& OutHit,
 
 void UWorld::BeginPlay()
 {
-	if (WorldType != EWorldType::PIE || bBegunPlay) return;
+	if (WorldType != EWorldType::PIE && WorldType != EWorldType::Game|| bBegunPlay) return;
 	if (!PlayerPawn)
 	{
 		for (AActor* Actor : PersistentLevel->GetActors())

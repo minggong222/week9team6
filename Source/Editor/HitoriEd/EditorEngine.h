@@ -215,6 +215,8 @@ private:
 	void SaveCurrentScene();
 	void SaveSceneAs();
 
+	void RunGameBuildScript();
+
 	void CreatePIESession();
 	void StopPIESession();
 	void DrawPIEWindows();

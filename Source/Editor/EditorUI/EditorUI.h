@@ -29,6 +29,7 @@ public:
 	void SetOpenSceneCallback(std::function<void()> InCallback) { OnOpenScene = InCallback; }
 	void SetSaveSceneCallback(std::function<void()> InCallback) { OnSaveScene = InCallback; }
 	void SetSaveSceneAsCallback(std::function<void()> InCallback) { OnSaveSceneAs = InCallback; }
+	void SetPackageGameCallback(std::function<void()> InCallback) { OnPackageGame = InCallback; }
 
 private:
 	bool bUseDockSpace = true;
@@ -43,4 +44,5 @@ private:
 	std::function<void()> OnOpenScene;
 	std::function<void()> OnSaveScene;
 	std::function<void()> OnSaveSceneAs;
+	std::function<void()> OnPackageGame;
 };

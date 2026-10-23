@@ -228,3 +228,35 @@ project "Shaders"
 		excludefrombuild "On"
 
 	filter {}
+
+-- 독립 실행 게임 애플리케이션
+project "HitoriGame"
+    location "Source/Game"
+    kind "WindowedApp"
+    CommonSettings()
+
+    files
+    {
+        "Source/Game/**.h",
+        "Source/Game/**.cpp",
+    }
+
+    includedirs
+    {
+        "Source",
+        "Source/Runtime",
+        "%{IncludeDir.stb}",
+        "%{IncludeDir.json}",
+        "%{IncludeDir.DDSLoader}",
+    }
+
+    links
+    {
+        "HitoriEngine",
+        "d3d11.lib",
+        "dxgi.lib",
+        "dxguid.lib",
+        "d3dcompiler.lib",
+    }
+
+    filter {}
