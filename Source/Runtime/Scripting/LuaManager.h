@@ -2,16 +2,22 @@
 
 #include "Scripting/Lua.h"
 
+#include "sol/sol.hpp"
+
 class FLuaManager
 {
 private:
 
+	sol::state State;
 	bool bJITEnabled = true;
 
 public:
+
+	void Initialize();
+
 	// 새로운 Lua 스크립트를 불러와서 FLua를 반환합니다.
-	FLua LoadNewScript();
+	FLua Load(FStringView Path);
 
 	void SetJITEnable(bool Value);
-	bool GetJITEnable();
+	bool GetJITEnable() const { return bJITEnabled; }
 };

@@ -13,17 +13,43 @@ private:
 	// 스크립트의 경로를 가리킵니다.
 	FString Path;
 
-	sol::state State;
-
-	void Initalize();
-
-	// C++ 함수, 클래스 API를 Lua에 붙이기
-	void RegisterAPI();
+	sol::state& State;
+	sol::environment Environment;
 
 public:
 
+	FLua(sol::state& InState);
 
-	bool LoadFromFile(FStringView InPath);
+	bool Load(FStringView InPath);
 
+	template<typename... Args>
+	bool Invoke(FStringView FunctionName, Args... args);
+
+	bool Reload();
+
+	void Destroy();
 
 };
+
+template<typename... Args>
+bool FLua::Invoke(FStringView FunctionName, Args... args)
+{
+	sol::protected_function Function = Environment[FunctionName];
+
+	// 함수가 없음
+	if (!Function.valid())
+	{
+		return false;
+	}
+
+	sol::protected_function_result Result = Function(args...);
+
+	if (!Result.valid())
+	{
+		sol::error Error = Result;
+		HTR_LOG(Error, "Lua 함수 실행 실패: {}", Error.what());
+		return false;
+	}
+
+	return true;
+}
