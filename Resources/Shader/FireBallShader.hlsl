@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 
 cbuffer PerObjectConstants : register(b0)
@@ -48,7 +49,7 @@ float4 mainPS(VSOutput Input) : SV_Target
     float2 NDC = float2(UV.x * 2.0 - 1.0, 1.0f - UV.y * 2.0);
 
     float4 WorldH = mul(float4(NDC, Depth, 1.0), InverseViewProjection);
-    if (!isfinite(WorldH.w) || abs(WorldH.w) < 1.0e-6f)
+    if (!isfinite(WorldH.w) || abs(WorldH.w) < EPSILON_1E_6)
         return float4(0, 0, 0, 0);
     float3 WorldPosition = WorldH.xyz / WorldH.w;
 

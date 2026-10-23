@@ -298,7 +298,7 @@ bool USceneComponent::MoveComponent(const FVector& Delta, const FRotator& NewRot
 	FVector Destination = Start + Delta;
 	bool bBlocked = false;
 	AActor* Owner = GetOwner();
-	if (bSweep && Delta.SizeSquared() > SMALL_NUMBER && Owner && Owner->GetActorEnableCollision())
+	if (bSweep && Delta.SizeSquared() > EPSILON_1E_8 && Owner && Owner->GetActorEnableCollision())
 	{
 		if (UWorld* World = Owner->GetWorld())
 		{
@@ -317,7 +317,7 @@ float USceneComponent::GetCollisionRadius() const
 	if (CollisionRadiusOverride >= 0.0f) return CollisionRadiusOverride;
 	const FBox Bounds = CalcBounds();
 	const FVector Extent = (Bounds.Max - Bounds.Min) * 0.5f;
-	if (Extent.SizeSquared() <= SMALL_NUMBER) return 10.0f;
+	if (Extent.SizeSquared() <= EPSILON_1E_8) return 10.0f;
 	return std::min({ Extent.X, Extent.Y, Extent.Z });
 }
 

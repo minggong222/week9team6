@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "Editor/Rendering/GridRenderer.h"
 #include "Asset/AssetManager.h"
 #include "Render/RenderCommand.h"
@@ -74,7 +75,7 @@ bool BuildGridFrustum(const FMatrix &ViewProj, FGridFrustum &Result) {
         FVector4(Index & 1 ? 1.0f : -1.0f, Index & 2 ? 1.0f : -1.0f,
                  Index & 4 ? 1.0f : 0.0f, 1.0f) *
         Inverse;
-    if (!std::isfinite(H.W) || std::fabs(H.W) < 1.0e-12f)
+    if (!std::isfinite(H.W) || std::fabs(H.W) < EPSILON_1E_12)
       return false;
     const FVector P(H.X / H.W, H.Y / H.W, H.Z / H.W);
     if (!std::isfinite(P.X) || !std::isfinite(P.Y) || !std::isfinite(P.Z))
@@ -113,9 +114,9 @@ bool GetVisibleGridBounds(const FGridFrustum &Frustum, EGridPlane Plane,
       const FVector A = Frustum.Corners[Index],
                     B = Frustum.Corners[Index | Bit];
       const float DA = Distance(A), DB = Distance(B);
-      if (std::fabs(DA) < 1.0e-5f)
+      if (std::fabs(DA) < EPSILON_1E_5)
         Include(A);
-      if (std::fabs(DB) < 1.0e-5f)
+      if (std::fabs(DB) < EPSILON_1E_5)
         Include(B);
       if ((DA < 0) != (DB < 0))
         Include(A + (B - A) * (DA / (DA - DB)));
@@ -261,7 +262,7 @@ void FGridRenderer::OnRenderBatchGrid(const FMatrix &ViewProj,
   const bool Orthographic = std::fabs(ViewProj.M[0][3]) +
                                 std::fabs(ViewProj.M[1][3]) +
                                 std::fabs(ViewProj.M[2][3]) <
-                            1.0e-6f;
+                            EPSILON_1E_6;
   const FVector FadeOrigin(CameraPos.X, CameraPos.Y, 0);
   const float FadeRadius =
       Orthographic ? 0.0f

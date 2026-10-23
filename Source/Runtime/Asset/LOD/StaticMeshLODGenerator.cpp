@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "StaticMeshLODGenerator.h"
 
 #include <algorithm>
@@ -99,7 +100,7 @@ namespace
             const FVector Cross = FVector::Cross(B - A, C - A);
 
             const float LengthSquared = Cross.Dot(Cross);
-            if (LengthSquared <= 1e-20f)
+            if (LengthSquared <= EPSILON_1E_20)
             {
                 OutError = "LOD0 contains a degenerate triangle";
                 return false;
@@ -164,7 +165,7 @@ namespace
         if (End.Cost < Best.Cost) Best = End;
 
         // 이차 함수의 최소점이 있으면 edge 범위 [0,1]로 제한한다.
-        if (Quadratic > 1e-20)
+        if (Quadratic > DOUBLE_EPSILON_1E_20)
         {
             const double UnclampedT = -Linear / (2.0 * Quadratic);
             const float T = static_cast<float>(std::clamp(UnclampedT, 0.0, 1.0));
@@ -203,7 +204,7 @@ namespace
             {
                 if (std::abs(M[Row][Col]) > std::abs(M[Pivot][Col])) Pivot = Row;
             }
-            if (std::abs(M[Pivot][Col]) <= Scale * 1e-12) return false;
+            if (std::abs(M[Pivot][Col]) <= Scale * DOUBLE_EPSILON_1E_12) return false;
 
             if (Pivot != Col)
             {
@@ -241,7 +242,7 @@ namespace
         // 간선 밖 위치에서도 UV와 Color는 간선에 투영한 T로 보간한다.
         const FVector Direction = B - A;
         const float LengthSquared = Direction.Dot(Direction);
-        const float T = LengthSquared > 1e-20f
+        const float T = LengthSquared > EPSILON_1E_20
             ? std::clamp((Position - A).Dot(Direction) / LengthSquared, 0.0f, 1.0f)
             : 0.0f;
 
@@ -693,7 +694,7 @@ namespace
                 NewPositions[1] - NewPositions[0],
                 NewPositions[2] - NewPositions[0]);
 
-            if (NewCross.Dot(NewCross) <= 1e-20f ||
+            if (NewCross.Dot(NewCross) <= EPSILON_1E_20 ||
                 OldCross.Dot(NewCross) <= 0.0f)
             {
                 return ECollapseCheck::Flip;
@@ -739,7 +740,7 @@ namespace
             return false;
 
         // 쌍둥이는 같은 위치여야 한다. 어긋나 있으면 이미 벌어진 것이므로 건드리지 않는다.
-        constexpr float SamePositionDistanceSquared = 1e-12f;
+        constexpr float SamePositionDistanceSquared = EPSILON_1E_12;
         const FVector DeltaA = VTA.Vertex.Position - VA.Vertex.Position;
         const FVector DeltaB = VTB.Vertex.Position - VB.Vertex.Position;
         if (DeltaA.Dot(DeltaA) > SamePositionDistanceSquared || DeltaB.Dot(DeltaB) > SamePositionDistanceSquared)
@@ -1087,8 +1088,8 @@ namespace
 
         // 원본에서 다른 방향을 향하던 법선은 hard edge로 취급한다.
         // 같은 위치라도 collapse 결과가 벌어졌다면 합치지 않는다.
-        constexpr float SmoothNormalCosine = 0.9999f;
-        constexpr float SamePositionDistanceSquared = 1e-12f;
+        constexpr float SmoothNormalCosine = THRESH_NORMALS_ARE_SMOOTH;
+        constexpr float SamePositionDistanceSquared = EPSILON_1E_12;
 
         for (const auto& [PositionIndex, OldIndices] : VerticesBySourcePosition)
         {
@@ -1285,7 +1286,7 @@ FLODGenerateResult FStaticMeshLODGenerator::Generate(const FStaticMeshData& LOD0
         }
 
         Result.ActualTriangles[LOD] = Work.LiveTriangles;
-        if (std::abs(BaseVolume) > 1e-12)
+        if (std::abs(BaseVolume) > DOUBLE_EPSILON_1E_12)
             Result.VolumeRatio[LOD] = static_cast<float>(ComputeSignedVolume(Snapshot) / BaseVolume);
         OutLODs.Add(std::move(Snapshot));
     }

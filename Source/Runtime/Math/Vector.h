@@ -43,7 +43,7 @@ public:
 	FVector Cross(const FVector& V1) const;
 	FVector GetAbs() const;
 	FVector Normalized() const;
-	FVector GetSafeNormal(float Tolerance = SMALL_NUMBER, const FVector& ResultIfZero = ZeroVector) const;
+	FVector GetSafeNormal(float Tolerance = EPSILON_1E_8, const FVector& ResultIfZero = ZeroVector) const;
 
 	FVector GetClampedToMaxSize(float MaxSize) const;
 

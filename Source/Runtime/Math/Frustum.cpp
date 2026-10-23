@@ -1,11 +1,12 @@
 #include "EnginePCH.h"
+#include "MathUtility.h"
 #include "Frustum.h"
 
 static FPlane NormalizePlane(const FPlane Plane)
 {
     const FVector& N = Plane.Normal;
     const float Length = sqrtf(N.X * N.X + N.Y * N.Y + N.Z * N.Z);
-    assert(Length > 1.0e-6f);
+    assert(Length > EPSILON_1E_6);
 
     const float InvLength = 1.0f / Length;
     return {

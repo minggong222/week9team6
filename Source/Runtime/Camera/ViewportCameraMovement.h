@@ -1,4 +1,5 @@
 #pragma once
+#include "Math/MathUtility.h"
 
 #include "Math/EngineMath.h"
 #include "Math/Rotator.h"
@@ -58,7 +59,7 @@ inline void ApplyViewportCameraMovement(FViewportCameraState& Camera,
         if (Input.bLeft) Direction -= Right;
         if (Camera.bPerspective && Input.bUp) Direction += Up;
         if (Camera.bPerspective && Input.bDown) Direction -= Up;
-        if (Direction.Size() > 0.0001f)
+        if (Direction.Size() > EPSILON_1E_4)
             Camera.Location += Direction.Normalized() * (MoveSpeed * DeltaTime);
     }
     if (Input.bAllowWheel && Input.Wheel != 0.0f)

@@ -84,7 +84,7 @@ FVector FVector::GetSafeNormal(float Tolerance, const FVector& ResultIfZero) con
 
 FVector FVector::GetClampedToMaxSize(float MaxSize) const
 {
-	if (MaxSize < KINDA_SMALL_NUMBER)
+	if (MaxSize < EPSILON_1E_4)
 	{
 		return ZeroVector;
 	}

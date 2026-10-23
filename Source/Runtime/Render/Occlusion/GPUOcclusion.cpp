@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "GPUOcclusion.h"
 
 #include "Render/Renderer.h"
@@ -27,6 +28,7 @@ namespace
 {
 	// 셰이더 폴더의 .hlsl은 전부 VS/PS로 자동 컴파일되므로 컴퓨트 셰이더는 소스를 여기에 둔다.
 	constexpr char OcclusionShaderSource[] = R"(
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 // ---------- Hi-Z 만들기: 밉 L 텍셀 = 밉 L-1의 해당 영역 중 가장 먼 깊이 ----------
 cbuffer HiZParams : register(b0)
@@ -88,7 +90,7 @@ bool IsOccluded(FCullItem Item)
 	{
 		const float3 Sign = float3((c & 1) ? 1.0f : -1.0f, (c & 2) ? 1.0f : -1.0f, (c & 4) ? 1.0f : -1.0f);
 		const float4 Clip = mul(float4(Item.Center + Item.Extent * Sign, 1.0f), ViewProjection);
-		if (Clip.w <= 1e-5f || Clip.z < 0.0f)
+		if (Clip.w <= EPSILON_1E_5 || Clip.z < 0.0f)
 			return false;                   // 근평면에 걸침 → 보이는 것으로
 		const float3 Ndc = Clip.xyz / Clip.w;
 		NdcMin = min(NdcMin, Ndc.xy);
@@ -141,8 +143,9 @@ void Cull(uint3 Id : SV_DispatchThreadID)
 	{
 		const UINT Flags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3;
 		ComPtr<ID3DBlob> Code, Errors;
-		const HRESULT Hr = D3DCompile(OcclusionShaderSource, sizeof(OcclusionShaderSource) - 1, "GPUOcclusion",
-			nullptr, nullptr, EntryPoint, "cs_5_0", Flags, 0, Code.GetAddressOf(), Errors.GetAddressOf());
+		// Resolve includes beside the other shaders, even though this source is embedded.
+		const HRESULT Hr = D3DCompile(OcclusionShaderSource, sizeof(OcclusionShaderSource) - 1, "Resources/Shader/GPUOcclusion",
+			nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint, "cs_5_0", Flags, 0, Code.GetAddressOf(), Errors.GetAddressOf());
 		if (FAILED(Hr))
 		{
 			if (Errors)
@@ -386,7 +389,7 @@ bool FGPUOcclusion::FillItems(const FPrimitiveSceneProxy* const* Proxies, uint32
 	// 점수 → 화면에서 차지하는 비율. 타원 넓이 π·rx·ry를 NDC 화면 넓이 4로 나눈 것 (r² ≈ Extent²/3, 구에 가까운 물체 기준).
 	// ScaleX·ScaleY = (둘 중 큰 쪽)² × 짧은 변/긴 변
 	const float Aspect = static_cast<float>(std::min(View.Width, View.Height)) / static_cast<float>(std::max(View.Width, View.Height));
-	CoverageScale = 3.14159265f / 12.0f * View.ProjectionScaleSquared * Aspect;
+	CoverageScale = PI_PRECISE / 12.0f * View.ProjectionScaleSquared * Aspect;
 
 	FTaskPool& Pool = FTaskPool::Get();
 	const uint32 ChunkCount = std::clamp(Count / 1024u, 1u, Pool.GetNumThreads() * 4);
@@ -422,7 +425,7 @@ bool FGPUOcclusion::FillItems(const FPrimitiveSceneProxy* const* Proxies, uint32
 				if (Proxy->IsVisible() && Proxy->GetMesh())
 				{
 					const FVector ToCenter = Bounds.Center - View.CameraPosition;
-					const float Score = Bounds.Extent.Dot(Bounds.Extent) / std::max(ToCenter.Dot(ToCenter), 1e-4f);
+					const float Score = Bounds.Extent.Dot(Bounds.Extent) / std::max(ToCenter.Dot(ToCenter), EPSILON_1E_4);
 					Bucket = ToScoreBucket(Score);
 					++Counts[Bucket];
 					ScoreSums[Bucket] += Score;

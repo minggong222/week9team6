@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "MathUtility.h"
 #include "Matrix.h"
 #include "EngineMath.h"
 
@@ -351,9 +352,9 @@ std::ostream& operator << (std::ostream& OS, const FMatrix& M)
 FRotator MatrixToRotator(const FMatrix& Mat)
 {
 	FRotator R;
-	R.Roll = atan2f(Mat.M[1][2], Mat.M[2][2]) * 180.0f / PI;
-	R.Pitch = atan2f(-Mat.M[0][2], sqrtf(Mat.M[1][2] * Mat.M[1][2] + Mat.M[2][2] * Mat.M[2][2])) * 180.0f / PI;
-	R.Yaw = atan2f(Mat.M[0][1], Mat.M[0][0]) * 180.0f / PI;
+	R.Roll = atan2f(Mat.M[1][2], Mat.M[2][2]) * HALF_CIRCLE_DEGREES / PI;
+	R.Pitch = atan2f(-Mat.M[0][2], sqrtf(Mat.M[1][2] * Mat.M[1][2] + Mat.M[2][2] * Mat.M[2][2])) * HALF_CIRCLE_DEGREES / PI;
+	R.Yaw = atan2f(Mat.M[0][1], Mat.M[0][0]) * HALF_CIRCLE_DEGREES / PI;
 	return R;
 }
 
@@ -365,14 +366,14 @@ FMatrix LookAt(const FVector& Eye, const FVector& Center, const FVector& Up)
 	float FDotU = FVector::Dot(Forward, Up);
 
 	FVector Right;
-	if (std::abs(FDotU) < 0.999f)
+	if (std::abs(FDotU) < THRESH_LOOK_AT_PARALLEL)
 	{
 		Right = FVector::Cross(Up, Forward);
 	}
 	else
 	{
 		FVector SafeUp = FVector(0, 0, 1);
-		if (std::abs(Forward.X) < 0.9)
+		if (std::abs(Forward.X) < DOUBLE_THRESH_SAFE_AXIS_ALIGNMENT)
 		{
 			SafeUp = FVector(1, 0, 0);
 		}

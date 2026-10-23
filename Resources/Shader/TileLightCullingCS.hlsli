@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 
 #define LIGHT_GRID_CONSTANT_REGISTER b0
@@ -63,8 +64,8 @@ void BuildCellBounds(uint2 Tile, float MinDepth, float MaxDepth)
         CellBoundsMin = min(CellBoundsMin, Position);
         CellBoundsMax = max(CellBoundsMax, Position);
     }
-    CellBoundsMin -= 1.0e-4f;
-    CellBoundsMax += 1.0e-4f;
+    CellBoundsMin -= EPSILON_1E_4;
+    CellBoundsMax += EPSILON_1E_4;
 }
 
 bool IntersectsCell(float4 PositionRadius)
@@ -91,7 +92,7 @@ bool IntersectsSpotCell(FLightRenderParameters Light)
     float CosOuter = saturate(Light.OuterConeCos);
     float Offset;
     float SphereRadius;
-    if (CosOuter >= 0.7071067812f)
+    if (CosOuter >= SQRT_HALF)
     {
         // 반각 45도 이하: 시작점과 바깥 테두리에 접하는 포함 구다.
         Offset = Radius / (2.0f * CosOuter);

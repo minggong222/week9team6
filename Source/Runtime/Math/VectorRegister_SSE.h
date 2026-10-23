@@ -1,4 +1,5 @@
 #pragma once
+#include "MathUtility.h"
 #include <immintrin.h>
 
 
@@ -66,7 +67,7 @@ namespace VectorSIMD
 		return _mm_movemask_ps(cmp) == 0xF;
 	}
 
-	inline bool IsNearlyEqual(FVectorRegister A, FVectorRegister B, float Tolerance = 1e-4f)
+	inline bool IsNearlyEqual(FVectorRegister A, FVectorRegister B, float Tolerance = EPSILON_1E_4)
 	{
 		// Step 1: 뺄셈 (A - B)
 		FVectorRegister diff = _mm_sub_ps(A, B);
@@ -89,7 +90,7 @@ namespace VectorSIMD
 		return _mm_movemask_ps(cmp) == 0xF;
 	}
 
-	inline bool IsNearlyZero(FVectorRegister A, float Tolerance = 1e-4f)
+	inline bool IsNearlyZero(FVectorRegister A, float Tolerance = EPSILON_1E_4)
 	{
 		// Step 1: abs
 		// 0x7FFFFFFF (이진수로 01111111...) 마스크 생성

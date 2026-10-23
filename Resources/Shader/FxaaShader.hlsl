@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 cbuffer FXAAConstants : register(b0)
 {
     // 한 픽셀의 UV 크기
@@ -137,7 +138,7 @@ float4 mainPS(VSOutput Input) : SV_Target
 
     // 서브픽셀: 주변 8픽셀 가중평균 (상하좌우 2, 모서리 1, 합 12). M 제외
     float NeighborhoodAverage = (2 * (N + S + W + E) + NW + NE + SW + SE) / 12.0;
-    float ContrastRatio = saturate(abs(NeighborhoodAverage - M) / max(Range, 1e-6));
+    float ContrastRatio = saturate(abs(NeighborhoodAverage - M) / max(Range, EPSILON_1E_6));
     float SmoothContrast = ContrastRatio * ContrastRatio * (3 - 2 * ContrastRatio);
     float SubpixelOffset = SmoothContrast * SmoothContrast * SubpixelStrength;
     

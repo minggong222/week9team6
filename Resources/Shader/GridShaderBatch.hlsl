@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #pragma pack_matrix(row_major)
 // CPU는 월드 좌표를 보내고 기존 Grid와 같은 행렬 규약으로 GPU에서 VP를 적용한다.
 cbuffer GridLineCB : register(b0)
@@ -49,7 +50,7 @@ PS_INPUT mainVS(VS_INPUT input)
     if (!all(isfinite(a)) || !all(isfinite(b))) return output;
     float first = 0, last = 1;
     float2 margin = 1.0f + 2.0f * (input.shape.z + 1.0f) / ViewportSize;
-    if (!ClipLinePlane(a.w - 1.0e-6f, b.w - 1.0e-6f, first, last)) return output;
+    if (!ClipLinePlane(a.w - EPSILON_1E_6, b.w - EPSILON_1E_6, first, last)) return output;
     if (!ClipLinePlane(a.z, b.z, first, last)) return output;
     if (!ClipLinePlane(a.w - a.z, b.w - b.z, first, last)) return output;
     if (!ClipLinePlane(margin.x * a.w + a.x, margin.x * b.w + b.x, first, last)) return output;

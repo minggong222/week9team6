@@ -1,3 +1,4 @@
+#include "ShaderConstants.hlsli"
 #ifndef LIGHT_EVALUATION_INCLUDED
 #define LIGHT_EVALUATION_INCLUDED
 
@@ -51,7 +52,7 @@ float InterleavedGradientNoise(float2 pixelPos)
 
 float CalculateDistanceAttenuation(float DistanceSquared, float RadiusSquared)
 {
-    if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < 1.0e-8f)
+    if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < EPSILON_1E_8)
         return 0.0f;
     float RadiusFade = saturate(1.0f - DistanceSquared / RadiusSquared);
     return RadiusFade * RadiusFade / (1.0f + DistanceSquared);
@@ -60,7 +61,7 @@ float CalculateDistanceAttenuation(float DistanceSquared, float RadiusSquared)
 float CalculateConeAttenuation(float CosAngle, float CosInner, float CosOuter)
 {
     if (CosAngle <= CosOuter) return 0.0f;
-    return saturate((CosAngle - CosOuter) / max(CosInner - CosOuter, 1.0e-8f));
+    return saturate((CosAngle - CosOuter) / max(CosInner - CosOuter, EPSILON_1E_8));
 }
 
 void AccumulateLight(inout FLightResult Result, float3 N, float3 V, float3 L,
@@ -71,7 +72,7 @@ void AccumulateLight(inout FLightResult Result, float3 N, float3 V, float3 L,
     if (bIncludeSpecular && NoL > 0.0f)
     {
         float3 H = L + V;
-        H *= rsqrt(max(dot(H, H), 1.0e-8f));
+        H *= rsqrt(max(dot(H, H), EPSILON_1E_8));
         Result.Specular += Radiance * SpecularColor * pow(saturate(dot(N, H)), max(Shininess, 1.0f));
     }
 }
@@ -90,7 +91,7 @@ float2 CalculateShadowDepthSlope(float3 N, float3 Coord, float CoordW, row_major
     float3 XBasis = cross(Jy, N);
     float3 YBasis = cross(N, Jx);
     float Determinant = dot(Jx, XBasis);
-    return abs(Determinant) > 1.0e-12f
+    return abs(Determinant) > EPSILON_1E_12
         ? float2(dot(Jz, XBasis), dot(Jz, YBasis)) / Determinant : 0.0f;
 }
 
@@ -101,7 +102,7 @@ float PCF(uint SampleCount, FShadowCoordinates Coordinates, float3 PixelPosition
     SampleCount = min(SampleCount, POISSON_COUNT);
 
     float S, C;
-    sincos(InterleavedGradientNoise(PixelPosition.xy) * 6.28318530718f, S, C);
+    sincos(InterleavedGradientNoise(PixelPosition.xy) * TWO_PI_PRECISE, S, C);
 
     int ValidSample = 0;
     float Sum = 0.0;
@@ -179,7 +180,7 @@ float ShadowTexelWorldSize(FShadowCoordinates Coordinates, FLightShadowRenderDat
 {
     const float XScale = length(float3(Shadow.ViewProjection[0][0], Shadow.ViewProjection[1][0], Shadow.ViewProjection[2][0]));
     const float Distance = bPerspective ? CalculateLinearDepth(Coordinates.Depth, Shadow.Near, Shadow.Far) : 1.0f;
-    return 2.0f * Distance / max(XScale * Shadow.AtlasRect.z, 1.0e-6f);
+    return 2.0f * Distance / max(XScale * Shadow.AtlasRect.z, EPSILON_1E_6);
 }
 
 // 월드 거리를 그림자 뷰 깊이(0~1) 차이로 바꾼다.
@@ -188,9 +189,9 @@ float ShadowTexelWorldSize(FShadowCoordinates Coordinates, FLightShadowRenderDat
 float ShadowWorldToDepth(float WorldDistance, FShadowCoordinates Coordinates, FLightShadowRenderData Shadow, bool bPerspective)
 {
     if (!bPerspective)
-        return WorldDistance / max(Shadow.Far - Shadow.Near, 1.0e-4f);
+        return WorldDistance / max(Shadow.Far - Shadow.Near, EPSILON_1E_4);
     const float Distance = CalculateLinearDepth(Coordinates.Depth, Shadow.Near, Shadow.Far);
-    return WorldDistance * Shadow.Near * Shadow.Far / max((Shadow.Far - Shadow.Near) * Distance * Distance, 1.0e-8f);
+    return WorldDistance * Shadow.Near * Shadow.Far / max((Shadow.Far - Shadow.Near) * Distance * Distance, EPSILON_1E_8);
 }
 
 // 깊이 비교 bias (그림자 뷰 깊이 0~1 단위). 모든 라이트, 모든 필터가 이 값을 쓴다.
@@ -224,7 +225,7 @@ bool FindAverageBlockerDepth(float3 PixelPosition, FShadowCoordinates Coordinate
     }
 
     float S, C;
-    sincos(InterleavedGradientNoise(PixelPosition.xy) * 6.28318530718f, S, C);
+    sincos(InterleavedGradientNoise(PixelPosition.xy) * TWO_PI_PRECISE, S, C);
 
     // PCF와 같은 이유로 펼치지 않는다.
     [loop]
@@ -339,7 +340,7 @@ float CalculatePointShadowPCSS(float3 PixelPosition, float3 P, float3 N, FLightR
     }
 
     // 월드 반 그림자의 반지름을 구한다.
-    float FilterRadiusWorld = Light.SourceSize * max(ReceiverDepth - AverageBlockerDepth, 0.0f) / max(AverageBlockerDepth, 0.0001f);
+    float FilterRadiusWorld = Light.SourceSize * max(ReceiverDepth - AverageBlockerDepth, 0.0f) / max(AverageBlockerDepth, EPSILON_1E_4);
 
     // 반 그림자를 UV 좌표계로 변경한다.
     float FilterRadiusLocalUV = FilterRadiusWorld / (2.0f * ReceiverDepth);
@@ -381,7 +382,7 @@ float CalculateSpotShadowPCSS(float3 PixelPosition, float3 P, float3 N, FLightRe
     }
 
     // 월드 반 그림자의 반지름을 구한다.
-    float FilterRadiusWorld = Light.SourceSize * max(ReceiverDepth - AverageBlockerDepth, 0.0f) / max(AverageBlockerDepth, 0.0001f);
+    float FilterRadiusWorld = Light.SourceSize * max(ReceiverDepth - AverageBlockerDepth, 0.0f) / max(AverageBlockerDepth, EPSILON_1E_4);
 
     // 반 그림자를 UV 좌표계로 변경한다.
     float FilterRadiusLocalUV = FilterRadiusWorld / (2.0f * ReceiverDepth * TanHalfFov);
@@ -487,6 +488,6 @@ void SelectCascade(float ViewDepth, float4 Distances, uint Count, float BlendRat
     float Begin = Index == 0 ? 0.0f : Distances[Index - 1];
     float End = Distances[Index];
     float BlendStart = End - (End - Begin) * BlendRatio;
-    BlendT = saturate((ViewDepth - BlendStart) / max(End - BlendStart, 1.0e-4f));
+    BlendT = saturate((ViewDepth - BlendStart) / max(End - BlendStart, EPSILON_1E_4));
 }
 #endif

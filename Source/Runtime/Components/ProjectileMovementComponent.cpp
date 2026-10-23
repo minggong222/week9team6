@@ -1,8 +1,9 @@
 #include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "ProjectileMovementComponent.h"
 #include <cmath>
 
-const float UProjectileMovementComponent::MIN_TICK_TIME = 1e-6f;
+const float UProjectileMovementComponent::MIN_TICK_TIME = EPSILON_1E_6;
 
 UProjectileMovementComponent::UProjectileMovementComponent()
 {
@@ -111,7 +112,7 @@ void UProjectileMovementComponent::TickComponent(float DeltaTime)
 		{
 			if (Velocity == OldVelocity)
 			{
-				Velocity = (Hit.Time > KINDA_SMALL_NUMBER ? ComputeVelocity(OldVelocity, TimeTick * Hit.Time) : OldVelocity);
+				Velocity = (Hit.Time > EPSILON_1E_4 ? ComputeVelocity(OldVelocity, TimeTick * Hit.Time) : OldVelocity);
 			}
 
 			float SubTickTimeRemaining = TimeTick * (1.0f - Hit.Time);
@@ -120,7 +121,7 @@ void UProjectileMovementComponent::TickComponent(float DeltaTime)
 			PreviousHitTime = Hit.Time;
 			PreviousHitNormal = ConstrainDirectionToPlane(Hit.Normal);
 
-			if (SubTickTimeRemaining >= MIN_TICK_TIME && Hit.Time > KINDA_SMALL_NUMBER)
+			if (SubTickTimeRemaining >= MIN_TICK_TIME && Hit.Time > EPSILON_1E_4)
 			{
 				RemainingTime += SubTickTimeRemaining;
 			}
@@ -204,7 +205,7 @@ FVector UProjectileMovementComponent::ComputeBounceResult(const FHitResult& Hit,
 
 		// TODO : Set MinFrictionFraction
 		//const float SacledFriction = (bIsSliding) ? FMath::Clamp(-VDotNormal / TempVelocity.Size(), MinFrictionFraction, 1.0f) * Friction : Friction;
-		const float ScaledFriction = (bIsSliding && TempVelocity.Size() > KINDA_SMALL_NUMBER) ? FMath::Clamp(-VDotNormal / TempVelocity.Size(), 0.0f, 1.0f) * Friction : Friction;
+		const float ScaledFriction = (bIsSliding && TempVelocity.Size() > EPSILON_1E_4) ? FMath::Clamp(-VDotNormal / TempVelocity.Size(), 0.0f, 1.0f) * Friction : Friction;
 		TempVelocity *= FMath::Clamp(1.0f - ScaledFriction, 0.0f, 1.0f);
 
 		// TODO : Change std::max to FMath::Max
@@ -241,7 +242,7 @@ bool UProjectileMovementComponent::HandleDeflection(FHitResult& Hit, const FVect
 {
 	const FVector Normal = ConstrainDirectionToPlane(Hit.Normal);
 
-	const float DotTolerance = 0.01f;
+	const float DotTolerance = THRESH_SLIDING_DOT;
 	bIsSliding = FVector::Coincident(PreviousHitNormal, Normal) || ((Velocity.Normalized() | Normal) <= DotTolerance);
 
 	if (bIsSliding)

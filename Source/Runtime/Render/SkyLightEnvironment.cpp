@@ -18,7 +18,7 @@ namespace
 	{
 		ComPtr<ID3DBlob> Code, Errors;
 		HRESULT Hr = D3DCompileFromFile(L"Resources/Shader/SkyLightConvolutionCS.hlsli",
-			nullptr, nullptr, Entry, "cs_5_0", D3DCOMPILE_ENABLE_STRICTNESS, 0,
+			nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, Entry, "cs_5_0", D3DCOMPILE_ENABLE_STRICTNESS, 0,
 			Code.GetAddressOf(), Errors.GetAddressOf());
 		if (FAILED(Hr))
 		{

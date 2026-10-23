@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "BillboardComponent.h"
 
 #include "Asset/AssetManager.h"
@@ -131,7 +132,7 @@ void UBillboardComponent::GetWorldTransformedMatrix(FMatrix* OutWorldMatrix) con
 	FVector BbRight = FVector::Cross(BbUp, Forward).Normalized();
 	FVector BbFwd = FVector::Cross(BbUp, BbRight);
 
-	if (BbRight.Length() <= 1e-6f)
+	if (BbRight.Length() <= EPSILON_1E_6)
 	{
 		BbRight = Right;
 		BbFwd = FVector::Cross(BbUp, BbRight);

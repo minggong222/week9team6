@@ -1,4 +1,5 @@
 ﻿#include "EnginePCH.h"
+#include "Math/MathUtility.h"
 #include "Render/SceneRenderer.h"
 #include "Render/Renderer.h"
 #include "Render/SceneLightResources.h"
@@ -747,7 +748,7 @@ void FSceneRenderer::GatherRenderPackets(FScene& Scene, FSceneRenderData& Data,
 		{
 			const FAABB& Bounds = Proxy->GetBounds();
 			const float Distance = (Bounds.Center - View.CameraPosition).Length();
-			const float ScreenSize = Bounds.Extent.Length() / std::max(Distance, 1.0e-3f);
+			const float ScreenSize = Bounds.Extent.Length() / std::max(Distance, EPSILON_1E_3);
 			if (ScreenSize >= MinShadowCasterScreenSize)
 				Data.ShadowCasterProxies.Add(Proxy);
 			else
