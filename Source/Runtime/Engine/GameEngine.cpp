@@ -62,28 +62,11 @@ bool UGameEngine::Init()
 		HTR_LOG(Error, "Startup scene not found: {}", StartupScenePath);
 		return false;
 	}
-	const bool bLoaded =
-		FJsonArchive::LoadWorld(GameWorld, StartupScenePath);
-
-	MessageBoxW(
-		nullptr,
-		bLoaded ? L"Scene load: SUCCESS" : L"Scene load: FAILED",
-		L"Startup Scene Test",
-		MB_OK
-	);
-
-	if (!bLoaded)
-	{
-		HTR_LOG(Error, "Failed to load startup scene.");
-		return false;
-	}
-	/*if (!FJsonArchive::LoadWorld(GameWorld, StartupScenePath))
+	if (!FJsonArchive::LoadWorld(GameWorld, StartupScenePath))
 	{
 		HTR_LOG(Error, "Failed to load startup scene: {}", StartupScenePath);
 		return false;
-	}*/
-
-	HTR_LOG(Info, "Startup scene loaded: {}", StartupScenePath);
+	}
 
 	UGameInstance* GameInstance = NewObject<UGameInstance>(this);
 	if (!GameInstance)

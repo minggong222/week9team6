@@ -147,14 +147,6 @@ project "HitoriEngine"
 		"%{IncludeDir.DDSLoader}",
 	}
 
-	links
-	{
-		"d3d11.lib",
-		"dxgi.lib",
-		"dxguid.lib",
-		"d3dcompiler.lib",
-	}
-
 	filter "files:Source/ThirdParty/DDSLoader/**.cpp"
 		enablepch "Off"
 	filter {}
@@ -249,14 +241,17 @@ project "HitoriGame"
         "%{IncludeDir.json}",
         "%{IncludeDir.DDSLoader}",
     }
+	links
+	{
+		"HitoriEngine",
+		"d3d11.lib",
+		"dxgi.lib",
+		"dxguid.lib",
+		"d3dcompiler.lib",
+	}
+	local engineLibPath = path.getabsolute("Build/Bin")
+		.. "\\%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\\HitoriEngine.lib"
 
-    links
-    {
-        "HitoriEngine",
-        "d3d11.lib",
-        "dxgi.lib",
-        "dxguid.lib",
-        "d3dcompiler.lib",
-    }
-
-    filter {}
+	filter { "system:windows", "action:vs*" }
+		linkoptions { '/WHOLEARCHIVE:"' .. engineLibPath .. '"' }
+	filter {}
