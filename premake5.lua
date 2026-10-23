@@ -20,6 +20,8 @@ IncludeDir["ImGui"] = "Source/ThirdParty/ImGui"
 IncludeDir["stb"]   = "Source/ThirdParty/stb"
 IncludeDir["json"]  = "Source/ThirdParty/json"
 IncludeDir["DDSLoader"] = "Source/ThirdParty/DDSLoader"
+IncludeDir["LuaJIT"] = "Source/ThirdParty/luajit"
+IncludeDir["Sol"] = "Source/ThirdParty/sol"
 
 -- premake의 filter는 project()를 만나면 초기화된다.
 -- 두 프로젝트가 같은 런타임(/MDd vs /MD)으로 컴파일되지 않으면 링크가 실패하므로
@@ -137,6 +139,7 @@ project "HitoriEngine"
 		"Source/Runtime/**.cpp",
 		"%{IncludeDir.DDSLoader}/*.h",
 		"%{IncludeDir.DDSLoader}/*.cpp",
+		"%{IncludeDir.LuaJIT}/*.h",
 	}
 
 	includedirs
@@ -145,10 +148,27 @@ project "HitoriEngine"
 		"%{IncludeDir.stb}",
 		"%{IncludeDir.json}",
 		"%{IncludeDir.DDSLoader}",
+		"%{IncludeDir.LuaJIT}",
+		"%{IncludeDir.Sol}",
+	}
+
+	libdirs { "%{IncludeDir.LuaJIT}" }
+
+	links
+	{
+		"d3d11.lib",
+		"dxgi.lib",
+		"dxguid.lib",
+		"d3dcompiler.lib",
+		"lua51.lib",
 	}
 
 	filter "files:Source/ThirdParty/DDSLoader/**.cpp"
 		enablepch "Off"
+		
+	filter "files:Source/ThirdParty/Lua/**.c"
+		enablepch "Off"
+		
 	filter {}
 
 -- 에디터 애플리케이션. ObjViewer 구성에서는 같은 exe가 뷰어로 빌드된다.
@@ -160,7 +180,8 @@ project "HitoriEditor"
 	pchheader "EnginePCH.h"
 	pchsource "Source/Editor/EditorPCH.cpp"
 
-	links { "HitoriEngine", "ImGui" }
+	libdirs { "%{IncludeDir.LuaJIT}" }
+	links { "HitoriEngine", "ImGui", "lua51.lib" }
 
 	files
 	{
