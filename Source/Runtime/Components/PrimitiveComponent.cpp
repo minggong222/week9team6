@@ -4,7 +4,6 @@
 #include "Asset/AssetManager.h"
 #include "Render/RenderCommand.h"
 
-
 #include "Engine/PrimitiveSceneProxy.h"
 #include "Engine/Scene.h"
 #include "Engine/World.h"
@@ -140,8 +139,6 @@ bool UPrimitiveComponent::TraceMesh(const FRay& WorldRay, const FStaticMeshData&
 
 	return true;
 }
-
-
 
 bool UPrimitiveComponent::TraceMeshLocal(const FRay& LocalRay, const FStaticMeshData& Mesh, float& OutT)
 {

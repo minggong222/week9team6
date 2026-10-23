@@ -24,12 +24,13 @@ class UPrimitiveComponent :public USceneComponent
 {
 	DECLARE_CLASS(UPrimitiveComponent, USceneComponent)
 
-	// Material은 여기서 등록하지 않는다. 컴포넌트마다 머티리얼을 다루는 방식이 달라서
-	// (빌보드는 단일 머티리얼, 스태틱 메시는 슬롯별 덮어쓰기) 각자 등록한다.
 	REFLECT_START(ClassName)
 		PROPERTY(bCastShadow)
 		PROPERTY(bReceiveShadow)
-		REFLECT_END()
+		PROPERTY(bGenerateOverlapEvents)
+		PROPERTY(bBlockComponent)
+	REFLECT_END()
+
 public:
 	UPrimitiveComponent();
 	virtual ~UPrimitiveComponent();
@@ -79,6 +80,11 @@ public:
 	bool bCastShadow = true;
 	bool bReceiveShadow = true;
 
+	// 추후 추가할 Deligate
+	// OnComponentHit();
+	// OnComponentBeginOverlap();
+	// OnComponentEndOverlap();
+
 protected:
 	virtual bool ShouldCreateRenderState() const override
 	{
@@ -95,4 +101,7 @@ protected:
 private:
 	friend class FScene;
 	FPrimitiveSceneProxy* SceneProxy = nullptr;
+
+	bool bGenerateOverlapEvents = true;
+	bool bBlockComponent = true;
 };
