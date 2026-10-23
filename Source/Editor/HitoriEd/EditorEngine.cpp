@@ -31,6 +31,7 @@
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/FireBallComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "Components/ShapeComponent.h"
 
 #include "Asset/AssetManager.h"
 #include "Render/RenderResourceManager.h"
@@ -1057,10 +1058,35 @@ void UEditorEngine::RenderFrame(FEditorViewportClient* ViewClient,
 			 Cast<APointLightActor>(Gizmo->GetTarget()->GetOwner()) ||
 			 Cast<ARectLightActor>(Gizmo->GetTarget()->GetOwner()));
 
-		const bool bDrawCascadeBounds = SettingsPanel->GetSettings().bDrawCascadeBounds;
-		if (SettingsPanel->GetSettings().bDrawBatchLine || bDrawSelectedLight || bDrawCascadeBounds)
+		TArray<UShapeComponent*> ShapesToDraw;
+
+		USceneComponent* SelectedComponent = Gizmo->GetTarget();
+		AActor* SelectedActor = SelectedComponent ? SelectedComponent->GetOwner() : nullptr;
+
+		if (ULevel* Level = EditorWorld ? EditorWorld->GetCurrentLevel() : nullptr)
 		{
-			Overlays.EditorLines = [this, ViewClient, &SceneView, bDrawSelectedLight, bDrawCascadeBounds]
+			const AActor* SelectedActor = Gizmo->GetTarget() ? Gizmo->GetTarget()->GetOwner() : nullptr;
+
+			for (AActor* Actor : Level->GetActors())
+			{
+				if (!Actor) continue;
+
+				for (UActorComponent* Component : Actor->GetComponents())
+				{
+					UShapeComponent* Shape = Cast<UShapeComponent>(Component);
+
+					if (!Shape) continue;
+					if (Shape->GetDrawOnlyIfSelected() && (!bIsActiveViewport || Actor != SelectedActor)) continue;
+
+					ShapesToDraw.Add(Shape);
+				}
+			}
+		}
+
+		const bool bDrawCascadeBounds = SettingsPanel->GetSettings().bDrawCascadeBounds;
+		if (SettingsPanel->GetSettings().bDrawBatchLine || bDrawSelectedLight || bDrawCascadeBounds || !ShapesToDraw.IsEmpty())
+		{
+			Overlays.EditorLines = [this, ViewClient, &SceneView, bDrawSelectedLight, bDrawCascadeBounds, ShapesToDraw, SelectedActor, SelectedComponent]
 				{
 					LineBatcher->BeginFrame();
 					if (bDrawCascadeBounds)
@@ -1100,6 +1126,25 @@ void UEditorEngine::RenderFrame(FEditorViewportClient* ViewClient,
 							Light->GetPointLightComponent()->DrawDebug(LineBatcher.get());
 						else if (ARectLightActor* Light = Cast<ARectLightActor>(Gizmo->GetTarget()->GetOwner()))
 							Light->GetRectLightComponent()->DrawDebug(LineBatcher.get());
+					}
+					for (UShapeComponent* Shape : ShapesToDraw)
+					{
+						FVector4 Color = Shape->GetShapeColor().ToVector4();
+
+						if (Shape == SelectedComponent)
+						{
+							// UE4 기본 선택 강조색을 sRGB로 근사
+							Color = FColor(222, 163, 10, 255).ToVector4();
+						}
+						else if (Shape->GetOwner() != SelectedActor)
+						{
+							// UE4의 선형 공간 0.5^2.2 보정을 sRGB에서 근사
+							Color.X *= 0.5f;
+							Color.Y *= 0.5f;
+							Color.Z *= 0.5f;
+						}
+
+						Shape->DrawDebug(LineBatcher.get(), Color);
 					}
 					LineBatcher->OnRender(SceneView.ViewProjectionMatrix);
 				};
