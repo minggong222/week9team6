@@ -102,7 +102,8 @@ FMatrixRegister FMatrixRegister::Inverse() const
 	// determinant
 	float Det = VectorSIMD::Dot(A, VectorSIMD::SetVal(C00, C01, C02, C03));
 
-	if (FMath::IsNearlyZero(Det))
+	// Determinants scale with the matrix; retain the inverse-specific cutoff.
+	if (FMath::IsNearlyZero(Det, THRESH_MATRIX_INVERSE_DETERMINANT))
 	{
 		return FMatrixRegister::Identity();
 	}

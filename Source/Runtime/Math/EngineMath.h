@@ -50,7 +50,7 @@ namespace FMath
 		return static_cast<T>(std::log2(InValue));
 	}
 
-	static inline bool IsNearlyZero(float Value, float ErrorTolerance = EPSILON_1E_20)
+	static inline bool IsNearlyZero(float Value, float ErrorTolerance = EPSILON_1E_8)
 	{
 		return std::abs(Value) <= ErrorTolerance;
 	}

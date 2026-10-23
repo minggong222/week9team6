@@ -11,18 +11,20 @@
 #define DEGREES_TO_RADIANS (PI / HALF_CIRCLE_DEGREES)
 #define RADIANS_TO_DEGREES (HALF_CIRCLE_DEGREES / PI)
 
-// Absolute tolerances. Keep distinct magnitudes to preserve each algorithm's behavior.
-#define EPSILON_1E_3 (1.e-3f)
+// General-purpose absolute tolerances; squared quantities need their own scale.
 #define EPSILON_1E_4 (1.e-4f)
-#define EPSILON_1E_5 (1.e-5f)
 #define EPSILON_1E_6 (1.e-6f)
 #define EPSILON_1E_8 (1.e-8f)
 #define EPSILON_1E_12 (1.e-12f)
-#define EPSILON_1E_20 (1.e-20f)
 
-// Double precision tolerances must not be rounded to float before use.
-#define DOUBLE_EPSILON_1E_12 (1.e-12)
-#define DOUBLE_EPSILON_1E_20 (1.e-20)
+// Algorithm-specific limits retain their original scales and precision.
+#define SHADOW_CASTER_MIN_DISTANCE (1.e-3f)
+#define THRESH_MATRIX_INVERSE_DETERMINANT (1.e-20f)
+#define LOD_MIN_TRIANGLE_CROSS_SQUARED (1.e-20f)
+#define LOD_MIN_EDGE_LENGTH_SQUARED (1.e-20f)
+#define LOD_MIN_QEM_CURVATURE (1.e-20)
+#define LOD_QEM_RELATIVE_PIVOT_TOLERANCE (1.e-12)
+#define LOD_MIN_REFERENCE_VOLUME (1.e-12)
 #define MESH_BOUNDS_RELATIVE_MARGIN (2.e-5)
 
 #define THRESH_NORMALS_ARE_PARALLEL (0.999845f)
