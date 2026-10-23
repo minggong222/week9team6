@@ -62,8 +62,26 @@ void FLineBatcher::AddLine(const FVector& A, const FVector& B, const FVector4& C
 	VertexCount += 2;
 }
 
+
 namespace
 {
+	constexpr int32 CIRCLE_SEGMENT_COUNT = 32;
+
+	void AddWireCircle(FLineBatcher* LineBatcher, const FVector& Center, const FVector& AxisA, const FVector& AxisB, float Radius, const FVector4& Color)
+	{
+		FVector Previous = Center + AxisA * Radius;
+
+		for (int32 i = 1; i <= CIRCLE_SEGMENT_COUNT; ++i)
+		{
+			const float Angle = 2.0f * PI * i / CIRCLE_SEGMENT_COUNT;
+
+			const FVector Current = Center + AxisA * (std::cosf(Angle) * Radius) + AxisB * (std::sinf(Angle) * Radius);
+
+			LineBatcher->AddLine(Previous, Current, Color);
+			Previous = Current;
+		}
+	}
+
 	// 박스 모서리 12개. 코너 배열의 인덱스 쌍이며 AABB/OBB가 같은 순서를 쓴다.
 	const int BOX_EDGES[12][2] = {
 		{0,1},{1,2},{2,3},{3,0},      // 아랫면
@@ -115,6 +133,7 @@ void FLineBatcher::AddOrientedBox(const FBox& LocalBox, const FMatrix& WorldMatr
 	}
 
 }
+
 void FLineBatcher::AddPath(const TArray<FVector>& Points, const FVector4& Color)
 {
 	if (Points.IsEmpty())
@@ -123,6 +142,73 @@ void FLineBatcher::AddPath(const TArray<FVector>& Points, const FVector4& Color)
 	}
 	for (size_t i = 0; i < Points.size() - 1; ++i) {
 		AddLine(Points[i], Points[i + 1], Color);
+	}
+}
+
+void FLineBatcher::AddWireSphere(const FVector& Center, float Radius, const FVector4& Color)
+{
+	if (Radius <= 0.0f)
+		return;
+
+	AddWireCircle(this, Center, FVector(1, 0, 0), FVector(0, 1, 0), Radius, Color);
+	AddWireCircle(this, Center, FVector(1, 0, 0), FVector(0, 0, 1), Radius, Color);
+	AddWireCircle(this, Center, FVector(0, 1, 0), FVector(0, 0, 1), Radius, Color);
+}
+
+void FLineBatcher::AddWireCapsule(const FVector& Center, const FVector& Axis, float Radius, float HalfHeight, const FVector4& Color)
+{
+	if (Radius <= 0.0f || HalfHeight < Radius || Axis.SizeSquared() <= SMALL_NUMBER)
+		return;
+
+	const FVector Direction = Axis.Normalized();
+	const float SegmentHalfLength = HalfHeight - Radius;
+
+	const FVector Top = Center + Direction * SegmentHalfLength;
+	const FVector Bottom = Center - Direction * SegmentHalfLength;
+
+	const FVector Reference = std::abs(Direction.Z) < 0.9f ? FVector(0, 0, 1) : FVector(1, 0, 0);
+	const FVector Right = Direction.Cross(Reference).Normalized();
+	const FVector Up = Direction.Cross(Right).Normalized();
+
+	// 원통 위아래의 원
+	AddWireCircle(this, Top, Right, Up, Radius, Color);
+	AddWireCircle(this, Bottom, Right, Up, Radius, Color);
+
+	// 원통 측면의 직선 4개
+	const FVector Directions[] = { Right, -Right, Up, -Up };
+
+	for (const FVector& Side : Directions)
+	{
+		const FVector Start = Top + Side * Radius;
+		const FVector End = Bottom + Side * Radius;
+
+		AddLine(Start, End, Color);
+	}
+
+	// 위아래 반구의 곡선
+	constexpr int32 ARC_SEGMENT_COUNT = 16;
+	const FVector ArcAxes[] = { Right, Up };
+
+	for (const FVector& Side : ArcAxes)
+	{
+		FVector PreviousTop = Top + Side * Radius;
+		FVector PreviousBottom = Bottom + Side * Radius;
+
+		for (int32 i = 1; i <= ARC_SEGMENT_COUNT; ++i)
+		{
+			const float Angle = PI * i / ARC_SEGMENT_COUNT;
+			const float CosAngle = std::cosf(Angle);
+			const float SinAngle = std::sinf(Angle);
+
+			const FVector CurrentTop = Top + Side * (CosAngle * Radius) + Direction * (SinAngle * Radius);
+			const FVector CurrentBottom = Bottom + Side * (CosAngle * Radius) - Direction * (SinAngle * Radius);
+
+			AddLine(PreviousTop, CurrentTop, Color);
+			AddLine(PreviousBottom, CurrentBottom, Color);
+
+			PreviousTop = CurrentTop;
+			PreviousBottom = CurrentBottom;
+		}
 	}
 }
 
