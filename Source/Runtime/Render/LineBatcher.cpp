@@ -157,7 +157,7 @@ void FLineBatcher::AddWireSphere(const FVector& Center, float Radius, const FVec
 
 void FLineBatcher::AddWireCapsule(const FVector& Center, const FVector& Axis, float Radius, float HalfHeight, const FVector4& Color)
 {
-	if (Radius <= 0.0f || HalfHeight < Radius || Axis.SizeSquared() <= SMALL_NUMBER)
+	if (Radius <= 0.0f || HalfHeight < Radius || Axis.SizeSquared() <= EPSILON_1E_6)
 		return;
 
 	const FVector Direction = Axis.Normalized();
