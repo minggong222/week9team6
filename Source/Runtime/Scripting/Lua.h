@@ -13,12 +13,18 @@ private:
 	// 스크립트의 경로를 가리킵니다.
 	FString Path;
 
-	sol::state& State;
+	// 비소유 참조: 이 스크립트보다 FLuaManager가 오래 살아 있어야 합니다.
+	sol::state* State;
 	sol::environment Environment;
 
 public:
 
 	FLua(sol::state& InState);
+
+	FLua(const FLua&) = delete;
+	FLua& operator=(const FLua&) = delete;
+	FLua(FLua&&) = default;
+	FLua& operator=(FLua&&) = default;
 
 	bool Load(FStringView InPath);
 
@@ -34,6 +40,12 @@ public:
 template<typename... Args>
 bool FLua::Invoke(FStringView FunctionName, Args... args)
 {
+	// Environment가 없음
+	if (!Environment.valid())
+	{
+		return false;
+	}
+
 	sol::protected_function Function = Environment[FunctionName];
 
 	// 함수가 없음

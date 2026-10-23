@@ -18,6 +18,6 @@ public:
 	// 새로운 Lua 스크립트를 불러와서 FLua를 반환합니다.
 	FLua Load(FStringView Path);
 
-	void SetJITEnable(bool Value);
-	bool GetJITEnable() const { return bJITEnabled; }
+	bool SetJITEnable(bool Value);
+	bool GetJITEnable() { return bJITEnabled; }
 };
