@@ -23,6 +23,8 @@ public:
 
 public:
 	void SetAxes(const FVector4& Axis0, const FVector4& Axis1, const FVector4& Axis2, const FVector4& Axis3);
+	float GetElement(int32 Row, int32 Column) const;
+	void SetElement(int32 Row, int32 Column, float Value);
 	void SetAxis(int32 i, const FVector& Axis);
 	void GetUnitAxis(FVector4& X, FVector4& Y, FVector4& Z) const;
 
@@ -30,7 +32,7 @@ public:
 
 	FVector4 GetColumn(int32 i) const;
 	FVector4 GetOrigin();
-	FVector4 GetScaledAxis(FVector4& X, FVector4& Y, FVector4& Z) const;
+	void GetScaledAxis(FVector4& X, FVector4& Y, FVector4& Z) const;
 	FVector4 TransformFVector4(const FVector4& V) const;	
 	FVector4 TransformFVector4NoScale(const FVector4& V) const;
 	FVector TransformPosition(const FVector& V) const;
