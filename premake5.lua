@@ -151,22 +151,15 @@ project "HitoriEngine"
 		"%{IncludeDir.LuaJIT}",
 		"%{IncludeDir.Sol}",
 	}
-
+	
 	libdirs { "%{IncludeDir.LuaJIT}" }
-
+	
 	links
 	{
-		"d3d11.lib",
-		"dxgi.lib",
-		"dxguid.lib",
-		"d3dcompiler.lib",
 		"lua51.lib",
 	}
 
 	filter "files:Source/ThirdParty/DDSLoader/**.cpp"
-		enablepch "Off"
-		
-	filter "files:Source/ThirdParty/Lua/**.c"
 		enablepch "Off"
 		
 	filter {}
@@ -180,8 +173,7 @@ project "HitoriEditor"
 	pchheader "EnginePCH.h"
 	pchsource "Source/Editor/EditorPCH.cpp"
 
-	libdirs { "%{IncludeDir.LuaJIT}" }
-	links { "HitoriEngine", "ImGui", "lua51.lib" }
+	links { "HitoriEngine", "ImGui" }
 
 	files
 	{
@@ -203,12 +195,15 @@ project "HitoriEditor"
 		"%{IncludeDir.json}",
 	}
 
+	libdirs { "%{IncludeDir.LuaJIT}" }
+	
 	links
 	{
 		"d3d11.lib",
 		"dxgi.lib",
 		"dxguid.lib",
 		"d3dcompiler.lib",
+		"lua51.lib",
 	}
 
 	filter "configurations:ObjViewer"
@@ -262,6 +257,9 @@ project "HitoriGame"
         "%{IncludeDir.json}",
         "%{IncludeDir.DDSLoader}",
     }
+	
+	libdirs { "%{IncludeDir.LuaJIT}" }
+	
 	links
 	{
 		"HitoriEngine",
@@ -269,6 +267,7 @@ project "HitoriGame"
 		"dxgi.lib",
 		"dxguid.lib",
 		"d3dcompiler.lib",
+		"lua51.lib",
 	}
 	local engineLibPath = path.getabsolute("Build/Bin")
 		.. "\\%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\\HitoriEngine.lib"
