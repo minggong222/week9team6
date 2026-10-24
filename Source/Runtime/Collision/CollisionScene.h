@@ -42,7 +42,7 @@ private:
     bool bElementListChanged = false;
     bool bBoundsDirty = false;
 
-    // 두 Shape의 실제 교차 여부를 판정한다. 현재 Sphere–Sphere만 지원한다.
+    // Sphere / Box / Capsule의 모든 조합에 대해 실제 교차 여부를 판정한다.
     static bool IntersectsShapes(UShapeComponent* A, UShapeComponent* B, int32* OutNarrowTests = nullptr);
 
     // A-B와 B-A를 동일한 충돌 쌍으로 취급한다.

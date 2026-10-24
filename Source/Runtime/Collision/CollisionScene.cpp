@@ -235,17 +235,62 @@ bool FCollisionScene::IntersectsShapes(UShapeComponent* A, UShapeComponent* B, i
 {
     USphereComponent* SphereA = Cast<USphereComponent>(A);
     USphereComponent* SphereB = Cast<USphereComponent>(B);
+    UBoxComponent* BoxA = Cast<UBoxComponent>(A);
+    UBoxComponent* BoxB = Cast<UBoxComponent>(B);
+    UCapsuleComponent* CapsuleA = Cast<UCapsuleComponent>(A);
+    UCapsuleComponent* CapsuleB = Cast<UCapsuleComponent>(B);
+
+    if ((!SphereA && !BoxA && !CapsuleA) || (!SphereB && !BoxB && !CapsuleB))
+        return false;
+
+    // 비대칭 조합의 인자 순서를 Sphere, Capsule, Box 순으로 통일한다.
+    if ((!SphereA && SphereB) || (BoxA && CapsuleB))
+        return IntersectsShapes(B, A, OutNarrowTests);
+
+    if (OutNarrowTests)
+        ++(*OutNarrowTests);
 
     if (SphereA && SphereB)
     {
-        if (OutNarrowTests)
-            ++(*OutNarrowTests);
-
         return FCollisionGeometry::IntersectsSphereSphere(
             SphereA->GetWorldLocation(), SphereA->GetScaledSphereRadius(),
             SphereB->GetWorldLocation(), SphereB->GetScaledSphereRadius());
     }
 
-    return false;
+    if (SphereA && BoxB)
+    {
+        return FCollisionGeometry::IntersectsSphereBox(
+            SphereA->GetWorldLocation(), SphereA->GetScaledSphereRadius(),
+            BoxB->GetWorldLocation(), BoxB->GetWorldRotation(), BoxB->GetScaledBoxExtent());
+    }
+
+    if (SphereA && CapsuleB)
+    {
+        FVector Start, End;
+        CapsuleB->GetWorldCapsuleSegment(Start, End);
+        return FCollisionGeometry::IntersectsSphereCapsule(
+            SphereA->GetWorldLocation(), SphereA->GetScaledSphereRadius(), Start, End, CapsuleB->GetScaledCapsuleRadius());
+    }
+
+    if (BoxA && BoxB)
+    {
+        return FCollisionGeometry::IntersectsBoxBox(
+            BoxA->GetWorldLocation(), BoxA->GetWorldRotation(), BoxA->GetScaledBoxExtent(),
+            BoxB->GetWorldLocation(), BoxB->GetWorldRotation(), BoxB->GetScaledBoxExtent());
+    }
+
+    FVector StartA, EndA;
+    CapsuleA->GetWorldCapsuleSegment(StartA, EndA);
+    if (CapsuleB)
+    {
+        FVector StartB, EndB;
+        CapsuleB->GetWorldCapsuleSegment(StartB, EndB);
+        return FCollisionGeometry::IntersectsCapsuleCapsule(
+            StartA, EndA, CapsuleA->GetScaledCapsuleRadius(), StartB, EndB, CapsuleB->GetScaledCapsuleRadius());
+    }
+
+    return FCollisionGeometry::IntersectsCapsuleBox(
+        StartA, EndA, CapsuleA->GetScaledCapsuleRadius(),
+        BoxB->GetWorldLocation(), BoxB->GetWorldRotation(), BoxB->GetScaledBoxExtent());
 }
 

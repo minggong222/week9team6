@@ -41,6 +41,15 @@ public:
 		return CapsuleHalfHeight * GetShapeScale();
 	}
 
+	void GetWorldCapsuleSegment(FVector& OutStart, FVector& OutEnd) const
+	{
+		const FVector Axis = GetWorldRotation().Quaternion().RotateVector(FVector(0.0f, 0.0f, 1.0f));
+		const FVector Offset = Axis * std::max(0.0f, GetScaledCapsuleHalfHeight() - GetScaledCapsuleRadius());
+		const FVector Center = GetWorldLocation();
+		OutStart = Center - Offset;
+		OutEnd = Center + Offset;
+	}
+
 	FBox CalcLocalBounds() const override
 	{
 		const FVector Extent(CapsuleRadius, CapsuleRadius, CapsuleHalfHeight);
