@@ -70,6 +70,11 @@ public:
 	void SetShowNoCamera(bool bValue) { bShowNoCamera = bValue; }
 
 	void SetSelectedCollisionCandidateCount(int32 Count) { SelectedCollisionCandidateCount = Count; }
+	void SetSelectedCollisionNarrowStats(int32 TestCount, int32 OverlapCount)
+	{
+		SelectedCollisionNarrowTestCount = TestCount;
+		SelectedCollisionOverlapCount = OverlapCount;
+	}
 
 private:
 	int32 ActiveViewIndex = 0;
@@ -108,5 +113,7 @@ private:
 	ELayoutMode RequestedLayoutMode = ELayoutMode::QuadSplit;
 	int32 RequestedSingleViewIndex = 0;
 
+	int32 SelectedCollisionNarrowTestCount = -1;
+	int32 SelectedCollisionOverlapCount = -1;
 	int32 SelectedCollisionCandidateCount = -1;
 };

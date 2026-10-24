@@ -470,6 +470,19 @@ const FRenderStats& Stats = RenderData.RenderStats;
 				std::format("  Selected Broad Candidates: {}", SelectedCollisionCandidateCount),
 				ValueColor
 				});
+			Lines.Add({
+				SelectedCollisionNarrowTestCount < 0
+					? "  Narrow Tests: N/A"
+					: std::format("  Narrow Tests: {}", SelectedCollisionNarrowTestCount),
+				ValueColor
+				});
+
+			Lines.Add({
+				SelectedCollisionOverlapCount < 0
+					? "  Geometry Overlaps: N/A"
+					: std::format("  Geometry Overlaps: {}", SelectedCollisionOverlapCount),
+				ValueColor
+				});
 		}
 		else
 		{

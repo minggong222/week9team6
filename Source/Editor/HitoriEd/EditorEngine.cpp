@@ -504,6 +504,7 @@ void UEditorEngine::RenderViewports()
 	const ULightComponent* PreviewLight = DetailsPanel ? DetailsPanel->GetSelectedLight() : nullptr;
 
 	ViewportsPanel->SetSelectedCollisionCandidateCount(-1);
+	ViewportsPanel->SetSelectedCollisionNarrowStats(-1, -1);
 
 	// Invalidate skipped views too: never expose a previous frame's atlas range.
 	for (FEditorViewportClient* Client : AllViewportClients)
@@ -1132,33 +1133,41 @@ void UEditorEngine::RenderFrame(FEditorViewportClient* ViewClient,
 						else if (ARectLightActor* Light = Cast<ARectLightActor>(Gizmo->GetTarget()->GetOwner()))
 							Light->GetRectLightComponent()->DrawDebug(LineBatcher.get());
 					}
+
+					TArray<UShapeComponent*> Candidates;
+					TArray<UShapeComponent*> Overlaps;
+					int32 NarrowTests = 0;
+
+					if (bIsActiveViewport)
+					{
+						if (UShapeComponent* SelectedShape = Cast<UShapeComponent>(SelectedComponent))
+						{
+							SelectedShape->GetWorld()->GetCollisionScene().QueryOverlaps(SelectedShape, Overlaps, &Candidates, &NarrowTests);
+
+							LineBatcher->AddBox(SelectedShape->CalcBounds(), FVector4(0.2f, 0.5f, 1.0f, 1.0f));
+
+							for (UShapeComponent* Candidate : Candidates)
+								LineBatcher->AddBox(Candidate->CalcBounds(), FVector4(1.0f, 0.8f, 0.2f, 1.0f));
+
+							ViewportsPanel->SetSelectedCollisionCandidateCount(static_cast<int32>(Candidates.Num()));
+							ViewportsPanel->SetSelectedCollisionNarrowStats(NarrowTests, static_cast<int32>(Overlaps.Num()));
+						}
+					}
+
 					for (UShapeComponent* Shape : ShapesToDraw)
 					{
 						FVector4 Color = Shape->GetShapeColor().ToVector4();
 
 						if (Shape == SelectedComponent)
 						{
-							// UE4 기본 선택 강조색을 sRGB로 근사
 							Color = FColor(222, 163, 10, 255).ToVector4();
-
-							TArray<UShapeComponent*> Candidates;
-							Shape->GetWorld()->GetCollisionScene().QueryCandidates(Shape, Candidates);
-
-							if (bIsActiveViewport)
-								ViewportsPanel->SetSelectedCollisionCandidateCount(static_cast<int32>(Candidates.Num()));
-
-							// 선택한 Shape의 검색 Bounds
-							LineBatcher->AddBox(Shape->CalcBounds(), FVector4(0.2f, 0.5f, 1.0f, 1.0f));
-
-							// BVH에서 발견된 충돌 후보들의 Bounds
-							for (UShapeComponent* Candidate : Candidates)
-							{
-								LineBatcher->AddBox(Candidate->CalcBounds(), FVector4(0.2f, 1.0f, 0.4f, 1.0f));
-							}
+						}
+						else if (Overlaps.Find(Shape) != INDEX_NONE)
+						{
+							Color = FVector4(0.2f, 1.0f, 0.4f, 1.0f);
 						}
 						else if (Shape->GetOwner() != SelectedActor)
 						{
-							// UE4의 선형 공간 0.5^2.2 보정을 sRGB에서 근사
 							Color.X *= 0.5f;
 							Color.Y *= 0.5f;
 							Color.Z *= 0.5f;
