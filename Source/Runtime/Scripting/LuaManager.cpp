@@ -3,7 +3,6 @@
 
 #include "luajit.h"
 
-// 여러개의 Cpp 파일로 분리
 extern void LuaRegisterObject(sol::state& State);
 extern void LuaRegisterActor(sol::state& State);
 extern void LuaRegisterMath(sol::state& State);

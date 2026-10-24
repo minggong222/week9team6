@@ -3,8 +3,23 @@
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "Render/Material.h"
+#include "Components/LuaComponent.h"
+#include "Components/TextRenderComponent.h"
+
+extern void LuaRegisterComponentBase(sol::state& State);
+extern void LuaRegisterComponentMesh(sol::state& State);
+extern void LuaRegisterComponentMovement(sol::state& State);
+extern void LuaRegisterComponentLight(sol::state& State);
 
 void LuaRegisterComponent(sol::state& State)
+{
+    LuaRegisterComponentBase(State);
+    LuaRegisterComponentMesh(State);
+    LuaRegisterComponentMovement(State);
+    LuaRegisterComponentLight(State);
+}
+
+void LuaRegisterComponentBase(sol::state& State)
 {
     State.new_enum("EAttachmentRule",
         "KeepRelative", EAttachmentRule::KeepRelative,
@@ -106,4 +121,24 @@ void LuaRegisterComponent(sol::state& State)
             bool Success = Component.LineTraceComponent(Ray, Hit);
             return std::make_tuple(Success, Hit);
         });
+
+    State.new_usertype<ULuaComponent>("ULuaComponent", sol::no_constructor,
+        sol::base_classes, sol::bases<UActorComponent, UObject>(),
+        "StaticClass", &ULuaComponent::StaticClass,
+        "Cast", &Cast<ULuaComponent>,
+        "Load", &ULuaComponent::Load,
+        "GetScriptPath", &ULuaComponent::GetScriptPath,
+        "SetScriptPath", &ULuaComponent::SetScriptPath,
+        "GetInitialized", &ULuaComponent::GetInitialized);
+
+    State.new_usertype<UTextRenderComponent>("UTextRenderComponent", sol::no_constructor,
+        sol::base_classes, sol::bases<UPrimitiveComponent, USceneComponent, UActorComponent, UObject>(),
+        "StaticClass", &UTextRenderComponent::StaticClass,
+        "Cast", &Cast<UTextRenderComponent>,
+        "GetText", &UTextRenderComponent::GetText,
+        "SetText", &UTextRenderComponent::SetText,
+        "GetFont", &UTextRenderComponent::GetFont,
+        "SetFont", &UTextRenderComponent::SetFont,
+        "GetTextSize", &UTextRenderComponent::GetTextSize,
+        "SetTextSize", &UTextRenderComponent::SetTextSize);
 }
