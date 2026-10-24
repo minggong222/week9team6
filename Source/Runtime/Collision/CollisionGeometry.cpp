@@ -77,7 +77,7 @@ bool FCollisionGeometry::IntersectsCapsuleCapsule(const FVector& CapsuleAStart, 
     }
     else if (A <= EPSILON_1E_8) 
     {
-        T = FMath::Clamp(FVector::Dot(CapsuleBStart - CapsuleAStart, D2) / E, 0.0f, 1.0f);
+        T = FMath::Clamp(FVector::Dot(R, D2) / E, 0.0f, 1.0f);
     }
     else 
     {
@@ -124,7 +124,7 @@ bool FCollisionGeometry::IntersectsCapsuleBox(const FVector& CapsuleStart, const
     const FQuat InverseRotation = BoxRotation.Quaternion().UnitInverse();
     const FVector Start = InverseRotation.RotateVector(CapsuleStart - BoxCenter);
     const FVector End = InverseRotation.RotateVector(CapsuleEnd - BoxCenter);
-    const FVector Segment = Start - End;
+    const FVector Segment = End - Start;
 
     // 선분 위의 점이 박스의 면을 통과하는 t를 구간 경계로 추가
     float Breakpoints[8] = {0.0f, 1.0f};
