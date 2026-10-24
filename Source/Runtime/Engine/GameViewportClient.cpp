@@ -92,15 +92,7 @@ void FGameViewportClient::LostFocus()
 
 UCameraComponent* FGameViewportClient::FindPlayerCamera() const
 {
-	if (!World) return nullptr;
-	if (APawn* Pawn = World->GetPlayerPawn())
-	{
-		if (ADefaultPawn* DefaultPawn = Cast<ADefaultPawn>(Pawn))
-			if (UCameraComponent* Camera = DefaultPawn->GetCameraComponent()) return Camera;
-		for (UActorComponent* Component : Pawn->GetComponents())
-			if (UCameraComponent* Camera = Cast<UCameraComponent>(Component)) return Camera;
-	}
-	return nullptr;
+	return World ? World->GetPlayerCamera() : nullptr;
 }
 
 void FGameViewportClient::SetWorld(UWorld* InWorld)

@@ -59,6 +59,11 @@ public:
 	// 카메라 Get/Set
 	void SetMainCamera(ACameraActor* Camera);
 	ACameraActor* GetMainCamera() const { return MainCamera; }
+	UCameraComponent* GetMainCameraComponent() const;
+	UCameraComponent* GetPlayerCamera() const;
+	// 게임 뷰포트 카메라를 선택한다. nullptr이면 자동 선택으로 복귀한다.
+	// 다른 월드의 카메라이거나 게임 뷰포트가 없으면 false를 반환한다.
+	bool SetMainCameraComponent(UCameraComponent* Camera);
 
 	// Level
 	ULevel* GetPersistentLevel() const { return PersistentLevel; }

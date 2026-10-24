@@ -1,6 +1,8 @@
 #include "EnginePCH.h"
 #include "World.h"
 #include "Engine/GameInstance.h"
+#include "Engine/Engine.h"
+#include "Engine/GameViewportClient.h"
 #include "Level.h"
 
 #include "Core/EngineStatics.h"
@@ -545,6 +547,32 @@ void UWorld::CreateMainCamera()
 
 	// 메인 카메라는 Level에 속하지 않아 BeginPlay를 거치지 않으므로 여기서 등록한다.
 	MainCamera->RegisterAllActorTickFunctions(true);
+}
+
+UCameraComponent* UWorld::GetMainCameraComponent() const
+{
+	return MainCamera ? MainCamera->GetCameraComponent() : nullptr;
+}
+
+UCameraComponent* UWorld::GetPlayerCamera() const
+{
+	if (PlayerPawn)
+	{
+		if (const auto* DefaultPawn = Cast<ADefaultPawn>(PlayerPawn))
+			if (UCameraComponent* Camera = DefaultPawn->GetCameraComponent()) return Camera;
+		for (UActorComponent* Component : PlayerPawn->GetComponents())
+			if (auto* Camera = Cast<UCameraComponent>(Component)) return Camera;
+	}
+	return nullptr;
+}
+
+bool UWorld::SetMainCameraComponent(UCameraComponent* Camera)
+{
+	if (Camera && Camera->GetWorld() != this) return false;
+	FWorldContext* Context = GEngine ? GEngine->GetWorldContextFromWorld(this) : nullptr;
+	if (!Context || !Context->GameViewport) return false;
+	Context->GameViewport->SetCameraComponent(Camera);
+	return true;
 }
 
 void UWorld::SetMainCamera(ACameraActor* Camera)

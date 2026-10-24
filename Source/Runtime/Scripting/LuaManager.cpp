@@ -5,6 +5,7 @@
 #include <cmath>
 
 extern void LuaRegisterObject(sol::state& State);
+extern void LuaRegisterWorld(sol::state& State);
 extern void LuaRegisterActor(sol::state& State);
 extern void LuaRegisterMath(sol::state& State);
 extern void LuaRegisterComponent(sol::state& State);
@@ -17,6 +18,7 @@ void LuaRegister(sol::state& State)
     LuaRegisterActor(State);
     LuaRegisterMath(State);
     LuaRegisterComponent(State);
+    LuaRegisterWorld(State);
     LuaRegisterInput(State);
 }
 
