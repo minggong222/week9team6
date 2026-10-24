@@ -183,38 +183,67 @@ void UWorld::ClearWorld()
 {
 	if (bIsClearingWorld || bIsEndingPlay)
 		return;
-	bIsClearingWorld = true;
-	EndPlay();
-	// BeginPlay 대기 중인 Actor 제거
-	while (!BeginPlayList.IsEmpty())
+
+	// Tick 또는 컴포넌트 삭제 처리 중에는 월드를 정리하지 않는다.
+	if (TickTaskManager.IsTicking() || bIsProcessingPendingComponentDestruction)
 	{
-		BeginPlayList.Dequeue();
+		HTR_LOG(Warning, "ClearWorld: Cannot clear during active tick or component destruction.");
+		return;
 	}
 
-	while (!PendingDestroyList.IsEmpty())
+	// Actor/Component 콜백 실행 중인지 확인한다.
+	for (ULevel* Level : Levels)
 	{
-		PendingDestroyList.Dequeue();
+		if (!Level)
+			continue;
+
+		for (AActor* Actor : Level->GetActors())
+		{
+			if (!Actor)
+				continue;
+
+			if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || Actor->bIsExecutingComponentCallback)
+			{
+				HTR_LOG(Warning, "ClearWorld: Cannot clear during an actor or component callback.");
+				return;
+			}
+		}
 	}
+
+	bIsClearingWorld = true;
+
+	EndPlay();
+
+	while (!BeginPlayList.IsEmpty())
+		BeginPlayList.Dequeue();
+
+	while (!PendingDestroyList.IsEmpty())
+		PendingDestroyList.Dequeue();
 
 	PathTracker.SetPlaybackEnabled(false);
 	PathTracker.SetPathRenderingEnabled(false);
 	PathTracker.ClearPath();
 
-	
 	for (ULevel* Level : Levels)
 	{
-		for (AActor* Actor : Level->Actors)
+		if (!Level)
+			continue;
+
+		for (AActor* Actor : Level->GetActors())
 		{
-			if (!Actor) continue;
+			if (!Actor)
+				continue;
+
 			Actor->UnregisterAllComponents();
 			Actor->RegisterAllActorTickFunctions(false);
 		}
+
 		Level->ClearActors();
 	}
-	// 액터를 지우기 전에 렌더 프록시와 틱 등록부터 푼다. ClearActors는 액터를 delete만 하므로,
-	// 그대로 두면 지워진 컴포넌트를 가리키는 프록시가 FScene에 남아 다음 프레임에 터진다.
+
 	Scene.RemoveAllLights();
 	Scene.RemoveAllPrimitives();
+
 	HTR_LOG(Info, "{} : ", PersistentLevel->GetActorNum());
 
 	bIsClearingWorld = false;
@@ -569,7 +598,7 @@ bool UWorld::DestroyActor(AActor* Actor)
 	if (Actor->bIsPendingDestroy)
 		return true;
 
-	if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || Actor->bIsExecutingComponentCallback || TickTaskManager.IsTicking() || bIsProcessingPendingComponentDestruction)
+	if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || Actor->bIsExecutingComponentCallback || bIsEndingPlay || TickTaskManager.IsTicking() || bIsProcessingPendingComponentDestruction)
 	{
 		Actor->bIsPendingDestroy = true;
 		PendingDestroyList.Enqueue({ Actor, Actor->GetUUID() });

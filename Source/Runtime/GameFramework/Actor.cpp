@@ -43,21 +43,37 @@ void AActor::BeginPlay()
 
 void AActor::DispatchBeginPlay()
 {
-	if (bIsPlaying || !World || !World->HasBegunPlay())
+	if (bIsPendingDestroy || bIsPlaying || !World || !World->HasBegunPlay())
 	{
 		return;
 	}
+
 	bIsDispatchingBeginPlay = true;
+
 	RegisterAllComponents();
+
+	if (bIsPendingDestroy)
+	{
+		bIsDispatchingBeginPlay = false;
+		ProcessPendingComponentDestruction();
+		return;
+	}
+
 	bIsPlaying = true;
 	bHasBegunPlay = true;
 
 	TArray<UActorComponent*> ComponentsToBegin = Components;
+
 	for (UActorComponent* Component : ComponentsToBegin)
 	{
-		if (!Component)
+		if (bIsPendingDestroy)
+			break;
+
+		if (!Component || Component->bIsPendingDestroy)
 			continue;
+
 		bool bStillOwned = false;
+
 		for (UActorComponent* Current : Components)
 		{
 			if (Current == Component)
@@ -66,15 +82,19 @@ void AActor::DispatchBeginPlay()
 				break;
 			}
 		}
+
 		if (bStillOwned)
 			Component->BeginPlayComponent();
 	}
 
-	RegisterAllActorTickFunctions(true);
-
-	BeginPlay();
+	if (!bIsPendingDestroy)
+	{
+		RegisterAllActorTickFunctions(true);
+		BeginPlay();
+	}
 
 	bIsDispatchingBeginPlay = false;
+
 	ProcessPendingComponentDestruction();
 }
 
@@ -364,7 +384,7 @@ void AActor::DestroyComponent(UActorComponent* Component)
 		return;
 	const bool bIsTicking = World && World->GetTickTaskManager().IsTicking();
 
-	if (Component->bIsDispatchingBeginPlay || Component->bIsDispatchingEndPlay || Component->bIsDispatchingTick || bIsTicking)
+	if (Component->bIsDispatchingBeginPlay || Component->bIsDispatchingEndPlay || Component->bIsDispatchingTick || bIsDispatchingBeginPlay || bIsDispatchingEndPlay || bIsExecutingComponentCallback || bIsTicking)
 	{
 		Component->bIsPendingDestroy = true;
 		PendingComponentDestroyList.Add({ Component, Component->GetUUID() });

@@ -107,7 +107,7 @@ void UActorComponent::EndPlayComponent()
 
 void UActorComponent::DispatchTickComponent(float DeltaTime)
 {
-	if (bIsDispatchingTick)
+	if (bIsPendingDestroy || bIsDispatchingTick)
 		return;
 
 	AActor* MyOwner = Owner;
