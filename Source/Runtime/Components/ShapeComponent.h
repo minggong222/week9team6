@@ -1,7 +1,6 @@
 #pragma once
 
 #include "PrimitiveComponent.h"
-#include "Engine/World.h"
 
 class FLineBatcher;
 
