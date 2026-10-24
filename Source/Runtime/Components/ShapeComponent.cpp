@@ -1,6 +1,7 @@
 #include "EnginePCH.h"
 #include "ShapeComponent.h"
 
+#include "Collision/CollisionGeometry.h"
 #include "Engine/World.h"
 
 UShapeComponent::UShapeComponent()
@@ -32,11 +33,6 @@ void UShapeComponent::OnTransformDirty()
         return;
 
     GetWorld()->GetCollisionScene().MarkBoundsDirty();
-}
-
-void UShapeComponent::QueryCandidates(UShapeComponent* Shape, TArray<UShapeComponent*>& OutCandidates)
-{
-
 }
 
 //UShapeComponent::~UShapeComponent()
