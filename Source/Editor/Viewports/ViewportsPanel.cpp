@@ -12,7 +12,8 @@
 
 #include "Core/Stats/EditorStats.h"
 
-namespace {
+namespace 
+{
 constexpr float SplitterThickness = 6.0f;
 constexpr ImU32 SplitterColor = IM_COL32(55, 55, 55, 230);
 constexpr ImU32 SplitterHoverColor = IM_COL32(255, 192, 0, 255);
@@ -366,6 +367,7 @@ void FViewportsPanel::DrawStatOverlay(ImDrawList* DrawList, const ImVec2& ViewMi
 		FString Values[3];
 	};
 	TArray<FProfileStatLine> ProfileLines;
+
 	if (FStatOverlay::IsEnabled(EStatFlags::Profile)) {
 		ProfileLines.Add({"CPU Profile (ms)", TitleColor, {"Last", "Avg", "Max"}});
 
@@ -455,6 +457,23 @@ const FRenderStats& Stats = RenderData.RenderStats;
 			}
 			Lines.Add({ std::format("  Cascade Views  Redrawn {} / Cached {}",
 				Stats.CascadeViewsRedrawn, Stats.CascadeViewsCached), ValueColor });
+		}
+	}
+
+	if (FStatOverlay::IsEnabled(EStatFlags::Collision))
+	{
+		Lines.Add({ "Collision", TitleColor });
+
+		if (SelectedCollisionCandidateCount >= 0)
+		{
+			Lines.Add({
+				std::format("  Selected Broad Candidates: {}", SelectedCollisionCandidateCount),
+				ValueColor
+				});
+		}
+		else
+		{
+			Lines.Add({ "  Select a ShapeComponent", ValueColor });
 		}
 	}
 

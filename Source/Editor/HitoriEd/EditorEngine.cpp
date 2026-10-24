@@ -502,6 +502,9 @@ void UEditorEngine::RenderViewports()
 {
 	const bool bIsPIE = (PlayWorld != nullptr);
 	const ULightComponent* PreviewLight = DetailsPanel ? DetailsPanel->GetSelectedLight() : nullptr;
+
+	ViewportsPanel->SetSelectedCollisionCandidateCount(-1);
+
 	// Invalidate skipped views too: never expose a previous frame's atlas range.
 	for (FEditorViewportClient* Client : AllViewportClients)
 	{
@@ -1088,7 +1091,7 @@ void UEditorEngine::RenderFrame(FEditorViewportClient* ViewClient,
 		const bool bDrawCascadeBounds = SettingsPanel->GetSettings().bDrawCascadeBounds;
 		if (SettingsPanel->GetSettings().bDrawBatchLine || bDrawSelectedLight || bDrawCascadeBounds || !ShapesToDraw.IsEmpty())
 		{
-			Overlays.EditorLines = [this, ViewClient, &SceneView, bDrawSelectedLight, bDrawCascadeBounds, ShapesToDraw, SelectedActor, SelectedComponent]
+			Overlays.EditorLines = [this, ViewClient, &SceneView, bIsActiveViewport, bDrawSelectedLight, bDrawCascadeBounds, ShapesToDraw, SelectedActor, SelectedComponent]
 				{
 					LineBatcher->BeginFrame();
 					if (bDrawCascadeBounds)
@@ -1137,6 +1140,21 @@ void UEditorEngine::RenderFrame(FEditorViewportClient* ViewClient,
 						{
 							// UE4 기본 선택 강조색을 sRGB로 근사
 							Color = FColor(222, 163, 10, 255).ToVector4();
+
+							TArray<UShapeComponent*> Candidates;
+							Shape->GetWorld()->GetCollisionScene().QueryCandidates(Shape, Candidates);
+
+							if (bIsActiveViewport)
+								ViewportsPanel->SetSelectedCollisionCandidateCount(static_cast<int32>(Candidates.Num()));
+
+							// 선택한 Shape의 검색 Bounds
+							LineBatcher->AddBox(Shape->CalcBounds(), FVector4(0.2f, 0.5f, 1.0f, 1.0f));
+
+							// BVH에서 발견된 충돌 후보들의 Bounds
+							for (UShapeComponent* Candidate : Candidates)
+							{
+								LineBatcher->AddBox(Candidate->CalcBounds(), FVector4(0.2f, 1.0f, 0.4f, 1.0f));
+							}
 						}
 						else if (Shape->GetOwner() != SelectedActor)
 						{

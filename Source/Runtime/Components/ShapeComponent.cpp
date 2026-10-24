@@ -6,33 +6,33 @@
 
 UShapeComponent::UShapeComponent()
 {
-    bHiddenInGame = true;
-    bCastShadow = false;
-    bReceiveShadow = false;
+	bHiddenInGame = true;
+	bCastShadow = false;
+	bReceiveShadow = false;
 }
 
 void UShapeComponent::OnRegister()
 {
-    Super::OnRegister();
-    UWorld* World = GetWorld();
-    World->GetCollisionScene().AddShape(this);
+	Super::OnRegister();
+	UWorld* World = GetWorld();
+	World->GetCollisionScene().AddShape(this);
 }
 
 void UShapeComponent::OnUnregister()
 {
-    UWorld* World = GetWorld();
-    World->GetCollisionScene().RemoveShape(this);
-    Super::OnUnregister();
+	UWorld* World = GetWorld();
+	World->GetCollisionScene().RemoveShape(this);
+	Super::OnUnregister();
 }
 
 void UShapeComponent::OnTransformDirty()
 {
-    Super::OnTransformDirty();
+	Super::OnTransformDirty();
 
-    if (!IsRegistered() || !GetWorld())
-        return;
+	if (!IsRegistered() || !GetWorld())
+		return;
 
-    GetWorld()->GetCollisionScene().MarkBoundsDirty();
+	GetWorld()->GetCollisionScene().MarkBoundsDirty();
 }
 
 //UShapeComponent::~UShapeComponent()
