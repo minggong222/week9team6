@@ -31,13 +31,4 @@ protected:
 private: 
 	FColor ShapeColor = FColor(223, 149, 157, 255);
 	bool bDrawOnlyIfSelected = false;
-
-	// 충돌 시스템 참여 가능 여부
-	bool bCollisionEnabled = true;
-
-	// Overlap 이벤트 발생시킬지 여부
-	bool bGenerateOverlapEvents = true;
-
-	// Hit 알림 제어 변수: 보류
-	// bool bNotifyHit = true;
 };
