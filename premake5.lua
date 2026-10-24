@@ -152,17 +152,6 @@ project "HitoriEngine"
 		"%{IncludeDir.Sol}",
 	}
 
-	libdirs { "%{IncludeDir.LuaJIT}" }
-
-	links
-	{
-		"d3d11.lib",
-		"dxgi.lib",
-		"dxguid.lib",
-		"d3dcompiler.lib",
-		"lua51.lib",
-	}
-
 	filter "files:Source/ThirdParty/DDSLoader/**.cpp"
 		enablepch "Off"
 		
@@ -267,6 +256,8 @@ project "HitoriGame"
 		"%{IncludeDir.Sol}",
     }
 	
+	libdirs { "%{IncludeDir.LuaJIT}" }
+	
 	links
 	{
 		"HitoriEngine",
@@ -274,7 +265,9 @@ project "HitoriGame"
 		"dxgi.lib",
 		"dxguid.lib",
 		"d3dcompiler.lib",
+		"lua51.lib",
 	}
+	
 	local engineLibPath = path.getabsolute("Build/Bin")
 		.. "\\%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\\HitoriEngine.lib"
 
