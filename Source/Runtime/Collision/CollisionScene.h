@@ -13,7 +13,9 @@ public:
     void UpdateBVH();
 
     void MarkBoundsDirty() { bBoundsDirty = true; }
+
     void QueryCandidates(UShapeComponent* Shape, TArray<UShapeComponent*>& OutCandidates);
+    void QueryOverlaps(UShapeComponent* Shape, TArray<UShapeComponent*>& OutOverlaps, TArray<UShapeComponent*>* OutCandidates = nullptr, int32* OutNarrowTests = nullptr);
 
 private:
     TArray<UShapeComponent*> Shapes;
@@ -27,4 +29,6 @@ private:
 
     bool bElementListChanged = false;
     bool bBoundsDirty = false;
+
+    static bool IntersectsShapes(UShapeComponent* A, UShapeComponent* B, int32* OutNarrowTests = nullptr);
 };
