@@ -47,6 +47,7 @@ void AActor::DispatchBeginPlay()
 	{
 		return;
 	}
+	bIsDispatchingBeginPlay = true;
 	RegisterAllComponents();
 	bIsPlaying = true;
 	bHasBegunPlay = true;
@@ -72,12 +73,15 @@ void AActor::DispatchBeginPlay()
 	RegisterAllActorTickFunctions(true);
 
 	BeginPlay();
+
+	bIsDispatchingBeginPlay = false;
 }
 
 void AActor::DispatchEndPlay()
 {
 	if (!bIsPlaying)
 		return;
+	bIsDispatchingEndPlay = true;
 	bIsPlaying = false;
 	RegisterAllActorTickFunctions(false);
 	EndPlay();
@@ -95,9 +99,10 @@ void AActor::DispatchEndPlay()
 				break;
 			}
 		}
-		if (bStillOwned)
+		if (bStillOwned && Component->IsPlaying())
 			Component->BeginPlayComponent();
 	}
+	bIsDispatchingEndPlay = false;
 }
 
 void AActor::RegisterAllActorTickFunctions(bool bRegister)
@@ -344,7 +349,7 @@ UActorComponent* AActor::AddComponent(UClass* ComponentClass, FName Name)
 
 void AActor::DestroyComponent(UActorComponent* Component)
 {
-	if (!Component || Component->GetOwner() != this)
+	if (!Component || Component->GetOwner() != this || Component->bIsBeingDestroyed)
 		return;
 
 	if (Component == RootComponent)
@@ -364,7 +369,7 @@ void AActor::DestroyComponent(UActorComponent* Component)
 			Candidate->SetupAttachment(Parent->GetAttachParent(), EAttachmentRule::KeepWorld);
 		}
 	}
-
+	Component->bIsBeingDestroyed = true;
 	Component->EndPlayComponent();
 	Component->UnregisterComponent();
 	RemoveOwnedComponent(Component);

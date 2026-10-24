@@ -91,6 +91,7 @@ protected:
 	void ExecuteUnregisterEvents();
 
 private:
+	friend class AActor;
 	AActor* Owner = nullptr;
 	bool bHiddenInDetails = false;
 	bool bIsActive = false;
@@ -100,4 +101,5 @@ private:
 	bool bIsPlaying = false;
 	UWorld* WorldPrivate = nullptr;
 	bool bRenderStateCreated = false;
+	bool bIsBeingDestroyed = false;
 };

@@ -77,17 +77,26 @@ void UEngine::DestroyWorldContext(UWorld* InWorld)
 			if (WorldContextlist[idx].GameViewport)
 			{
 				WorldContextlist[idx].GameViewport->LostFocus();
-				WorldContextlist[idx].GameViewport->Reset();
 			}
 			if (InWorld && ContextType == EWorldType::PIE)
 			{
+				InWorld->ClearWorld();
 				ACameraActor* Camera = InWorld->GetMainCamera();
 				const bool bOwnsCamera = Camera && !Camera->GetLevel();
 				InWorld->SetMainCamera(nullptr);
-				InWorld->ClearWorld();
+				if (WorldContextlist[idx].GameViewport)
+				{
+					WorldContextlist[idx].GameViewport->Reset();
+					WorldContextlist[idx].GameViewport.reset();
+				}
 				for (ULevel* Level : InWorld->GetLevels()) delete Level;
 				if (bOwnsCamera) delete Camera;
 				delete InWorld;
+			}
+			else if (WorldContextlist[idx].GameViewport)
+			{
+				WorldContextlist[idx].GameViewport->Reset();
+				WorldContextlist[idx].GameViewport.reset();
 			}
 			if (WorldContextlist[idx].OwningGameInstance)
 			{

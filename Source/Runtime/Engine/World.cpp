@@ -120,51 +120,60 @@ void UWorld::Tick(float DeltaTime)
 		Scene.UpdateAllTransforms();
 	}
 
-	// 에디터 월드가 아니면 액터 틱을 돌린다
-	if (WorldType != EWorldType::Editor && !bBegunPlay)
+	// 에디터 월드는 별도의 프리뷰 업데이트 경로를 사용한다.
+	if (WorldType == EWorldType::Editor)
 	{
-		while (!BeginPlayList.IsEmpty())
-		{
-			AActor* Actor = BeginPlayList.Peek();
-			BeginPlayList.Dequeue();
-			if (Actor) Actor->BeginPlay();
-		}
-
-		if (!bIsPaused)
-		{
-			SCOPE_CYCLE_COUNTER(STAT_ActorTick);
-			// 모든 Actor를 도는 대신 등록된 Tick 함수만 실행한다
-			TickTaskManager.RunAllTickGroups(DeltaTime);
-
-			for (ULevel* Level : Levels)
-			{
-				PathTracker.Tick(Level->GetActors(), DeltaTime);
-			}
-		}
-	}
-	else
-	{
-		// 에디터 월드에서도 파티클 시뮬레이션은 틱이 돌아야 한다
+		// 기존 에디터 파티클 Tick 루프를 여기에 그대로 유지
 		for (TObjectIterator<UParticleSubUVComponent> Comp; Comp; ++Comp)
 		{
 			if (!Comp || !Comp->IsRegistered() || Comp->GetWorld() != this)
 			{
 				continue;
 			}
+
 			if (Comp->GetParticlesForView().IsEmpty())
-			{
 				Comp->SetParticles(10);
-			}
+
 			Comp->TickComponent(DeltaTime);
 		}
+
+		return;
 	}
 
+	// 플레이 종료 또는 전체 월드 정리 중에는 게임 Tick을 실행하지 않는다.
+	if (!bBegunPlay || bIsEndingPlay || bIsClearingWorld)
+		return;
 
+	// 플레이 중 새로 생성된 액터의 BeginPlay 처리
+	while (!BeginPlayList.IsEmpty())
+	{
+		AActor* Actor = BeginPlayList.Peek();
+		BeginPlayList.Dequeue();
+
+		if (!Actor)
+			continue;
+
+		Actor->DispatchBeginPlay();
+	}
+
+	if (bIsPaused)
+		return;
+
+	{
+		SCOPE_CYCLE_COUNTER(STAT_ActorTick);
+		TickTaskManager.RunAllTickGroups(DeltaTime);
+	}
+
+	for (ULevel* Level : Levels)
+	{
+		if (Level)
+			PathTracker.Tick(Level->GetActors(), DeltaTime);
+	}
 }
 
 void UWorld::ClearWorld()
 {
-	if (bIsClearingWorld)
+	if (bIsClearingWorld || bIsEndingPlay)
 		return;
 	bIsClearingWorld = true;
 	EndPlay();
@@ -524,8 +533,24 @@ bool UWorld::DestroyActor(AActor* Actor)
 
 	ULevel* Level = Actor->GetLevel();
 
-	if (!Level || Actor->bIsBeingDestroyed)
+	if (!Level || Actor->bIsBeingDestroyed || Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay)
 		return false;
+
+	bool bFoundInLevel = false;
+
+	for (AActor* Existing : Level->GetActors())
+	{
+		if (Existing == Actor)
+		{
+			bFoundInLevel = true;
+			break;
+		}
+	}
+
+	if (!bFoundInLevel)
+		return false;
+
+	Actor->bIsBeingDestroyed = true;
 
 	// 1. BeginPlay 대기열에서 제거
 	TQueue<AActor*> NewBeginPlayList;
@@ -780,14 +805,26 @@ void UWorld::BeginPlay()
 	if (PlayerController && PlayerPawn) PlayerController->Possess(PlayerPawn);
 
 	// 기존 액터 목록을 고정한 후 시작한다. BeginPlay 중 생성된 액터는 대기열로 간다.
-	TArray<AActor*> InitialActors;
+
+	struct FActorBeginEntry
+	{
+		AActor* Actor;
+		uint32 UUID;
+	};
+	TArray<FActorBeginEntry> InitialActors;
+
 	for (ULevel* Level : Levels)
-		if (Level)
-			for (AActor* Actor : Level->GetActors())
-				if (Actor) InitialActors.Add(Actor);
+	{
+		if (!Level)
+			continue;
+
+		for (AActor* Actor : Level->GetActors())
+			if (Actor) 
+				InitialActors.Add({ Actor, Actor->GetUUID() });
+	}
 	bBegunPlay = true;
-	for (AActor* Actor : InitialActors)
-		Actor->DispatchBeginPlay();
+	for (const FActorBeginEntry& Entry : InitialActors)
+		Entry.Actor->DispatchBeginPlay();
 
 	// PIE 입력 전에 DefaultPawn의 투사체 풀까지 시작한다.
 	while (!BeginPlayList.IsEmpty())

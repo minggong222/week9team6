@@ -89,5 +89,7 @@ private:
 	bool bHasBegunPlay = false;
 	bool bIsPlaying = false;
 	bool bIsBeingDestroyed = false;
+	bool bIsDispatchingBeginPlay = false;
+	bool bIsDispatchingEndPlay = false;
 	DECLARE_DELEGATE(Test, int);
 };

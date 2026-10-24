@@ -62,8 +62,8 @@ void UActorComponent::EndPlayComponent()
 		return;
 	bIsPlaying = false;
 	SetComponentTickEnabled(false);
-	EndPlay();
 	Deactivate();
+	EndPlay();
 }
 
 void UActorComponent::Activate(bool bReset)

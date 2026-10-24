@@ -110,15 +110,14 @@ void UGameEngine::PreExit()
 	if (!GameContext)
 		return;
 	UWorld* GameWorld = GameContext->World();
-	if (GameWorld)
+	if (!GameWorld)
 	{
+		DestroyWorldContext(nullptr);
 		GameContext = nullptr;
 		return;
 	}
 
 	GameWorld->ClearWorld();
-
-	DestroyWorldContext(GameWorld);
 	GameContext = nullptr;
 
 	ACameraActor* MainCamera = GameWorld->GetMainCamera();

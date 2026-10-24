@@ -34,6 +34,9 @@ public:
 	bool IsTickFunctionRegistered() const { return Manager != nullptr; }
 	bool IsTickFunctionEnabled() const { return TickState != ETickState::Disabled; }
 
+	void RunTickGroup(ETickingGroup Group, float DeltaTime, bool bIsPaused = false);
+	void RunAllTickGroups(float DeltaTime, bool bIsPaused = false);
+
 	uint8 bTickEvenWhenPaused : 1 = false;
 	uint8 bCanEverTick : 1 = false;          // UE 기본값
 	uint8 bStartWithTickEnabled : 1 = true;  // 등록할때 바로 Tick을 켤 껀지?
