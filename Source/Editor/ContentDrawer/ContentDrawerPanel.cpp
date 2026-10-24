@@ -151,6 +151,20 @@ void FContentDrawerPanel::OnRender()
                     ImGui::SetScrollHereY();
                     bRevealSelection = false;
                 }
+                // Script files are not render assets; transfer their relative path by value.
+                const fs::path ScriptRoot = fs::u8path(FScriptEditorUtils::GetScriptRoot());
+                const fs::path ScriptRelative = Path.lexically_relative(ScriptRoot);
+                const bool bLuaScript = !bIsDirectory && Path.extension() == ".lua" &&
+                    !ScriptRelative.empty() && !ScriptRelative.is_absolute() &&
+                    *ScriptRelative.begin() != ".." && ScriptRelative != "template.lua";
+                if (bLuaScript && ImGui::BeginDragDropSource())
+                {
+                    const FString RelativePath = Utf8AssetPath(Path.lexically_relative(AssetRootPath));
+                    ImGui::SetDragDropPayload(EditorDragDrop::LuaScript,
+                        RelativePath.c_str(), RelativePath.size() + 1);
+                    ImGui::TextUnformatted(FilenameString.c_str());
+                    ImGui::EndDragDropSource();
+                }
                 if (!bIsDirectory && Path.extension() == ".lua" && Path.filename() != "template.lua" &&
                     ImGui::BeginPopupContextItem("LuaAssetActions"))
                 {

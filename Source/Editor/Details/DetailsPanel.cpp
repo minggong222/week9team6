@@ -953,9 +953,12 @@ void FDetailsPanel::OnRender()
 
 		DrawActorHeader(TargetActor, TargetComponent);
         // Script creation belongs to the selected Actor, not a manually added component.
-        ULuaComponent* ActorScript = nullptr;
-        for (UActorComponent* Component : TargetActor->GetComponents())
-            if ((ActorScript = Cast<ULuaComponent>(Component))) break;
+        ULuaComponent* ActorScript = Cast<ULuaComponent>(TargetComponent);
+        if (!ActorScript)
+        {
+            for (UActorComponent* Component : TargetActor->GetComponents())
+                if ((ActorScript = Cast<ULuaComponent>(Component))) break;
+        }
         const bool bHasScript = ActorScript && !ActorScript->GetScriptPath().empty();
         const UWorld* ActorWorld = TargetActor->GetWorld();
         const bool bCanCreate = ActorWorld && ActorWorld->GetWorldType() == EWorldType::Editor &&
@@ -964,7 +967,7 @@ void FDetailsPanel::OnRender()
         ImGui::BeginDisabled(!bCanCreate);
         if (ImGui::Button(bHasScript ? "Show Script" : "Create Script"))
         {
-            ULuaComponent* Script = FScriptEditorUtils::CreateScriptForActor(
+            ULuaComponent* Script = bHasScript ? ActorScript : FScriptEditorUtils::CreateScriptForActor(
                 TargetActor, FEditorFileUtils::GetCurrentScenePath());
             if (Script)
             {
@@ -982,7 +985,33 @@ void FDetailsPanel::OnRender()
             }
         }
         ImGui::PopID();
-		DrawCompoenetList(TargetActor, TargetComponent);				
+        const ImVec2 ComponentListStart = ImGui::GetCursorScreenPos();
+        const float ComponentListWidth = ImGui::GetContentRegionAvail().x;
+        DrawCompoenetList(TargetActor, TargetComponent);
+        const ImRect ComponentListBounds(
+            ComponentListStart,
+            ImVec2(ComponentListStart.x + ComponentListWidth, ImGui::GetCursorScreenPos().y));
+
+        const bool bCanAssign = ActorWorld &&
+            ActorWorld->GetWorldType() == EWorldType::Editor && !ActorWorld->HasBegunPlay();
+        if (bCanAssign && ImGui::BeginDragDropTargetCustom(
+            ComponentListBounds, ImGui::GetID("ComponentListLuaDrop")))
+        {
+            if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload(EditorDragDrop::LuaScript))
+            {
+                const char* Data = static_cast<const char*>(Payload->Data);
+                if (Data && Payload->DataSize > 1 && Data[Payload->DataSize - 1] == '\0')
+                {
+                    const FString RelativePath(Data, Payload->DataSize - 1);
+                    if (ULuaComponent* Script = FScriptEditorUtils::AssignScript(TargetActor, RelativePath))
+                    {
+                        TargetComponent = Script;
+                        if (ScriptCreatedCallback) ScriptCreatedCallback(Script->GetScriptPath());
+                    }
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
 		ImGui::Separator();
 
 		// 액터 -> 컴포넌트 순으로, 클래스별 프로퍼티 표시

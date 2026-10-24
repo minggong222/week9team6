@@ -20,6 +20,9 @@ public:
     // Reuse an existing component, or attach one automatically on success.
     static ULuaComponent* CreateScriptForActor(AActor* Actor, const FString& ScenePath);
 
+    // Attach a new LuaComponent for an existing Lua file. Path is relative to Assets.
+    static ULuaComponent* AssignScript(AActor* Actor, const FString& RelativePath);
+
     // Input and output paths are relative to Assets.
     // Rename within the script's folder; update references in the open editor World.
     // Save the scene afterwards to persist those reference changes.

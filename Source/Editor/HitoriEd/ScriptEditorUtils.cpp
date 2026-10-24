@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "Engine/Level.h"
 #include "GameFramework/Actor.h"
+#include "UObject/UObjectGlobals.h"
 #include "Core/EngineLog.h"
 #include "IO/FileUtils.h"
 #include <filesystem>
@@ -20,6 +21,21 @@ namespace
     {
         const auto Text = Path.generic_u8string();
         return FString(Text.begin(), Text.end());
+    }
+
+    void SetScriptComponentName(ULuaComponent* Component)
+    {
+        const FString BaseName = ToUtf8(
+            std::filesystem::u8path(Component->GetScriptPath()).stem());
+        FName Name(BaseName);
+        int Suffix = 1;
+        for (;;)
+        {
+            UObject* Existing = StaticFindObjectFast(nullptr, Component->GetOuter(), Name);
+            if (!Name.IsNone() && (!Existing || Existing == Component)) break;
+            Name = FName(BaseName + "_" + std::to_string(Suffix++));
+        }
+        Component->SetName(Name);
     }
 
     bool IsValidName(const FString& Name)
@@ -96,6 +112,7 @@ bool FScriptEditorUtils::CreateScript(ULuaComponent* Component, const FString& S
             HTR_LOG(Error, "Create Script: could not assign {} to the component.", RelativePath);
             return false;
         }
+        SetScriptComponentName(Component);
         HTR_LOG(Info, "Created script: {}. Save the scene to keep the Actor connection.", RelativePath);
         return true;
     }
@@ -120,6 +137,54 @@ ULuaComponent* FScriptEditorUtils::CreateScriptForActor(AActor* Actor, const FSt
     if (Component && CreateScript(Component, ScenePath)) return Component;
     if (bCreatedComponent && Component) Actor->DestroyComponent(Component);
     return nullptr;
+}
+
+ULuaComponent* FScriptEditorUtils::AssignScript(AActor* Actor, const FString& RelativePath)
+{
+    if (!Actor || RelativePath.empty()) return nullptr;
+    const UWorld* World = Actor->GetWorld();
+    if (!World || World->GetWorldType() != EWorldType::Editor || World->HasBegunPlay())
+    {
+        HTR_LOG(Warning, "Assign Script: select an Actor in the editor outside play mode.");
+        return nullptr;
+    }
+
+    namespace Files = std::filesystem;
+    try
+    {
+        const Files::path Input = Files::u8path(RelativePath);
+        if (Input.is_absolute() || Input.has_root_name()) return nullptr;
+        const Files::path Root = Files::weakly_canonical(Files::u8path(GetScriptRoot()));
+        const Files::path Path = Files::weakly_canonical(
+            Files::u8path(FileUtils::GetAssetFullPath(RelativePath)));
+        const Files::path Relative = Path.lexically_relative(Root);
+        if (Relative.empty() || Relative.is_absolute() || *Relative.begin() == ".." ||
+            Relative == "template.lua" || Path.extension() != ".lua" || !Files::is_regular_file(Path))
+        {
+            HTR_LOG(Warning, "Assign Script: choose an existing Lua file inside Assets/Scripts.");
+            return nullptr;
+        }
+
+        const Files::path AssetRoot = Files::weakly_canonical(Files::path("Assets"));
+        const FString StoredPath = ToUtf8(Path.lexically_relative(AssetRoot));
+        ULuaComponent* Component = Cast<ULuaComponent>(
+            Actor->AddComponent(ULuaComponent::StaticClass(), FName()));
+        if (!Component) return nullptr;
+        if (!Component->SetScriptPath(StoredPath))
+        {
+            Actor->DestroyComponent(Component);
+            return nullptr;
+        }
+
+        SetScriptComponentName(Component);
+        HTR_LOG(Info, "Connected existing script: {}. Save the scene to keep the Actor connection.", StoredPath);
+        return Component;
+    }
+    catch (const Files::filesystem_error& Error)
+    {
+        HTR_LOG(Error, "Assign Script failed: {}", Error.what());
+        return nullptr;
+    }
 }
 
 bool FScriptEditorUtils::RenameScript(const FString& RelativePath, const FString& NewName,
