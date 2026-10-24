@@ -1,23 +1,57 @@
 #pragma once
 
-#include "Scripting/Lua.h"
+#include "Scripting/LuaInstance.h"
+#include "Containers/Array.h"
+#include "Core/Types.h"
 
-#include "sol/sol.hpp"
+class ULuaComponent;
+
+struct FCoroutineTask
+{
+    FLuaInstance* Instance = nullptr;
+    sol::thread Thread;
+    sol::coroutine Coroutine;
+    float RemainingTime = 0.0f;
+    bool bCancelled = false;
+};
 
 class FLuaManager
 {
+public:
+    FLuaManager() = default;
+    ~FLuaManager() = default;
+    FLuaManager(const FLuaManager&) = delete;
+    FLuaManager& operator=(const FLuaManager&) = delete;
+
+    void Initialize();
+    FLuaInstance* CreateInstance(
+        FStringView Path,
+        UObject* Owner
+    );
+
+    bool SetJITEnable(bool Value);
+    bool GetJITEnable() const { return bJITEnabled; }
+
+    void StartCoroutine(FLuaInstance* Instance, sol::protected_function Function);
+    void UpdateCoroutines(float DeltaTime);
+    void StopCoroutines(FLuaInstance* Instance);
+
+    bool ReloadAll();
+    bool Reload(int32 Handle);
+    bool Remove(int32 Handle);
+    bool Remove(FLuaInstance* Instance);
+
 private:
 
-	sol::state State;
-	bool bJITEnabled = true;
+    bool CheckRange(int32 Index) const;
+    bool ResumeCoroutine(FCoroutineTask& Task);
+    void OnInstanceLoaded(FLuaInstance& Instance);
+    void OnInstanceUnloaded(FLuaInstance& Instance);
 
-public:
-
-	void Initialize();
-
-	// 새로운 Lua 스크립트를 불러와서 FLua를 반환합니다.
-	FLua Load(FStringView Path);
-
-	bool SetJITEnable(bool Value);
-	bool GetJITEnable() { return bJITEnabled; }
+    sol::state State;
+    bool bJITEnabled = true;
+    
+    TArray<TUniquePtr<FLuaInstance>> Instances;
+    // Destroy coroutine references before instances and their shared Lua state.
+    TArray<TUniquePtr<FCoroutineTask>> Coroutines;
 };

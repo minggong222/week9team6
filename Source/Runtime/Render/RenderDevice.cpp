@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Utility/WindowsUtils.h"
 #include "RenderDevice.h"
 
 #include "Buffer.h"
@@ -182,8 +183,7 @@ TUniquePtr<FTexture2D> FRenderDevice::CreateTexture2D(const D3D11_TEXTURE2D_DESC
 }
 
 TUniquePtr<FTexture2D> FRenderDevice::LoadDDSTexture(const FString& Path) {
-	const std::u8string UTF8Path{ Path.begin(), Path.end() };
-	const std::wstring FilePath{ std::filesystem::path{ UTF8Path }.wstring() };
+	const std::wstring FilePath{ WindowsUtils::ToWstring(Path) };
 	ComPtr<ID3D11Resource> Resource{};
 	// 메시·아이콘 텍스처는 모두 sRGB 인코딩 값 그대로(_UNORM) 올린다.
 	// 색으로 쓰는 곳(UberLit 디퓨즈, 파티클)이 셰이더에서 직접 선형으로 바꾸고,

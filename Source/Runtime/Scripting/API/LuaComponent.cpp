@@ -4,7 +4,22 @@
 #include "Engine/World.h"
 #include "Render/Material.h"
 
+extern void LuaRegisterComponentBase(sol::state& State);
+extern void LuaRegisterComponentCommon(sol::state& State);
+extern void LuaRegisterComponentMesh(sol::state& State);
+extern void LuaRegisterComponentMovement(sol::state& State);
+extern void LuaRegisterComponentLight(sol::state& State);
+
 void LuaRegisterComponent(sol::state& State)
+{
+    LuaRegisterComponentBase(State);
+    LuaRegisterComponentCommon(State);
+    LuaRegisterComponentMesh(State);
+    LuaRegisterComponentMovement(State);
+    LuaRegisterComponentLight(State);
+}
+
+void LuaRegisterComponentBase(sol::state& State)
 {
     State.new_enum("EAttachmentRule",
         "KeepRelative", EAttachmentRule::KeepRelative,

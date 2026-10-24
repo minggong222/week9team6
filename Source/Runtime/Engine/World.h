@@ -20,6 +20,8 @@
 
 //class ACameraActor;
 class ULevel;
+class UGameInstance;
+class FLuaManager;
 class UBillboardComponent;
 class APawn;
 class APlayerController;
@@ -35,6 +37,9 @@ public:
 	virtual ~UWorld();
 
 	bool Init();
+	void SetGameInstance(UGameInstance* InGameInstance) { OwningGameInstance = InGameInstance; }
+	UGameInstance* GetGameInstance() const { return OwningGameInstance; }
+	FLuaManager* GetLuaManager() const;
 	/*UPrimitiveComponent* SpawnPrimitive(FClass* Class);*/
 	AActor* SpawnActor(UClass* Class, FName InName = NAME_None, const FTransform* Transform = nullptr);
 
@@ -55,6 +60,11 @@ public:
 	// 카메라 Get/Set
 	void SetMainCamera(ACameraActor* Camera);
 	ACameraActor* GetMainCamera() const { return MainCamera; }
+	UCameraComponent* GetMainCameraComponent() const;
+	UCameraComponent* GetPlayerCamera() const;
+	// 게임 뷰포트 카메라를 선택한다. nullptr이면 자동 선택으로 복귀한다.
+	// 다른 월드의 카메라이거나 게임 뷰포트가 없으면 false를 반환한다.
+	bool SetMainCameraComponent(UCameraComponent* Camera);
 
 	// Level
 	ULevel* GetPersistentLevel() const { return PersistentLevel; }
@@ -78,12 +88,14 @@ public:
 	bool SweepSingle(const FRay& WorldRay, float MaxDistance, float Radius, FHitResult& OutHit, AActor* IgnoreActor = nullptr);
 
 	void BeginPlay();
+	// 등록은 즉시, 초기화와 BeginPlay는 다음 시작 배치에서 실행한다.
+	void EnqueueComponentStart(UActorComponent* Component);
 	void EndPlay();
 	bool HasBegunPlay() const { return bBegunPlay; }
 	APawn* GetPlayerPawn() const { return PlayerPawn; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
 	bool IsPaused() const { return bIsPaused; }
-	void SetPaused(bool bPaused) { bIsPaused = bPaused; }
+	void SetPaused(bool bPaused);
 
 	FScene& GetScene() { return Scene; }
 
@@ -104,10 +116,31 @@ public:
 
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 
+	bool IsActorInWorld(const AActor* Actor, uint32 ExpectedUUID) const;
 
 	using Super::Serialize;
 	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 private:
+	void ProcessPendingStarts();
+	struct FPendingComponentStart
+	{
+		AActor* Owner = nullptr;
+		uint32 OwnerUUID = 0;
+		UActorComponent* Component = nullptr;
+		uint32 ComponentUUID = 0;
+	};
+	TArray<FPendingComponentStart> PendingComponentStarts;
+	bool bIsProcessingStarts = false;
+	void ProcessPendingDestroyActors();
+	void ProcessPendingComponentDestructions();
+	bool bIsProcessingPendingComponentDestruction = false;
+	struct FPendingActorDestroy
+	{
+		AActor* Actor = nullptr;
+		uint32 UUID = 0;
+	};
+
+	UGameInstance* OwningGameInstance = nullptr;
 	EWorldType WorldType = EWorldType::None;
 
 	struct alignas(64) FGatherChunk
@@ -127,6 +160,7 @@ private:
 	FTickTaskManager TickTaskManager;
 
 	TQueue<AActor*> BeginPlayList;
+	TQueue<FPendingActorDestroy> PendingDestroyList;
 
 	//메인 카메라 
 	ACameraActor* MainCamera = nullptr;
@@ -151,4 +185,6 @@ private:
 
 	FRenderStats RenderStats;
 
+	bool bIsEndingPlay = false;
+	bool bIsClearingWorld = false;
 };

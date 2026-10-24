@@ -105,10 +105,15 @@ bool UEditorEngine::Init()
 
 	HTR_LOG(Info, "Initialize ImGui...");
 	ImGuiRenderer = MakeUnique<FImGuiRenderer>();
+
 	if (!ImGuiRenderer->Init(MainWindow->GetHandle(), RenderDevice->GetDevice(), RenderDevice->GetContext()))
 	{
 		HTR_LOG(Error, "Failed To Initialize ImGui!");
+
+		ImGuiRenderer.reset();
+		return false;
 	}
+
 	HTR_LOG(Info, "Initialize ImGui Success!");
 
 	GridRenderer = MakeUnique<FGridRenderer>();
@@ -145,6 +150,11 @@ bool UEditorEngine::Init()
 	EditorControlsPanel = EditorUI->AddEditorPanel<FEditorControlsPanel>();
 	ViewportsPanel = EditorUI->AddEditorPanel<FViewportsPanel>();
 	ContentDrawerPanel = EditorUI->AddEditorPanel<FContentDrawerPanel>();
+    ContentDrawerPanel->SetWorld(EditorWorld);
+    DetailsPanel->SetScriptCreatedCallback([this](const FString& ScriptPath)
+    {
+        ContentDrawerPanel->SelectAsset("Assets/" + ScriptPath);
+    });
 
 	// OutLine
 	OutlineRenderer = MakeUnique<FOutlineRenderer>();
@@ -476,14 +486,16 @@ void UEditorEngine::TickWorldAndEditor(const float DeltaTime)
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_WorldTick);
-		if (bStepRequested && bIsPaused)
+		UWorld* ActiveWorld = GetActiveWorld();
+
+		if (bStepRequested && bIsPaused && ActiveWorld)
 		{
 			GetActiveWorld()->SetPaused(false);
 			GetActiveWorld()->Tick(1.0f / 60.0f);
 			GetActiveWorld()->SetPaused(true);
 			bStepRequested = false;
 		}
-		else if(!bIsPaused)
+		else if(ActiveWorld && (!bIsPaused || ActiveWorld == PlayWorld))
 			GetActiveWorld()->Tick(DeltaTime);
 
 	}
@@ -1246,10 +1258,12 @@ void UEditorEngine::DrawPIEWindows()
 void UEditorEngine::PreExit()
 {
 	EndPlayMap();
-	EditorWorld->ClearWorld();
+	if(EditorWorld)
+		EditorWorld->ClearWorld();
 	// PIE 창이 열린 채 종료하면 Device가 살아 있을 때 Swapchain과 타깃을 먼저 정리한다.
 	DestroyPIEWindow();
-	ImGuiRenderer->Shutdown();
+	if(ImGuiRenderer)
+		ImGuiRenderer->Shutdown();
 }
 
 // 선택과 Gizmo 참조를 정리한 뒤 Actor를 삭제한다.
@@ -1338,6 +1352,7 @@ void UEditorEngine::OnActiveWorldChanged()
 	UWorld* UIWorld = PlayWorld ? PlayWorld : EditorWorld;
 	if (OutlinerPanel) OutlinerPanel->SetWorld(UIWorld);
 	if (DetailsPanel) DetailsPanel->SetWorld(UIWorld);
+	if (ContentDrawerPanel) ContentDrawerPanel->SetWorld(UIWorld);
 	if (EditorControlsPanel) EditorControlsPanel->SetWorld(UIWorld);
 	if (SettingsPanel) SettingsPanel->SetWorld(UIWorld);
 }

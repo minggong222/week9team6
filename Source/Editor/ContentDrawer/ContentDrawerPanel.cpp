@@ -3,6 +3,25 @@
 #include "Asset/AssetManager.h"
 #include "Text/Font.h"
 #include "Editor/HitoriEd/EditorDragDrop.h"
+#include "Editor/HitoriEd/ScriptEditorUtils.h"
+#include "Engine/World.h"
+
+namespace
+{
+    FString Utf8AssetPath(const fs::path& Path)
+    {
+        const auto Text = Path.generic_u8string();
+        return FString(Text.begin(), Text.end());
+    }
+}
+
+void FContentDrawerPanel::SelectAsset(const FString& Path)
+{
+    SelectedAssetPath = fs::u8path(Path).lexically_normal();
+    CurrentPath = SelectedAssetPath.parent_path();
+    bRevealSelection = true;
+}
+
 
 bool FContentDrawerPanel::Init()
 {
@@ -80,8 +99,8 @@ void FContentDrawerPanel::OnRender()
 
 				ImGui::TableNextColumn();
 
-				std::string PathString = Path.generic_string();
-				std::string FilenameString = Path.filename().string();
+				std::string PathString = Utf8AssetPath(Path);
+				std::string FilenameString = Utf8AssetPath(Path.filename());
 
 				ImGui::PushID(PathString.c_str()); // 각 위젯에 고유 ID 부여
 				UTexture2D* Thumbnail = nullptr;
@@ -117,10 +136,50 @@ void FContentDrawerPanel::OnRender()
 						Thumbnail = UAssetManager::GetAssetByPath<UTexture2D>(FileIconPath);
 					}
 				}
-				if (Thumbnail)
-				{
-					ImGui::ImageButton(PathString.c_str(), (ImTextureID)Thumbnail->GetResource()->GetSRV(), { thumbnailSize, thumbnailSize });
-				}
+                const bool bSelected = Path.lexically_normal() == SelectedAssetPath;
+                if (bSelected) ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Header));
+                if (Thumbnail && Thumbnail->GetResource())
+                    ImGui::ImageButton(PathString.c_str(), (ImTextureID)Thumbnail->GetResource()->GetSRV(), { thumbnailSize, thumbnailSize });
+                else
+                    ImGui::Button(FilenameString.c_str(), { thumbnailSize, thumbnailSize });
+                if (bSelected) ImGui::PopStyleColor();
+
+                const bool bItemHovered = ImGui::IsItemHovered();
+                if (ImGui::IsItemClicked()) SelectedAssetPath = Path.lexically_normal();
+                if (bSelected && bRevealSelection)
+                {
+                    ImGui::SetScrollHereY();
+                    bRevealSelection = false;
+                }
+                // Script files are not render assets; transfer their relative path by value.
+                const fs::path ScriptRoot = fs::u8path(FScriptEditorUtils::GetScriptRoot());
+                const fs::path ScriptRelative = Path.lexically_relative(ScriptRoot);
+                const bool bLuaScript = !bIsDirectory && Path.extension() == ".lua" &&
+                    !ScriptRelative.empty() && !ScriptRelative.is_absolute() &&
+                    *ScriptRelative.begin() != ".." && ScriptRelative != "template.lua";
+                if (bLuaScript && ImGui::BeginDragDropSource())
+                {
+                    const FString RelativePath = Utf8AssetPath(Path.lexically_relative(AssetRootPath));
+                    ImGui::SetDragDropPayload(EditorDragDrop::LuaScript,
+                        RelativePath.c_str(), RelativePath.size() + 1);
+                    ImGui::TextUnformatted(FilenameString.c_str());
+                    ImGui::EndDragDropSource();
+                }
+                if (!bIsDirectory && Path.extension() == ".lua" && Path.filename() != "template.lua" &&
+                    ImGui::BeginPopupContextItem("LuaAssetActions"))
+                {
+                    const bool bCanRename = World && World->GetWorldType() == EWorldType::Editor && !World->HasBegunPlay();
+                    if (ImGui::MenuItem("Rename", nullptr, false, bCanRename))
+                    {
+                        SelectedAssetPath = Path.lexically_normal();
+                        PendingRenamePath = Path;
+                        const FString Name = Utf8AssetPath(Path.stem());
+                        strncpy_s(RenameBuffer, sizeof(RenameBuffer), Name.c_str(), _TRUNCATE);
+                        RenameError.clear();
+                        bOpenRenameDialog = true;
+                    }
+                    ImGui::EndPopup();
+                }
 
 				// 페이로드에 포인터를 그대로 실어서 받는 쪽이 AssetMap을 다시 뒤지지 않게 한다.
 				if (TextureAsset && ImGui::BeginDragDropSource())
@@ -142,12 +201,17 @@ void FContentDrawerPanel::OnRender()
 					ImGui::EndDragDropSource();
 				}
 				// 더블 클릭 이벤트 처리
-				if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+				if (bItemHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 				{
 					if (bIsDirectory)
 					{
 						CurrentPath /= Path.filename(); // 하위 폴더로 이동
 					}
+                    else if (Path.extension() == ".lua")
+                    {
+                        const fs::path RelativePath = Path.lexically_relative(AssetRootPath);
+                        FScriptEditorUtils::EditScript(Utf8AssetPath(RelativePath));
+                    }
 				}
 				// 파일 이름 표시
 				ImGui::TextWrapped("%s", FilenameString.c_str());
@@ -158,6 +222,7 @@ void FContentDrawerPanel::OnRender()
 		}
 	}
 	ImGui::EndChild();
+	DrawRenameDialog();
 	ImGui::End();
 }
 
@@ -206,4 +271,40 @@ void FContentDrawerPanel::RenderFolderTree(const fs::path& Path, fs::path& Selec
 	{
 		ImGui::TextUnformatted("Could not read this folder.");
 	}
+}
+
+void FContentDrawerPanel::DrawRenameDialog()
+{
+    const bool bOpening = bOpenRenameDialog;
+    if (bOpening)
+    {
+        ImGui::OpenPopup("Rename Lua Script");
+        bOpenRenameDialog = false;
+    }
+    if (!ImGui::BeginPopupModal("Rename Lua Script", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+
+    ImGui::TextUnformatted("Name");
+    if (bOpening) ImGui::SetKeyboardFocusHere();
+    const bool bSubmit = ImGui::InputText("##LuaScriptName", RenameBuffer, sizeof(RenameBuffer),
+        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+    if (ImGui::Button("Rename") || bSubmit)
+    {
+        const fs::path Root = AssetRootPath;
+        const FString Relative = Utf8AssetPath(PendingRenamePath.lexically_relative(Root));
+        FString NewRelative;
+        if (FScriptEditorUtils::RenameScript(Relative, RenameBuffer, World, NewRelative, RenameError))
+        {
+            SelectAsset(Utf8AssetPath(Root / fs::u8path(NewRelative)));
+            PendingRenamePath.clear();
+            ImGui::CloseCurrentPopup();
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel"))
+    {
+        PendingRenamePath.clear();
+        ImGui::CloseCurrentPopup();
+    }
+    if (!RenameError.empty()) ImGui::TextWrapped("%s", RenameError.c_str());
+    ImGui::EndPopup();
 }

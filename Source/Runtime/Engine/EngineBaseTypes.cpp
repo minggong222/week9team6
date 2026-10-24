@@ -29,6 +29,27 @@ void FTickFunction::SetTickFunctionEnable(bool bEnable)
 	RelativeTickCooldown = TickInterval;
 }
 
+bool FTickFunction::SetTickGroup(ETickingGroup InTickGroup)
+{
+	if (static_cast<uint8>(InTickGroup) >= static_cast<uint8>(ETickingGroup::Max))
+	{
+		HTR_LOG(Warning, "SetTickGroup: Invalid ticking group.");
+		return false;
+	}
+
+	if (TickGroup == InTickGroup)
+		return true;
+
+	if (Manager)
+	{
+		HTR_LOG(Warning, "SetTickGroup: Unregister the tick function before changing its group.");
+		return false;
+	}
+
+	TickGroup = InTickGroup;
+	return true;
+}
+
 void FActorTickFunction::ExecuteTick(float DeltaTime)
 {
 	if (Target)
@@ -38,7 +59,7 @@ void FActorTickFunction::ExecuteTick(float DeltaTime)
 void FActorComponentTickFunction::ExecuteTick(float DeltaTime)
 {
 	if (Target)
-		Target->TickComponent(DeltaTime);
+		Target->DispatchTickComponent(DeltaTime);
 }
 
 FTickTaskManager::~FTickTaskManager()
@@ -56,13 +77,45 @@ FTickTaskManager::~FTickTaskManager()
 
 void FTickTaskManager::AddTickFunction(FTickFunction* Function)
 {
-	TArray<FTickFunction*>& Functions = Groups[static_cast<uint8>(Function->TickGroup)];
+	assert(Function);
+
 	Function->Manager = this;
+	Function->ManagerIndex = INDEX_NONE;
+
+	if (bIsRunningAllTickGroups)
+	{
+		PendingAdditions.Add(Function);
+		return;
+	}
+
+	TArray<FTickFunction*>& Functions = Groups[static_cast<uint8>(Function->TickGroup)];
+
 	Function->ManagerIndex = static_cast<int32>(Functions.Add(Function));
+
 }
 
 void FTickTaskManager::RemoveTickFunction(FTickFunction* Function)
 {
+	if (!Function || Function->Manager != this)
+		return;
+
+	// 아직 그룹 배열에 들어가지 않은 등록 대기 항목이다.
+	if (Function->ManagerIndex == INDEX_NONE)
+	{
+		for (int32 i = PendingAdditions.Num() - 1; i >= 0; --i)
+		{
+			if (PendingAdditions[i] == Function)
+			{
+				PendingAdditions.RemoveAtSwap(i);
+				break;
+			}
+		}
+
+		Function->Manager = nullptr;
+		Function->ManagerIndex = INDEX_NONE;
+		Function->TickState = FTickFunction::ETickState::Disabled;
+		return;
+	}
 	TArray<FTickFunction*>& Functions = Groups[static_cast<uint8>(Function->TickGroup)];
 	const int32 Index = Function->ManagerIndex;
 
@@ -86,7 +139,7 @@ void FTickTaskManager::RemoveTickFunction(FTickFunction* Function)
 		Functions[Index]->ManagerIndex = Index;
 }
 
-void FTickTaskManager::RunTickGroup(ETickingGroup Group, float DeltaTime)
+void FTickTaskManager::RunTickGroup(ETickingGroup Group, float DeltaTime, bool bIsPaused)
 {
 	TArray<FTickFunction*>& Functions = Groups[static_cast<uint8>(Group)];
 
@@ -97,6 +150,8 @@ void FTickTaskManager::RunTickGroup(ETickingGroup Group, float DeltaTime)
 	{
 		FTickFunction* Function = Functions[i];
 		if (!Function || Function->TickState == FTickFunction::ETickState::Disabled)
+			continue;
+		if (bIsPaused && !Function->bTickEvenWhenPaused)
 			continue;
 
 		float TickDelta = DeltaTime;
@@ -122,10 +177,20 @@ void FTickTaskManager::RunTickGroup(ETickingGroup Group, float DeltaTime)
 		FlushPendingRemovals();
 }
 
-void FTickTaskManager::RunAllTickGroups(float DeltaTime)
+void FTickTaskManager::RunAllTickGroups(float DeltaTime, bool bIsPaused)
 {
+	assert(!bIsRunningAllTickGroups);
+
+	bIsRunningAllTickGroups = true;
+
 	for (uint8 Group = 0; Group < static_cast<uint8>(ETickingGroup::Max); ++Group)
-		RunTickGroup(static_cast<ETickingGroup>(Group), DeltaTime);
+	{
+		RunTickGroup(static_cast<ETickingGroup>(Group), DeltaTime, bIsPaused);
+	}
+
+	bIsRunningAllTickGroups = false;
+	 
+	FlushPendingAdditions();
 }
 
 int32 FTickTaskManager::GetRegisteredCount() const
@@ -152,4 +217,21 @@ void FTickTaskManager::FlushPendingRemovals()
 		Group.SetNum(Write, false);
 	}
 	bHasPendingRemovals = false;
+}
+
+void FTickTaskManager::FlushPendingAdditions()
+{
+	for (FTickFunction* Function : PendingAdditions)
+	{
+		if (!Function || Function->Manager != this || Function->ManagerIndex != INDEX_NONE)
+		{
+			continue;
+		}
+
+		TArray<FTickFunction*>& Functions = Groups[static_cast<uint8>(Function->TickGroup)];
+
+		Function->ManagerIndex = static_cast<int32>(Functions.Add(Function));
+	}
+
+	PendingAdditions.Reset();
 }

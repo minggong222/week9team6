@@ -24,12 +24,15 @@ public:
 	virtual ~AActor();
 
 	virtual void BeginPlay(); // xx World->AddPrimitive 책임이동 필요
+	void DispatchBeginPlay();
 	bool HasBegunPlay() const { return bHasBegunPlay; }
+	bool IsPlaying() const { return bIsPlaying; }
 	// 액터 자신의 로직. 컴포넌트는 각자의 PrimaryComponentTick으로 따로 실행된다.
 	virtual void Tick(float DeltaTime) {};
 	virtual void EndPlay() {};
+	void DispatchEndPlay();
 	// FActorTickFunction이 호출하는 진입점
-	void TickActor(float DeltaTime) { Tick(DeltaTime); }
+	void TickActor(float DeltaTime);
 
 	UWorld* GetWorld() const { return World; }
 	ULevel* GetLevel() const { return Level; }
@@ -82,6 +85,25 @@ protected:
 	UWorld* World = nullptr;
 	ULevel* Level = nullptr;
 private:
+	friend class UActorComponent;
+
+	struct FPendingComponentDestroy
+	{
+		UActorComponent* Component = nullptr;
+		uint32 UUID = 0;
+	};
+
+	TArray<FPendingComponentDestroy> PendingComponentDestroyList;
+
+	void ProcessPendingComponentDestruction();
+
+	bool bIsProcessingComponentDestruction = false;
+	bool bIsExecutingComponentCallback = false;
 	bool bActorEnableCollision = true;
 	bool bHasBegunPlay = false;
+	bool bIsPlaying = false;
+	bool bIsBeingDestroyed = false;
+	bool bIsDispatchingBeginPlay = false;
+	bool bIsDispatchingEndPlay = false;
+	bool bIsPendingDestroy = false;
 };

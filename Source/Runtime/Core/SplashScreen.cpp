@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Utility/WindowsUtils.h"
 #include "SplashScreen.h"
 
 #include "Render/ImageLoader.h"
@@ -29,7 +30,7 @@ namespace
 		int32 ImageWidth = 0;   
 		int32 ImageHeight = 0;
 
-		std::wstring Text;
+		FString Text;
 		float Progress = 0.0f;
 	};
 
@@ -98,7 +99,7 @@ namespace
 			FillRect(MemDC, &Client, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
 		}
 
-		std::wstring Text;
+		FString Text;
 		float Progress;
 		{
 			std::lock_guard Lock(GSplash.Mutex);
@@ -120,7 +121,7 @@ namespace
 		SetTextColor(MemDC, RGB(255, 255, 255));
 		HGDIOBJ OldFont = SelectObject(MemDC, GetStockObject(DEFAULT_GUI_FONT));
 		RECT TextRect = { TextMargin, 0, W - TextMargin, H - ProgressBarHeight - TextMargin / 2 };
-		DrawTextW(MemDC, Text.c_str(), -1, &TextRect, DT_LEFT | DT_BOTTOM | DT_SINGLELINE);
+		DrawTextW(MemDC, WindowsUtils::ToWstring(Text).c_str(), -1, &TextRect, DT_LEFT | DT_BOTTOM | DT_SINGLELINE);
 		SelectObject(MemDC, OldFont);
 
 		BitBlt(ScreenDC, 0, 0, W, H, MemDC, 0, 0, SRCCOPY);
@@ -234,12 +235,6 @@ void FSplashScreen::Show(HINSTANCE hInstance, const FString& ImagePath)
 }
 
 void FSplashScreen::SetText(const FString& Text)
-{
-	std::wstring WString(Text.begin(), Text.end());
-	SetText(WString);
-}
-
-void FSplashScreen::SetText(const std::wstring& Text)
 {
 	HWND hWnd;
 	{

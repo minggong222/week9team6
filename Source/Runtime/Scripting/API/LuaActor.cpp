@@ -3,6 +3,8 @@
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "Engine/Level.h"
+#include "GameFramework/Pawn.h"
+#include "Camera/CameraActor.h"
 
 void LuaRegisterActor(sol::state& State)
 {
@@ -42,4 +44,18 @@ void LuaRegisterActor(sol::state& State)
         "HasBegunPlay", &AActor::HasBegunPlay,
         "Destroy", &AActor::Destroy
     );
+
+    State.new_usertype<APawn>("APawn", sol::no_constructor,
+        sol::base_classes, sol::bases<AActor, UObject>(),
+        "StaticClass", &APawn::StaticClass,
+        "Cast", &Cast<APawn>,
+        "AddMovementInput", &APawn::AddMovementInput,
+        "AddControllerYawInput", &APawn::AddControllerYawInput,
+        "AddControllerPitchInput", &APawn::AddControllerPitchInput);
+
+    State.new_usertype<ACameraActor>("ACameraActor", sol::no_constructor,
+        sol::base_classes, sol::bases<AActor, UObject>(),
+        "StaticClass", &ACameraActor::StaticClass,
+        "Cast", &Cast<ACameraActor>,
+        "GetCameraComponent", &ACameraActor::GetCameraComponent);
 }

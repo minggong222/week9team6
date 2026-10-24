@@ -1,9 +1,10 @@
 #include "EnginePCH.h"
+#include "Utility/WindowsUtils.h"
 #include "Font.h"
 
 bool UFont::LoadFontAtlasJson(const FString& JsonPath)
 {
-	std::ifstream File(JsonPath);
+	std::ifstream File{ fs::path{ WindowsUtils::ToWstring(JsonPath) } };
 	if (!File.is_open())
 	{
 		return false;

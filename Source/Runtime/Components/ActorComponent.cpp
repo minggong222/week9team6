@@ -39,16 +39,132 @@ void UActorComponent::PostEditChangeProperty(const FProperty& Property)
 		MarkRenderStateDirty();
 }
 
+void UActorComponent::InitializeComponentOnce()
+{
+	if (bIsInitialized || bIsPendingDestroy || !IsRegistered() || !WorldPrivate ||
+		!WorldPrivate->HasBegunPlay() || (Owner && Owner->bIsPendingDestroy))
+		return;
+
+	AActor* MyOwner = Owner;
+	const bool bWasExecuting = MyOwner ? MyOwner->bIsExecutingComponentCallback : false;
+	if (MyOwner) MyOwner->bIsExecutingComponentCallback = true;
+	// 재진입과 콜백 중 삭제는 기존 시작 보호 경로로 처리한다.
+	bIsDispatchingBeginPlay = true;
+	bIsInitialized = true;
+	InitializeComponent();
+	bIsDispatchingBeginPlay = false;
+	if (MyOwner) MyOwner->bIsExecutingComponentCallback = bWasExecuting;
+}
+
 void UActorComponent::BeginPlayComponent()
 {
-	if (!IsRegistered() || !WorldPrivate || !WorldPrivate->HasBegunPlay()) return;
-	if (!bIsInitialized) InitializeComponent();
-	RegisterComponentTickFunctions(true);
-	if (bHasBegunPlay) return;
-	if (bAutoActivate) Activate();
-	else SetComponentTickEnabled(false);
+	if (!bIsInitialized || bIsPendingDestroy || !IsRegistered() || !WorldPrivate || !WorldPrivate->HasBegunPlay())
+	{
+		return;
+	}
+
+	if (bIsPlaying)
+	{
+		RegisterComponentTickFunctions(true);
+		return;
+	}
+
+	AActor* MyOwner = Owner;
+	const bool bWasExecuting = MyOwner ? MyOwner->bIsExecutingComponentCallback : false;
+
+	if (MyOwner)
+		MyOwner->bIsExecutingComponentCallback = true;
+
+	bIsDispatchingBeginPlay = true;
+
+	bIsPlaying = true;
 	bHasBegunPlay = true;
+
+	// 초기화 또는 활성화 중 삭제가 예약되면 시작 절차를 중단한다.
+	const auto AbortBeginPlay = [this, MyOwner, bWasExecuting]()
+		{
+			RegisterComponentTickFunctions(false);
+			SetComponentTickEnabled(false);
+
+			bIsActive = false;
+			bIsPlaying = false;
+			bHasBegunPlay = false;
+			bIsDispatchingBeginPlay = false;
+
+			if (MyOwner)
+				MyOwner->bIsExecutingComponentCallback = bWasExecuting;
+		};
+
+	if (bIsPendingDestroy || (MyOwner && MyOwner->bIsPendingDestroy))
+	{
+		AbortBeginPlay();
+		return;
+	}
+
+	RegisterComponentTickFunctions(true);
+
+	if (bAutoActivate)
+		Activate();
+	else
+		SetComponentTickEnabled(false);
+
+	if (bIsPendingDestroy || (MyOwner && MyOwner->bIsPendingDestroy))
+	{
+		AbortBeginPlay();
+		return;
+	}
+
 	BeginPlay();
+
+	bIsDispatchingBeginPlay = false;
+
+	if (MyOwner)
+		MyOwner->bIsExecutingComponentCallback = bWasExecuting;
+}
+
+void UActorComponent::EndPlayComponent()
+{
+	if (!bIsPlaying)
+		return;
+
+	AActor* MyOwner = Owner;
+	const bool bWasExecuting = MyOwner ? MyOwner->bIsExecutingComponentCallback : false;
+
+	if (MyOwner)
+		MyOwner->bIsExecutingComponentCallback = true;
+
+	bIsDispatchingEndPlay = true;
+
+	bIsPlaying = false;
+
+	SetComponentTickEnabled(false);
+	Deactivate();
+
+	EndPlay();
+
+	bIsDispatchingEndPlay = false;
+
+	if (MyOwner)
+		MyOwner->bIsExecutingComponentCallback = bWasExecuting;
+}
+
+void UActorComponent::DispatchTickComponent(float DeltaTime)
+{
+	if (bIsPendingDestroy || bIsDispatchingTick)
+		return;
+
+	AActor* MyOwner = Owner;
+	const bool bWasExecuting = MyOwner ? MyOwner->bIsExecutingComponentCallback : false;
+
+	if (MyOwner && Owner->bIsPendingDestroy)
+		MyOwner->bIsExecutingComponentCallback = true;
+
+	bIsDispatchingTick = true;
+	TickComponent(DeltaTime);
+	bIsDispatchingTick = false;
+
+	if (MyOwner)
+		MyOwner->bIsExecutingComponentCallback = bWasExecuting;
 }
 
 void UActorComponent::Activate(bool bReset)
@@ -89,7 +205,7 @@ void UActorComponent::RegisterComponentTickFunctions(bool bRegister)
 		PrimaryComponentTick.UnRegisterTickFunction();
 		return;
 	}
-	if (IsRegistered() && WorldPrivate && PrimaryComponentTick.bCanEverTick)
+	if (IsRegistered() && WorldPrivate && PrimaryComponentTick.bCanEverTick && bIsPlaying)
 		PrimaryComponentTick.RegisterTickFunction(WorldPrivate->GetTickTaskManager());
 }
 
@@ -123,8 +239,8 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 
 	WorldPrivate = InWorld;
 	ExecuteRegisterEvents();
-	if (AActor* MyOwner = GetOwner(); MyOwner && MyOwner->HasBegunPlay())
-		BeginPlayComponent();
+	if (GetOwner() && InWorld->HasBegunPlay())
+		InWorld->EnqueueComponentStart(this);
 }
 
 void UActorComponent::UnregisterComponent()

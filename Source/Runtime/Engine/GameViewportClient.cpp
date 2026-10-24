@@ -52,13 +52,13 @@ bool FGameViewportClient::InputKey(FViewport* Viewport, int32 Key, bool bDown)
 
 	if (bSIEMode && Key == static_cast<int32>(EKeyCode::LButton)) return true;
 
-	if (World)
+	if (World && !World->IsPaused())
 	{
 		if (APlayerController* PC = World->GetPlayerController())
 		{
 			PC->InputKey(Key, bDown);
-			return true;
 		}
+		return true;
 	}
 	return false;
 }
@@ -68,13 +68,13 @@ bool FGameViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, EGa
 	if (HandleUIAxis(AxisKey, Delta))
 		return true;
 
-	if (World)
+	if (World && !World->IsPaused())
 	{
 		if (APlayerController* PC = World->GetPlayerController())
 		{
 			PC->InputAxis(AxisKey, Delta);
-			return true;
 		}
+		return true;
 	}
 	return false;
 }
@@ -92,15 +92,7 @@ void FGameViewportClient::LostFocus()
 
 UCameraComponent* FGameViewportClient::FindPlayerCamera() const
 {
-	if (!World) return nullptr;
-	if (APawn* Pawn = World->GetPlayerPawn())
-	{
-		if (ADefaultPawn* DefaultPawn = Cast<ADefaultPawn>(Pawn))
-			if (UCameraComponent* Camera = DefaultPawn->GetCameraComponent()) return Camera;
-		for (UActorComponent* Component : Pawn->GetComponents())
-			if (UCameraComponent* Camera = Cast<UCameraComponent>(Component)) return Camera;
-	}
-	return nullptr;
+	return World ? World->GetPlayerCamera() : nullptr;
 }
 
 void FGameViewportClient::SetWorld(UWorld* InWorld)

@@ -1,4 +1,4 @@
-﻿
+
 #pragma once
 
 #include <cassert>
@@ -498,8 +498,7 @@ inline void TArray<T>::RemoveAtSwap(uint32 index)
 	assert(mDatas.empty() == false);
 	assert(index < mDatas.size());
 
-	T moveData = mDatas.back();
-	mDatas[index] = moveData;
+	mDatas[index] = std::move(mDatas.back());
 
 	RemoveLast();
 }

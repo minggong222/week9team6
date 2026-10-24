@@ -50,7 +50,7 @@ function CommonSettings()
 
 	filter "system:windows"
 		systemversion "latest"
-		buildoptions { "/utf-8" }
+		buildoptions { "/utf-8", "/bigobj" }
 		defines { "ENGINE_PLATFORM_WINDOWS" }
 
 	filter "configurations:Debug"
@@ -151,15 +151,11 @@ project "HitoriEngine"
 		"%{IncludeDir.LuaJIT}",
 		"%{IncludeDir.Sol}",
 	}
-	
-	libdirs { "%{IncludeDir.LuaJIT}" }
-	
-	links
-	{
-		"lua51.lib",
-	}
 
 	filter "files:Source/ThirdParty/DDSLoader/**.cpp"
+		enablepch "Off"
+		
+	filter "files:Source/ThirdParty/Lua/**.c"
 		enablepch "Off"
 		
 	filter {}
@@ -173,7 +169,8 @@ project "HitoriEditor"
 	pchheader "EnginePCH.h"
 	pchsource "Source/Editor/EditorPCH.cpp"
 
-	links { "HitoriEngine", "ImGui" }
+	links { "HitoriEngine", "ImGui", "lua51.lib" }
+	libdirs { "%{IncludeDir.LuaJIT}" }
 
 	files
 	{
@@ -193,9 +190,9 @@ project "HitoriEditor"
 		"%{IncludeDir.ImGui}/backends",
 		"%{IncludeDir.stb}",
 		"%{IncludeDir.json}",
+		"%{IncludeDir.LuaJIT}",
+		"%{IncludeDir.Sol}",
 	}
-
-	libdirs { "%{IncludeDir.LuaJIT}" }
 	
 	links
 	{
@@ -203,7 +200,6 @@ project "HitoriEditor"
 		"dxgi.lib",
 		"dxguid.lib",
 		"d3dcompiler.lib",
-		"lua51.lib",
 	}
 
 	filter "configurations:ObjViewer"
@@ -256,6 +252,8 @@ project "HitoriGame"
         "%{IncludeDir.stb}",
         "%{IncludeDir.json}",
         "%{IncludeDir.DDSLoader}",
+		"%{IncludeDir.LuaJIT}",
+		"%{IncludeDir.Sol}",
     }
 	
 	libdirs { "%{IncludeDir.LuaJIT}" }
@@ -269,6 +267,7 @@ project "HitoriGame"
 		"d3dcompiler.lib",
 		"lua51.lib",
 	}
+	
 	local engineLibPath = path.getabsolute("Build/Bin")
 		.. "\\%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\\HitoriEngine.lib"
 

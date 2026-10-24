@@ -77,7 +77,26 @@ void UEngine::DestroyWorldContext(UWorld* InWorld)
 			if (WorldContextlist[idx].GameViewport)
 			{
 				WorldContextlist[idx].GameViewport->LostFocus();
+			}
+			if (InWorld && ContextType == EWorldType::PIE)
+			{
+				InWorld->ClearWorld();
+				ACameraActor* Camera = InWorld->GetMainCamera();
+				const bool bOwnsCamera = Camera && !Camera->GetLevel();
+				InWorld->SetMainCamera(nullptr);
+				if (WorldContextlist[idx].GameViewport)
+				{
+					WorldContextlist[idx].GameViewport->Reset();
+					WorldContextlist[idx].GameViewport.reset();
+				}
+				for (ULevel* Level : InWorld->GetLevels()) delete Level;
+				if (bOwnsCamera) delete Camera;
+				delete InWorld;
+			}
+			else if (WorldContextlist[idx].GameViewport)
+			{
 				WorldContextlist[idx].GameViewport->Reset();
+				WorldContextlist[idx].GameViewport.reset();
 			}
 			if (WorldContextlist[idx].OwningGameInstance)
 			{
@@ -87,16 +106,6 @@ void UEngine::DestroyWorldContext(UWorld* InWorld)
 			}
 			WorldContextlist[idx].SetCurrentWorld(nullptr);
 			WorldContextlist.RemoveAt(idx);
-			if (InWorld && ContextType == EWorldType::PIE)
-			{
-				ACameraActor* Camera = InWorld->GetMainCamera();
-				const bool bOwnsCamera = Camera && !Camera->GetLevel();
-				InWorld->SetMainCamera(nullptr);
-				InWorld->ClearWorld();
-				for (ULevel* Level : InWorld->GetLevels()) delete Level;
-				if (bOwnsCamera) delete Camera;
-				delete InWorld;
-			}
 			break;
 		}
 	}
@@ -104,5 +113,7 @@ void UEngine::DestroyWorldContext(UWorld* InWorld)
 
 void FWorldContext::SetCurrentWorld(UWorld* World)
 {
+	if (ThisCurrentWorld) ThisCurrentWorld->SetGameInstance(nullptr);
 	ThisCurrentWorld = World;
+	if (ThisCurrentWorld) ThisCurrentWorld->SetGameInstance(OwningGameInstance);
 }

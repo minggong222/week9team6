@@ -11,5 +11,8 @@ namespace EditorDragDrop
 	// 페이로드 내용: UFont* 한 개
 	inline constexpr const char* Font = "ASSET_FONT";
 
+	// Payload: copied UTF-8 path relative to Assets, including the null terminator.
+	inline constexpr const char* LuaScript = "ASSET_LUA_SCRIPT";
+
 	inline constexpr const char* Component = "COMPONENT";
 }

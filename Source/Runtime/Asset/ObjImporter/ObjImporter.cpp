@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Utility/WindowsUtils.h"
 #include "ObjImporter.h"
 
 #include <fstream>
@@ -102,18 +103,18 @@ namespace
 			return false;
 		}
 
-		std::filesystem::path Relative(RelativePath);
+		std::filesystem::path Relative{ WindowsUtils::ToWstring(RelativePath) };
 		std::filesystem::path Result = Relative.is_absolute()
 			? Relative
-			: std::filesystem::path(BaseFilePath).parent_path() / Relative;
+			: std::filesystem::path{ WindowsUtils::ToWstring(BaseFilePath) }.parent_path() / Relative;
 
-		Out = Result.lexically_normal().generic_string();
+		Out = WindowsUtils::ToString(Result.lexically_normal().generic_wstring());
 		return true;
 	}
 
 	bool ParseMaterial(const FString& Path, TArray<FObjMaterialInfo>& Out)
 	{
-		std::ifstream File(Path);
+		std::ifstream File{ fs::path{ WindowsUtils::ToWstring(Path) } };
 		if (!File.is_open())
 		{
 			HTR_LOG(Warning, "[MTL] {}: cannot open file", Path);
@@ -214,7 +215,7 @@ namespace
 
 bool FObjImporter::ParseObj(const FString& Path, FObjInfo& Out)
 {
-	std::ifstream File(Path);
+	std::ifstream File{ fs::path{ WindowsUtils::ToWstring(Path) } };
 	if (!File.is_open())
 	{
 		HTR_LOG(Error, "[OBJ] {}: cannot open file", Path);
