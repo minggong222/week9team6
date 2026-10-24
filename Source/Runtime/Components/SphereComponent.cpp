@@ -4,5 +4,5 @@
 
 void USphereComponent::DrawDebug(FLineBatcher* LineBatcher, const FVector4& Color) const
 {
-    LineBatcher->AddWireSphere(GetWorldLocation(), SphereRadius, Color);
+    LineBatcher->AddWireSphere(GetWorldLocation(), GetScaledSphereRadius(), Color);
 }

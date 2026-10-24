@@ -24,7 +24,7 @@ public:
 	float GetScaledSphereRadius() const
 	{
 		const FVector Scale = GetWorldScale3D().GetAbs();
-		return SphereRadius * std::max({ Scale.X, Scale.Y, Scale.Z });
+		return SphereRadius * std::min({ Scale.X, Scale.Y, Scale.Z });
 	}
 
 	FBox CalcLocalBounds() const override
