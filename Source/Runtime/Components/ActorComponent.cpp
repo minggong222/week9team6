@@ -42,7 +42,9 @@ void UActorComponent::PostEditChangeProperty(const FProperty& Property)
 void UActorComponent::BeginPlayComponent()
 {
 	if (bIsPendingDestroy || !IsRegistered() || !WorldPrivate || !WorldPrivate->HasBegunPlay())
+	{
 		return;
+	}
 
 	if (bIsPlaying)
 	{
@@ -61,8 +63,29 @@ void UActorComponent::BeginPlayComponent()
 	bIsPlaying = true;
 	bHasBegunPlay = true;
 
+	// 초기화 또는 활성화 중 삭제가 예약되면 시작 절차를 중단한다.
+	const auto AbortBeginPlay = [this, MyOwner, bWasExecuting]()
+		{
+			RegisterComponentTickFunctions(false);
+			SetComponentTickEnabled(false);
+
+			bIsActive = false;
+			bIsPlaying = false;
+			bHasBegunPlay = false;
+			bIsDispatchingBeginPlay = false;
+
+			if (MyOwner)
+				MyOwner->bIsExecutingComponentCallback = bWasExecuting;
+		};
+
 	if (!bIsInitialized)
 		InitializeComponent();
+
+	if (bIsPendingDestroy || (MyOwner && MyOwner->bIsPendingDestroy))
+	{
+		AbortBeginPlay();
+		return;
+	}
 
 	RegisterComponentTickFunctions(true);
 
@@ -70,6 +93,12 @@ void UActorComponent::BeginPlayComponent()
 		Activate();
 	else
 		SetComponentTickEnabled(false);
+
+	if (bIsPendingDestroy || (MyOwner && MyOwner->bIsPendingDestroy))
+	{
+		AbortBeginPlay();
+		return;
+	}
 
 	BeginPlay();
 
