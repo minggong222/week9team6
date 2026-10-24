@@ -26,7 +26,7 @@ public:
 	virtual void BeginPlay(); // xx World->AddPrimitive 책임이동 필요
 	bool HasBegunPlay() const { return bHasBegunPlay; }
 	// 액터 자신의 로직. 컴포넌트는 각자의 PrimaryComponentTick으로 따로 실행된다.
-	virtual void Tick(float DeltaTime) { Test.Broadcast(10); }
+	virtual void Tick(float DeltaTime) {};
 	virtual void EndPlay() {};
 	// FActorTickFunction이 호출하는 진입점
 	void TickActor(float DeltaTime) { Tick(DeltaTime); }
@@ -84,5 +84,4 @@ protected:
 private:
 	bool bActorEnableCollision = true;
 	bool bHasBegunPlay = false;
-	DECLARE_DELEGATE(Test, int);
 };

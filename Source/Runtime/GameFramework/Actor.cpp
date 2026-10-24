@@ -37,8 +37,6 @@ void AActor::BeginPlay()
 	for (UActorComponent* Component : Components)
 		if (Component) Component->BeginPlayComponent();
 	RegisterAllActorTickFunctions(true);
-	Test.AddDynamic(this, &AActor::TestF);
-	Test.Add([](int i) {FLog::Log(ELogVerbosity::Info, "Add {}", i);});
 }
 
 void AActor::RegisterAllActorTickFunctions(bool bRegister)
