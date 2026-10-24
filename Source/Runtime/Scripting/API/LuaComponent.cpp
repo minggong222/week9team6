@@ -126,10 +126,12 @@ void LuaRegisterComponentBase(sol::state& State)
         sol::base_classes, sol::bases<UActorComponent, UObject>(),
         "StaticClass", &ULuaComponent::StaticClass,
         "Cast", &Cast<ULuaComponent>,
-        "Load", &ULuaComponent::Load,
+        "InitializeLua", &ULuaComponent::InitializeLua,
+        "LoadLua", &ULuaComponent::LoadLua,
         "GetScriptPath", &ULuaComponent::GetScriptPath,
         "SetScriptPath", &ULuaComponent::SetScriptPath,
-        "GetInitialized", &ULuaComponent::GetInitialized);
+        "GetInitialized", &ULuaComponent::GetInitialized,
+        "GetLoaded", &ULuaComponent::GetLoaded);
 
     State.new_usertype<UTextRenderComponent>("UTextRenderComponent", sol::no_constructor,
         sol::base_classes, sol::bases<UPrimitiveComponent, USceneComponent, UActorComponent, UObject>(),

@@ -23,8 +23,9 @@ public:
 
 	virtual void InitializeComponent() { bIsInitialized = true; }
 	virtual void BeginPlay() {};
-	void BeginPlayComponent();
 	virtual void EndPlay() {};
+
+	void BeginPlayComponent();
 	void EndPlayComponent();
 	bool HasBegunPlay() const { return bHasBegunPlay; }
 	bool IsPlaying() const { return bIsPlaying; }

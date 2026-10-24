@@ -2,9 +2,9 @@
 
 #include "ActorComponent.h"
 #include "Core/EngineString.h"
-#include "Scripting/LuaInstance.h"
 
 class FLuaManager;
+class FLuaInstance;
 
 class ULuaComponent : public UActorComponent
 {
@@ -18,15 +18,15 @@ public:
     virtual ~ULuaComponent() override;
 
     // Runtime operation implementations will be connected in the next step.
-    void Initialize();
-    bool Load();
+    void InitializeLua();
+    bool LoadLua();
 
     void OnInstanceLoaded(FLuaInstance& Instance);
 
     virtual void InitializeComponent() override;
     virtual void BeginPlay() override;
     virtual void TickComponent(float DeltaSeconds) override;
-    //virtual void EndPlay() override;
+    virtual void EndPlay() override;
 
     const FString& GetScriptPath() const
     {
@@ -36,10 +36,11 @@ public:
     bool SetScriptPath(const FString& InPath)
     {
         ScriptPath = InPath;
-        return true;
+        return LoadLua();
     }
 
-    bool GetInitialized() const { return Instance != nullptr; }
+    bool GetInitialized() const;
+    bool GetLoaded() const;
 
 private:
     FString ScriptPath;

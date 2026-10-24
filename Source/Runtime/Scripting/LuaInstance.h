@@ -63,6 +63,8 @@ public:
 	UObject* GetOwner() const { return Owner; }
 	void SetOwner(UObject* InOwner);
 
+	bool GetInitialized() const { return bInitialized; }
+
 	// 스크립트가 로드될 때 호출될 콜백 함수입니다.
 	DECLARE_DELEGATE(OnLoaded, FLuaInstance&);
 
