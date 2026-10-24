@@ -17,6 +17,7 @@ FLuaInstance::FLuaInstance(
 bool FLuaInstance::Load(FStringView InPath)
 {
     const FString AssetPath{ InPath };
+    Unload();
     const FString FullPath = FileUtils::GetAssetFullPath(AssetPath);
 
     Environment = sol::environment{
@@ -38,7 +39,7 @@ bool FLuaInstance::Load(FStringView InPath)
     if (!Result.valid()) {
         sol::error Error = Result;
         HTR_LOG(Error, "Lua 스크립트 로드 실패: {}", Error.what());
-        bInitialized = false;
+        Unload();
         return false;
     }
 
@@ -60,6 +61,7 @@ bool FLuaInstance::Reload()
 
 void FLuaInstance::Unload()
 {
+    OnUnloaded.Broadcast(*this);
     Environment = sol::lua_nil;
     bInitialized = false;
 }

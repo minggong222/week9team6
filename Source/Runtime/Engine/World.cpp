@@ -153,6 +153,12 @@ void UWorld::Tick(float DeltaTime)
 	if (!bBegunPlay || bIsEndingPlay || bIsClearingWorld)
 		return;
 
+    if (!bIsPaused)
+    {
+        if (FLuaManager* Manager = GetLuaManager())
+            Manager->UpdateCoroutines(DeltaTime);
+    }
+
 	ProcessPendingStarts();
 
 

@@ -123,6 +123,7 @@ void ULuaComponent::EndPlay()
 	}
 
 	Instance->Invoke("EndPlay", this);
+	InstanceManager->StopCoroutines(Instance);
 }
 
 bool ULuaComponent::GetInitialized() const
