@@ -2,6 +2,7 @@
 
 #include "Core/Types.h"
 #include "Core/EngineString.h"
+#include "Core/EngineLog.h"
 #include "Containers/StringView.h"
 
 #include "sol/sol.hpp"
@@ -27,6 +28,7 @@ public:
 	FLua& operator=(FLua&&) = default;
 
 	bool Load(FStringView InPath);
+	const FString& GetPath() const { return Path; }
 
 	template<typename... Args>
 	bool Invoke(FStringView FunctionName, Args... args);

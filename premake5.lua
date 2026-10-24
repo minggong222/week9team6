@@ -180,7 +180,6 @@ project "HitoriEditor"
 	pchheader "EnginePCH.h"
 	pchsource "Source/Editor/EditorPCH.cpp"
 
-	libdirs { "%{IncludeDir.LuaJIT}" }
 	links { "HitoriEngine", "ImGui", "lua51.lib" }
 
 	files
@@ -211,7 +210,6 @@ project "HitoriEditor"
 		"dxgi.lib",
 		"dxguid.lib",
 		"d3dcompiler.lib",
-		"lua51.lib",
 	}
 
 	filter "configurations:ObjViewer"

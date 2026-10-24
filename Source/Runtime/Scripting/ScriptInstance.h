@@ -1,42 +1,27 @@
 #pragma once
 
-#include "Core/EngineString.h"
-#include <sol/sol.hpp>
+#include "Scripting/Lua.h"
 
 class ULuaComponent;
 
-// One component's Lua execution environment. Owned by FLuaManager.
+// Manager-owned record: FLua handles execution, this record adds the owner link.
 class FScriptInstance
 {
 public:
-    FScriptInstance(sol::state& InState, ULuaComponent* InOwnerComponent);
-    ~FScriptInstance() = default;
+    FScriptInstance(sol::state& InState, ULuaComponent* InOwnerComponent)
+        : Script(InState), OwnerComponent(InOwnerComponent)
+    {
+    }
 
     FScriptInstance(const FScriptInstance&) = delete;
     FScriptInstance& operator=(const FScriptInstance&) = delete;
 
-    bool Load(const FString& Path);
-    bool Invoke(const FString& FunctionName);
-    bool Invoke(const FString& FunctionName, float Argument);
-    bool Reload();
-
-    const FString& GetLoadedPath() const
-    {
-        return LoadedPath;
-    }
-
-    ULuaComponent* GetOwnerComponent() const
-    {
-        return OwnerComponent;
-    }
+    FLua& GetScript() { return Script; }
+    const FLua& GetScript() const { return Script; }
+    const FString& GetLoadedPath() const { return Script.GetPath(); }
+    ULuaComponent* GetOwnerComponent() const { return OwnerComponent; }
 
 private:
-    // Non-owning references. Both must remain valid while this instance executes.
-    sol::state& State;
+    FLua Script;
     ULuaComponent* OwnerComponent = nullptr;
-
-    sol::environment Environment;
-
-    // Update only after a successful load. Reload uses this path.
-    FString LoadedPath;
 };
