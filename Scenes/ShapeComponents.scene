@@ -172,6 +172,40 @@
                                 "bReceiveShadow": false,
                                 "bVisible": true
                             }
+                        },
+                        {
+                            "Class": "USphereComponent",
+                            "Name": "USphereComponent_1",
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "ShapeColor": 4288517599,
+                                "SphereRadius": 0.5,
+                                "Transform": {
+                                    "Location": {
+                                        "X": 1.2999999523162842,
+                                        "Y": 2.299999952316284,
+                                        "Z": 0.0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0.0,
+                                        "Roll": 0.0,
+                                        "Yaw": 0.0
+                                    },
+                                    "Scale": {
+                                        "X": 1.0,
+                                        "Y": 1.0,
+                                        "Z": 1.0
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": false,
+                                "bDrawOnlyIfSelected": false,
+                                "bGenerateOverlapEvents": true,
+                                "bHiddenInGame": true,
+                                "bReceiveShadow": false,
+                                "bVisible": true
+                            }
                         }
                     ],
                     "Name": "AStaticMeshActor_0",
