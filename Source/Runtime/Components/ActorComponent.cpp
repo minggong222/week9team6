@@ -39,9 +39,26 @@ void UActorComponent::PostEditChangeProperty(const FProperty& Property)
 		MarkRenderStateDirty();
 }
 
+void UActorComponent::InitializeComponentOnce()
+{
+	if (bIsInitialized || bIsPendingDestroy || !IsRegistered() || !WorldPrivate ||
+		!WorldPrivate->HasBegunPlay() || (Owner && Owner->bIsPendingDestroy))
+		return;
+
+	AActor* MyOwner = Owner;
+	const bool bWasExecuting = MyOwner ? MyOwner->bIsExecutingComponentCallback : false;
+	if (MyOwner) MyOwner->bIsExecutingComponentCallback = true;
+	// 재진입과 콜백 중 삭제는 기존 시작 보호 경로로 처리한다.
+	bIsDispatchingBeginPlay = true;
+	bIsInitialized = true;
+	InitializeComponent();
+	bIsDispatchingBeginPlay = false;
+	if (MyOwner) MyOwner->bIsExecutingComponentCallback = bWasExecuting;
+}
+
 void UActorComponent::BeginPlayComponent()
 {
-	if (bIsPendingDestroy || !IsRegistered() || !WorldPrivate || !WorldPrivate->HasBegunPlay())
+	if (!bIsInitialized || bIsPendingDestroy || !IsRegistered() || !WorldPrivate || !WorldPrivate->HasBegunPlay())
 	{
 		return;
 	}
@@ -77,9 +94,6 @@ void UActorComponent::BeginPlayComponent()
 			if (MyOwner)
 				MyOwner->bIsExecutingComponentCallback = bWasExecuting;
 		};
-
-	if (!bIsInitialized)
-		InitializeComponent();
 
 	if (bIsPendingDestroy || (MyOwner && MyOwner->bIsPendingDestroy))
 	{
@@ -191,7 +205,7 @@ void UActorComponent::RegisterComponentTickFunctions(bool bRegister)
 		PrimaryComponentTick.UnRegisterTickFunction();
 		return;
 	}
-	if (IsRegistered() && WorldPrivate && PrimaryComponentTick.bCanEverTick)
+	if (IsRegistered() && WorldPrivate && PrimaryComponentTick.bCanEverTick && bIsPlaying)
 		PrimaryComponentTick.RegisterTickFunction(WorldPrivate->GetTickTaskManager());
 }
 
@@ -225,8 +239,8 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 
 	WorldPrivate = InWorld;
 	ExecuteRegisterEvents();
-	if (AActor* MyOwner = GetOwner(); MyOwner && MyOwner->IsPlaying())
-		BeginPlayComponent();
+	if (GetOwner() && InWorld->HasBegunPlay())
+		InWorld->EnqueueComponentStart(this);
 }
 
 void UActorComponent::UnregisterComponent()

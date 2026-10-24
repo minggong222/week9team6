@@ -31,12 +31,6 @@ AActor::~AActor()
 
 void AActor::BeginPlay()
 {
-	if (bHasBegunPlay || !World || !World->HasBegunPlay()) return;
-	RegisterAllComponents();
-	bHasBegunPlay = true;
-	for (UActorComponent* Component : Components)
-		if (Component) Component->BeginPlayComponent();
-	RegisterAllActorTickFunctions(true);
 	Test.AddDynamic(this, &AActor::TestF);
 	Test.Add([](int i) {FLog::Log(ELogVerbosity::Info, "Add {}", i);});
 }
@@ -62,30 +56,7 @@ void AActor::DispatchBeginPlay()
 	bIsPlaying = true;
 	bHasBegunPlay = true;
 
-	TArray<UActorComponent*> ComponentsToBegin = Components;
-
-	for (UActorComponent* Component : ComponentsToBegin)
-	{
-		if (bIsPendingDestroy)
-			break;
-
-		if (!Component || Component->bIsPendingDestroy)
-			continue;
-
-		bool bStillOwned = false;
-
-		for (UActorComponent* Current : Components)
-		{
-			if (Current == Component)
-			{
-				bStillOwned = true;
-				break;
-			}
-		}
-
-		if (bStillOwned)
-			Component->BeginPlayComponent();
-	}
+	// 컴포넌트 초기화/시작은 World의 배치 단계가 먼저 처리한다.
 
 	if (!bIsPendingDestroy)
 	{
@@ -100,12 +71,12 @@ void AActor::DispatchBeginPlay()
 
 void AActor::DispatchEndPlay()
 {
-	if (!bIsPlaying)
-		return;
+	const bool bActorWasPlaying = bIsPlaying;
+	// 컴포넌트 BeginPlay 중 액터가 삭제되면 액터 콜백 전이라도 정리한다.
 	bIsDispatchingEndPlay = true;
 	bIsPlaying = false;
 	RegisterAllActorTickFunctions(false);
-	EndPlay();
+	if (bActorWasPlaying) EndPlay();
 	TArray<UActorComponent*> ComponentsToEnd = Components;
 	for (UActorComponent* Component : ComponentsToEnd)
 	{

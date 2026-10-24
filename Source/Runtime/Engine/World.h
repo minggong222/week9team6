@@ -82,6 +82,8 @@ public:
 	bool SweepSingle(const FRay& WorldRay, float MaxDistance, float Radius, FHitResult& OutHit, AActor* IgnoreActor = nullptr);
 
 	void BeginPlay();
+	// 등록은 즉시, 초기화와 BeginPlay는 다음 시작 배치에서 실행한다.
+	void EnqueueComponentStart(UActorComponent* Component);
 	void EndPlay();
 	bool HasBegunPlay() const { return bBegunPlay; }
 	APawn* GetPlayerPawn() const { return PlayerPawn; }
@@ -110,6 +112,16 @@ public:
 	using Super::Serialize;
 	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 private:
+	void ProcessPendingStarts();
+	struct FPendingComponentStart
+	{
+		AActor* Owner = nullptr;
+		uint32 OwnerUUID = 0;
+		UActorComponent* Component = nullptr;
+		uint32 ComponentUUID = 0;
+	};
+	TArray<FPendingComponentStart> PendingComponentStarts;
+	bool bIsProcessingStarts = false;
 	void ProcessPendingDestroyActors();
 	void ProcessPendingComponentDestructions();
 	bool bIsProcessingPendingComponentDestruction = false;

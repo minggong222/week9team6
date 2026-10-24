@@ -153,18 +153,7 @@ void UWorld::Tick(float DeltaTime)
 	if (!bBegunPlay || bIsEndingPlay || bIsClearingWorld)
 		return;
 
-	// 플레이 중 새로 생성된 액터의 BeginPlay 처리
-	while (!BeginPlayList.IsEmpty())
-	{
-		AActor* Actor = BeginPlayList.Peek();
-		BeginPlayList.Dequeue();
-
-		if (!Actor)
-			continue;
-
-		Actor->DispatchBeginPlay();
-		ProcessPendingDestroyActors();
-	}
+	ProcessPendingStarts();
 
 
 	{
@@ -630,10 +619,8 @@ bool UWorld::DestroyActor(AActor* Actor)
 
 	BeginPlayList = std::move(NewBeginPlayList);
 
-	if (Actor->IsPlaying())
-	{
-		Actor->DispatchEndPlay();
-	}
+	// 컴포넌트는 액터 BeginPlay보다 먼저 시작될 수 있다.
+	Actor->DispatchEndPlay();
 
 	if (Actor == PlayerPawn)
 	{
@@ -869,6 +856,92 @@ bool UWorld::LineTraceSingle(const FRay& WorldRay, FHitResult& OutHit,
 	return OutHit.HitComponent != nullptr;
 }
 
+void UWorld::EnqueueComponentStart(UActorComponent* Component)
+{
+	if (!Component || !bBegunPlay || bIsEndingPlay || bIsClearingWorld)
+		return;
+	AActor* Owner = Component->GetOwner();
+	if (!Owner || Owner->GetWorld() != this || Component->GetWorld() != this)
+		return;
+	for (const auto& Entry : PendingComponentStarts)
+		if (Entry.Component == Component && Entry.ComponentUUID == Component->GetUUID())
+			return;
+	PendingComponentStarts.Add({ Owner, Owner->GetUUID(), Component, Component->GetUUID() });
+}
+
+void UWorld::ProcessPendingStarts()
+{
+	if (bIsProcessingStarts || !bBegunPlay || bIsEndingPlay || bIsClearingWorld ||
+		(BeginPlayList.IsEmpty() && PendingComponentStarts.IsEmpty()))
+		return;
+	bIsProcessingStarts = true;
+	struct FActorStart { AActor* Actor; uint32 UUID; };
+	TArray<FActorStart> Actors;
+	TArray<FPendingComponentStart> Components;
+	const auto IsLive = [this](const FPendingComponentStart& Entry)
+	{
+		if (!IsActorInWorld(Entry.Owner, Entry.OwnerUUID) || Entry.Owner->bIsPendingDestroy)
+			return false;
+		for (UActorComponent* Current : Entry.Owner->GetComponents())
+			if (Current == Entry.Component)
+				return Current->GetUUID() == Entry.ComponentUUID && !Current->bIsPendingDestroy &&
+					Current->IsRegistered() && Current->GetWorld() == this;
+		return false;
+	};
+
+	// 초기화 콜백이 추가한 액터/컴포넌트도 BeginPlay 전에 초기화한다.
+	int32 Rounds = 0;
+	while (bBegunPlay && (!BeginPlayList.IsEmpty() || !PendingComponentStarts.IsEmpty()))
+	{
+		if (++Rounds > 1024)
+		{
+			HTR_LOG(Error, "Component initialization keeps creating objects; startup deferred.");
+			for (const auto& Entry : Components)
+				if (IsLive(Entry)) EnqueueComponentStart(Entry.Component);
+			for (const auto& Entry : Actors)
+				if (IsActorInWorld(Entry.Actor, Entry.UUID)) BeginPlayList.Enqueue(Entry.Actor);
+			bIsProcessingStarts = false;
+			return;
+		}
+		while (!BeginPlayList.IsEmpty())
+		{
+			AActor* Actor = BeginPlayList.Peek();
+			BeginPlayList.Dequeue();
+			if (!Actor || Actor->bIsPendingDestroy || Actor->IsPlaying()) continue;
+			bool bAlreadyQueued = false;
+			for (const auto& Entry : Actors)
+				if (Entry.Actor == Actor && Entry.UUID == Actor->GetUUID()) bAlreadyQueued = true;
+			if (bAlreadyQueued) continue;
+			Actors.Add({ Actor, Actor->GetUUID() });
+			Actor->RegisterAllComponents();
+			for (UActorComponent* Component : Actor->GetComponents())
+				EnqueueComponentStart(Component);
+		}
+		TArray<FPendingComponentStart> ToInitialize = PendingComponentStarts;
+		PendingComponentStarts.Reset();
+		for (const auto& Entry : ToInitialize)
+		{
+			if (!bBegunPlay) break;
+			if (!IsLive(Entry)) continue;
+			bool bAlreadyQueued = false;
+			for (const auto& Existing : Components)
+				if (Existing.Component == Entry.Component && Existing.ComponentUUID == Entry.ComponentUUID)
+					bAlreadyQueued = true;
+			if (!bAlreadyQueued) Components.Add(Entry);
+			Entry.Component->InitializeComponentOnce();
+		}
+	}
+
+	// 이 지점부터 생성되는 대상은 다음 배치로 넘긴다.
+	for (const auto& Entry : Components)
+		if (bBegunPlay && IsLive(Entry)) Entry.Component->BeginPlayComponent();
+	for (const auto& Entry : Actors)
+		if (bBegunPlay && IsActorInWorld(Entry.Actor, Entry.UUID)) Entry.Actor->DispatchBeginPlay();
+	bIsProcessingStarts = false;
+	ProcessPendingComponentDestructions();
+	ProcessPendingDestroyActors();
+}
+
 void UWorld::BeginPlay()
 {
 	if (WorldType != EWorldType::PIE && WorldType != EWorldType::Game || bBegunPlay || bIsEndingPlay || bIsClearingWorld) return;
@@ -906,23 +979,12 @@ void UWorld::BeginPlay()
 				InitialActors.Add({ Actor, Actor->GetUUID() });
 	}
 	bBegunPlay = true;
-	for (const FActorBeginEntry& Entry : InitialActors) 
+	for (const FActorBeginEntry& Entry : InitialActors)
 	{
 		if (IsActorInWorld(Entry.Actor, Entry.UUID))
-		{	
-			Entry.Actor->DispatchBeginPlay();
-		}
-		ProcessPendingDestroyActors();
+			BeginPlayList.Enqueue(Entry.Actor);
 	}
-
-	// PIE 입력 전에 DefaultPawn의 투사체 풀까지 시작한다.
-	while (!BeginPlayList.IsEmpty())
-	{
-		AActor* Actor = BeginPlayList.Peek();
-		BeginPlayList.Dequeue();
-		if (Actor) Actor->DispatchBeginPlay();
-		ProcessPendingDestroyActors();
-	}
+	ProcessPendingStarts();
 }
 
 void UWorld::EndPlay()
@@ -931,6 +993,7 @@ void UWorld::EndPlay()
 		return;
 	bIsEndingPlay = true;
 	bBegunPlay = false;
+	PendingComponentStarts.Reset();
 
 	while (!BeginPlayList.IsEmpty())
 		BeginPlayList.Dequeue();

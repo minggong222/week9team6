@@ -22,6 +22,8 @@ public:
 	virtual ~UActorComponent() override;
 
 	virtual void InitializeComponent() { bIsInitialized = true; }
+	void InitializeComponentOnce();
+	bool IsInitialized() const { return bIsInitialized; }
 	virtual void BeginPlay() {};
 	virtual void EndPlay() {};
 
@@ -93,6 +95,7 @@ protected:
 
 private:
 	friend class AActor;
+	friend class UWorld;
 	AActor* Owner = nullptr;
 	bool bHiddenInDetails = false;
 	bool bIsActive = false;
