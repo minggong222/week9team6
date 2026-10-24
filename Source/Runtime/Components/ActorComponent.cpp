@@ -41,6 +41,15 @@ void UActorComponent::PostEditChangeProperty(const FProperty& Property)
 
 void UActorComponent::BeginPlayComponent()
 {
+	if (bIsPendingDestroy || !IsRegistered() || !WorldPrivate || !WorldPrivate->HasBegunPlay())
+		return;
+
+	if (bIsPlaying)
+	{
+		RegisterComponentTickFunctions(true);
+		return;
+	}
+
 	AActor* MyOwner = Owner;
 	const bool bWasExecuting = MyOwner ? MyOwner->bIsExecutingComponentCallback : false;
 
@@ -49,19 +58,21 @@ void UActorComponent::BeginPlayComponent()
 
 	bIsDispatchingBeginPlay = true;
 
-	if (!IsRegistered() || !WorldPrivate || !WorldPrivate->HasBegunPlay()) return;
-	if (bIsPlaying)
-	{
-		RegisterComponentTickFunctions(true);
-		return;
-	}
 	bIsPlaying = true;
 	bHasBegunPlay = true;
-	if (!bIsInitialized) InitializeComponent();
+
+	if (!bIsInitialized)
+		InitializeComponent();
+
 	RegisterComponentTickFunctions(true);
-	if (bAutoActivate) Activate();
-	else SetComponentTickEnabled(false);
+
+	if (bAutoActivate)
+		Activate();
+	else
+		SetComponentTickEnabled(false);
+
 	BeginPlay();
+
 	bIsDispatchingBeginPlay = false;
 
 	if (MyOwner)
@@ -72,10 +83,26 @@ void UActorComponent::EndPlayComponent()
 {
 	if (!bIsPlaying)
 		return;
+
+	AActor* MyOwner = Owner;
+	const bool bWasExecuting = MyOwner ? MyOwner->bIsExecutingComponentCallback : false;
+
+	if (MyOwner)
+		MyOwner->bIsExecutingComponentCallback = true;
+
+	bIsDispatchingEndPlay = true;
+
 	bIsPlaying = false;
+
 	SetComponentTickEnabled(false);
 	Deactivate();
+
 	EndPlay();
+
+	bIsDispatchingEndPlay = false;
+
+	if (MyOwner)
+		MyOwner->bIsExecutingComponentCallback = bWasExecuting;
 }
 
 void UActorComponent::DispatchTickComponent(float DeltaTime)

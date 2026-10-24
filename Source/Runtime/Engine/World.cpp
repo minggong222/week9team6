@@ -134,7 +134,7 @@ void UWorld::Tick(float DeltaTime)
 			if (Comp->GetParticlesForView().IsEmpty())
 				Comp->SetParticles(10);
 
-			Comp->TickComponent(DeltaTime);
+			Comp->DispatchTickComponent(DeltaTime);
 		}
 
 		ProcessPendingComponentDestructions();
@@ -569,7 +569,7 @@ bool UWorld::DestroyActor(AActor* Actor)
 	if (Actor->bIsPendingDestroy)
 		return true;
 
-	if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || TickTaskManager.IsTicking() || bIsProcessingPendingComponentDestruction)
+	if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || Actor->bIsExecutingComponentCallback || TickTaskManager.IsTicking() || bIsProcessingPendingComponentDestruction)
 	{
 		Actor->bIsPendingDestroy = true;
 		PendingDestroyList.Enqueue({ Actor, Actor->GetUUID() });
@@ -1051,7 +1051,7 @@ void UWorld::ProcessPendingDestroyActors()
 			continue;
 
 		AActor* Actor = Pending.Actor;
-		if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || bIsEndingPlay)
+		if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || Actor->bIsExecutingComponentCallback || bIsEndingPlay)
 		{
 			Actor->bIsPendingDestroy = true;
 			PendingDestroyList.Enqueue(Pending);
