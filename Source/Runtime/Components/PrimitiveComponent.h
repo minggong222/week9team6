@@ -78,6 +78,7 @@ public:
 
 	virtual void PostEditChangeProperty(const FProperty& Property) override;
 	using Super::Serialize;
+	void Serialize(FStructuredArchive::FRecord Record) override;
 
 	void SetCastShadow(bool NewValue);
 	void SetReceiveShadow(bool NewValue);

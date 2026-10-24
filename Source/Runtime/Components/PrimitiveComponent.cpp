@@ -93,6 +93,45 @@ void UPrimitiveComponent::PostEditChangeProperty(const FProperty& Property)
 	}
 }
 
+void UPrimitiveComponent::Serialize(FStructuredArchive::FRecord Record)
+{
+	Super::Serialize(Record);
+
+	// Collision 필드가 없는 기존 씬을 불러올 때는 현재 설정을 유지한다.
+	auto CollisionSlot = Record.TryEnterField("Collision", true);
+	if (!CollisionSlot.IsSet())
+		return;
+
+	auto CollisionRecord = CollisionSlot.GetValue().EnterRecord();
+	const auto SerializeByte = [&CollisionRecord](const char* Name, uint8& Value)
+		{
+			auto Slot = CollisionRecord.TryEnterField(Name, true);
+			if (Slot.IsSet())
+				Slot.GetValue() << Value;
+		};
+
+	uint8 Enabled = static_cast<uint8>(CollisionEnabled);
+	SerializeByte("Enabled", Enabled);
+	if (Enabled <= static_cast<uint8>(ECollisionEnabled::QueryOnly))
+		CollisionEnabled = static_cast<ECollisionEnabled>(Enabled);
+
+	uint8 Channel = static_cast<uint8>(ObjectType);
+	SerializeByte("ObjectType", Channel);
+	if (Channel < static_cast<uint8>(ECollisionChannel::Count))
+		ObjectType = static_cast<ECollisionChannel>(Channel);
+
+	constexpr std::array<const char*, CollisionChannelCount> ResponseFields{
+		"WorldStatic", "WorldDynamic", "Pawn", "Projectile"
+	};
+	for (size_t i = 0; i < CollisionChannelCount; ++i)
+	{
+		uint8 Response = static_cast<uint8>(CollisionResponses[i]);
+		SerializeByte(ResponseFields[i], Response);
+		if (Response <= static_cast<uint8>(ECollisionResponse::Block))
+			CollisionResponses[i] = static_cast<ECollisionResponse>(Response);
+	}
+}
+
 void UPrimitiveComponent::SetCastShadow(bool NewValue)
 {
 	if (bCastShadow != NewValue)
