@@ -15,6 +15,7 @@
 #include "UObject/UObjectIterator.h"
 
 #include "Collision/Ray.h"
+#include "Collision/CollisionScene.h"
 #include "Components/BillboardComponent.h"
 #include "Components/ParticleSubUVComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
@@ -133,6 +134,7 @@ void UWorld::Tick(float DeltaTime)
 		if (!bIsPaused)
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ActorTick);
+
 			// 모든 Actor를 도는 대신 등록된 Tick 함수만 실행한다
 			TickTaskManager.RunAllTickGroups(DeltaTime);
 
@@ -140,6 +142,8 @@ void UWorld::Tick(float DeltaTime)
 			{
 				PathTracker.Tick(Level->GetActors(), DeltaTime);
 			}
+
+			CollisionScene.UpdateOverlapPairs();
 		}
 	}
 	else
@@ -158,8 +162,6 @@ void UWorld::Tick(float DeltaTime)
 			Comp->TickComponent(DeltaTime);
 		}
 	}
-
-
 }
 
 void UWorld::ClearWorld()

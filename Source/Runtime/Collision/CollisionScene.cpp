@@ -6,6 +6,33 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 
+#include "GameFramework/Actor.h"
+
+namespace
+{
+    // 충돌 활성 상태와 양쪽 채널 응답을 종합해 Ignore / Overlap / Block을 결정한다.
+    // 실제로 겹쳤는지는 검사하지 않는다.
+    ECollisionResponse GetPairCollisionResponse(const UShapeComponent* A, const UShapeComponent* B)
+    {
+        if (!A || !B)
+            return ECollisionResponse::Ignore;
+
+        if (A->GetCollisionEnabled() == ECollisionEnabled::NoCollision ||
+            B->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+            return ECollisionResponse::Ignore;
+
+        const AActor* OwnerA = A->GetOwner();
+        const AActor* OwnerB = B->GetOwner();
+
+        if (!OwnerA || !OwnerB || !OwnerA->GetActorEnableCollision() || !OwnerB->GetActorEnableCollision())
+            return ECollisionResponse::Ignore;
+
+        return ResolveCollisionResponse(
+            A->GetCollisionResponseToChannel(B->GetCollisionObjectType()),
+            B->GetCollisionResponseToChannel(A->GetCollisionObjectType()));
+    }
+}
+
 void FCollisionScene::AddShape(UShapeComponent* Shape)
 {
     if (!Shape || Shapes.Find(Shape) != INDEX_NONE)
@@ -25,6 +52,15 @@ void FCollisionScene::RemoveShape(UShapeComponent* Shape)
         return;
 
     Shapes.RemoveAtSwap(Index);
+
+    for (int32 i = ActiveOverlapPairs.Num() - 1; i >= 0; --i)
+    {
+        const FCollisionPair& Pair = ActiveOverlapPairs[i];
+
+        if (Pair.A == Shape || Pair.B == Shape)
+            ActiveOverlapPairs.RemoveAtSwap(i);
+    }
+
     bElementListChanged = true;
 }
 
@@ -95,6 +131,106 @@ void FCollisionScene::QueryOverlaps(UShapeComponent* Shape, TArray<UShapeCompone
     }
 }
 
+void FCollisionScene::QueryCollisionInteractions(UShapeComponent* Shape, TArray<UShapeComponent*>& OutOverlaps, TArray<UShapeComponent*>& OutBlocks)
+{
+    OutOverlaps.Reset();
+    OutBlocks.Reset();
+
+    if (!Shape)
+        return;
+
+    TArray<UShapeComponent*> Candidates;
+    QueryCandidates(Shape, Candidates);
+
+    for (UShapeComponent* Candidate : Candidates)
+    {
+        const ECollisionResponse Response = GetPairCollisionResponse(Shape, Candidate);
+
+        if (Response == ECollisionResponse::Ignore || !IntersectsShapes(Shape, Candidate))
+            continue;
+
+        if (Response == ECollisionResponse::Overlap)
+            OutOverlaps.Add(Candidate);
+        else
+            OutBlocks.Add(Candidate);
+    }
+}
+
+void FCollisionScene::UpdateOverlapPairs()
+{
+    TArray<FCollisionPair> CurrentPairs;
+
+    for (UShapeComponent* Shape : Shapes)
+    {
+        if (!Shape->GetGenerateOverlapEvents())
+            continue;
+
+        TArray<UShapeComponent*> Overlaps;
+        TArray<UShapeComponent*> Blocks;
+
+        QueryCollisionInteractions(Shape, Overlaps, Blocks);
+
+        for (UShapeComponent* Other : Overlaps)
+        {
+            if (!Other->GetGenerateOverlapEvents())
+                continue;
+
+            FCollisionPair Pair{ Shape, Other };
+
+            if (CurrentPairs.Find(Pair) == INDEX_NONE)
+                CurrentPairs.Add(Pair);
+        }
+    }
+
+    TArray<FCollisionPair> BeginPairs;
+    TArray<FCollisionPair> EndPairs;
+
+    // 새로 겹친 쌍
+    for (const FCollisionPair& Pair : CurrentPairs)
+    {
+        if (ActiveOverlapPairs.Find(Pair) == INDEX_NONE)
+            BeginPairs.Add(Pair);
+    }
+
+    // 겹침이 끝난 쌍
+    for (const FCollisionPair& Pair : ActiveOverlapPairs)
+    {
+        if (CurrentPairs.Find(Pair) == INDEX_NONE)
+            EndPairs.Add(Pair);
+    }
+
+    // 이벤트 발생 전에 이전 상태를 갱신한다.
+    ActiveOverlapPairs = std::move(CurrentPairs);
+
+    // 포인터를 역참조하기 전에 두 Shape가 아직 등록되어 있는지 확인한다.
+    const auto IsPairRegistered = [this](const FCollisionPair& Pair)
+        {
+            return Shapes.Find(Pair.A) != INDEX_NONE && Shapes.Find(Pair.B) != INDEX_NONE;
+        };
+
+    for (const FCollisionPair& Pair : BeginPairs)
+    {
+        if (!IsPairRegistered(Pair))
+            continue;
+
+        Pair.A->OnComponentBeginOverlap.Broadcast(Pair.B);
+
+        if (IsPairRegistered(Pair))
+            Pair.B->OnComponentBeginOverlap.Broadcast(Pair.A);
+    }
+
+    for (const FCollisionPair& Pair : EndPairs)
+    {
+        if (!IsPairRegistered(Pair))
+            continue;
+
+        Pair.A->OnComponentEndOverlap.Broadcast(Pair.B);
+
+        if (IsPairRegistered(Pair))
+            Pair.B->OnComponentEndOverlap.Broadcast(Pair.A);
+    }
+}
+
 bool FCollisionScene::IntersectsShapes(UShapeComponent* A, UShapeComponent* B, int32* OutNarrowTests)
 {
     USphereComponent* SphereA = Cast<USphereComponent>(A);
@@ -112,3 +248,4 @@ bool FCollisionScene::IntersectsShapes(UShapeComponent* A, UShapeComponent* B, i
 
     return false;
 }
+

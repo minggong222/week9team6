@@ -5,6 +5,7 @@
 #include "../Render/Mesh.h"
 #include "Render/RenderPacket.h"
 #include "Render/GeometryGenerator.h"
+#include "Core/Delegates/Delegate.h"
 #include "Collision/HitResult.h"
 #include "Collision/CollisionTypes.h"
 
@@ -96,6 +97,9 @@ public:
 	void SetCollisionResponseToChannel(ECollisionChannel Channel, ECollisionResponse Response);
 	void SetCollisionResponseToAllChannels(ECollisionResponse Response);
 
+	// 다른 컴포넌트와 겹치기 시작하거나 겹침이 끝났을 때 발생하는 이벤트
+	DECLARE_DELEGATE(OnComponentBeginOverlap, UPrimitiveComponent*);
+	DECLARE_DELEGATE(OnComponentEndOverlap, UPrimitiveComponent*);
 
 protected:
 	virtual bool ShouldCreateRenderState() const override
