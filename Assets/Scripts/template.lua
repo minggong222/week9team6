@@ -1,18 +1,26 @@
+
+-- 컴포넌트가 초기화될 때 호출합니다.
+function Initialize()
+
+end
+
+-- 컴포넌트가 시작될 때 호출합니다.
 function BeginPlay()
-print("[BeginPlay] " .. obj.UUID)
-obj:PrintLocation()
+
 end
 
+-- 컴포넌트가 Tick될 때 호출합니다.
+-- @param DeltaSeconds 프레임 사이의 걸린 시간
+function TickComponent(DeltaSeconds)
+
+end
+
+-- 컴포넌트가 종료될 때 호출합니다.
 function EndPlay()
-print("[EndPlay] " .. obj.UUID)
-obj:PrintLocation()
+
 end
 
-function OnOverlap(OtherActor)
-OtherActor:PrintLocation();
-end
+-- 컴포넌트가 제거될 때 호출합니다.
+function Destroy()
 
-function Tick(dt)
-obj.Location = obj.Location + obj.Velocity * dt
-obj:PrintLocation()
 end

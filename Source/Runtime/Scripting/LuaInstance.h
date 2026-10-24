@@ -20,9 +20,18 @@ private:
 	// 스크립트를 소유하는 객체를 가리킵니다.
 	UObject* Owner;
 
+	// FLuaManager에서의 Index 위치를 가리킵니다.
+	int32 Index;
+	friend class FLuaManager;
+
+
 public:
 
-	FLuaInstance(sol::state& InState);
+	FLuaInstance(
+		sol::state& InState,
+		int32 InIndex,
+		UObject* InOwner = nullptr
+	);
 
 	// 이동 생성자 빼고 모두 삭제.
 	// 이동 대입 연산자의 경우, 참조 변수 때문에 컴파일러가 생성할 수 없음. 근데 어처피 쓸 일 없어보임
@@ -31,14 +40,19 @@ public:
 	FLuaInstance(FLuaInstance&&) = default;
 	FLuaInstance& operator=(FLuaInstance&&) = delete;
 
-	bool Load(FStringView InPath);
 	const FString& GetPath() const { return Path; }
+	
+	// 주어진 Path로 Lua 스크립트를 불러옵니다.
+	bool Load(FStringView InPath);
 
+	// Lua 스크립트에서 함수를 호출합니다.
 	template<typename... Args>
 	bool Invoke(FStringView FunctionName, Args... args);
 
+	// Path에서 Lua 스크립트를 다시 불러옵니다.
 	bool Reload();
 
+	// 로드된 Lua 스크립트를 언로드합니다.
 	void Destroy();
 
 	UObject* GetOwner() const { return Owner; }

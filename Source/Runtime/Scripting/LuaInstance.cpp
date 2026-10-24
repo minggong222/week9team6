@@ -3,8 +3,14 @@
 
 #include "Core/EngineLog.h"
 
-FLuaInstance::FLuaInstance(sol::state& InState)
+FLuaInstance::FLuaInstance(
+    sol::state& InState,
+    int32 InIndex,
+    UObject* InOwner
+)
     : State{ InState }
+    , Index{ InIndex }
+    , Owner{ InOwner }
 {}
 
 bool FLuaInstance::Load(FStringView InPath)

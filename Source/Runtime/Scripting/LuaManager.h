@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Scripting/LuaInstance.h"
-#include "Scripting/ScriptInstance.h"
 #include "Containers/Array.h"
+#include "Core/Types.h"
 
 class ULuaComponent;
 
@@ -15,24 +15,22 @@ public:
     FLuaManager& operator=(const FLuaManager&) = delete;
 
     void Initialize();
-    FLuaInstance Load(FStringView Path);
+    FLuaInstance* CreateInstance(FStringView Path, UObject* Owner);
 
     bool SetJITEnable(bool Value);
     bool GetJITEnable() const { return bJITEnabled; }
 
-    // Component/index integration is declared here, but not implemented yet.
-    int32 CreateInstance(const FString& Path, ULuaComponent* OwnerComponent);
-    bool Invoke(int32 Index, const FString& FunctionName);
-    bool Invoke(int32 Index, const FString& FunctionName, float Argument);
-    bool Reload(int32 Index);
-    void DestroyInstance(int32 Index);
+    bool ReloadAll();
+    bool Reload(int32 Handle);
+    bool Remove(int32 Handle);
+    bool Remove(FLuaInstance* Instance);
 
 private:
-    FScriptInstance* GetInstance(int32 Index);
 
-    // Destroy instances before their shared state.
+    bool CheckRange(int32 Index) const;
+
     sol::state State;
     bool bJITEnabled = true;
-    // Deleted slots stay null; indices are not shifted or reused.
-    TArray<TUniquePtr<FScriptInstance>> Instances;
+    
+    TArray<TUniquePtr<FLuaInstance>> Instances;
 };

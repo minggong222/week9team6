@@ -28,15 +28,18 @@ void FLuaManager::Initialize()
     LuaRegister(State);
 }
 
-
-FLuaInstance FLuaManager::Load(FStringView Path)
+FLuaInstance* FLuaManager::CreateInstance(FStringView Path, UObject* Owner)
 {
-	FLuaInstance Lua{ State };
+    int32 Index = Instances.Num();
+    Instances.Add(MakeUnique<FLuaInstance>(State, Index, Owner));
 
-    if (!Lua.Load(Path))
+    FLuaInstance* Lua = Instances.Last().get();
+
+    if (!Lua->Load(Path))
     {
-        Lua.Destroy();
-        throw std::runtime_error("Lua Load Failed");
+        Lua->Destroy();
+        Instances.RemoveLast();
+        return nullptr;
     }
 
 	return Lua;
@@ -60,6 +63,73 @@ bool FLuaManager::SetJITEnable(bool Value)
     {
         // 이미 컴파일된 JIT 캐시를 비우기
         return luaJIT_setmode(L, 0, LUAJIT_MODE_ENGINE | LUAJIT_MODE_FLUSH);
+    }
+
+    return true;
+}
+
+bool FLuaManager::ReloadAll()
+{
+    bool bSuccessed = true;
+
+    for (auto& Instance : Instances)
+    {
+        bSuccessed = Instance->Reload() && bSuccessed;
+    }
+
+    return bSuccessed;
+}
+
+bool FLuaManager::Reload(int32 Index)
+{
+    if (!CheckRange(Index))
+    {
+        return false;
+    }
+
+    return Instances[Index]->Reload();
+}
+
+bool FLuaManager::Remove(int32 Index)
+{
+    if (!CheckRange(Index))
+    {
+        return false;
+    }
+
+    Instances[Index]->Destroy();
+    Instances.RemoveAtSwap(Index);
+
+    if (Index >= Instances.Num())
+    {
+        return true;
+    }
+
+    Instances[Index]->Index = Index;
+
+    return true;
+}
+
+bool FLuaManager::Remove(FLuaInstance* Instance)
+{
+    if (!Instance)
+    {
+        return;
+    }
+
+    return Remove(Instance->Index);
+}
+
+bool FLuaManager::CheckRange(int32 Index) const
+{
+    if (Index < 0)
+    {
+        return false;
+    }
+
+    if (Index >= Instances.Num())
+    {
+        return false;
     }
 
     return true;

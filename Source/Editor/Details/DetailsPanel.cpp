@@ -959,7 +959,7 @@ void FDetailsPanel::OnRender()
         const bool bHasScript = ActorScript && !ActorScript->GetScriptPath().empty();
         const UWorld* ActorWorld = TargetActor->GetWorld();
         const bool bCanCreate = ActorWorld && ActorWorld->GetWorldType() == EWorldType::Editor &&
-            !ActorWorld->HasBegunPlay() && (!ActorScript || ActorScript->GetInstanceIndex() == -1);
+            !ActorWorld->HasBegunPlay() && (!ActorScript || !ActorScript->GetInitialized());
         ImGui::PushID(TargetActor);
         ImGui::BeginDisabled(!bCanCreate);
         if (ImGui::Button(bHasScript ? "Show Script" : "Create Script"))

@@ -2,6 +2,7 @@
 
 #include "ActorComponent.h"
 #include "Core/EngineString.h"
+#include "Scripting/LuaInstance.h"
 
 class FLuaManager;
 
@@ -14,15 +15,15 @@ class ULuaComponent : public UActorComponent
     REFLECT_END()
 
 public:
-    ULuaComponent();
     virtual ~ULuaComponent() override;
 
     // Runtime operation implementations will be connected in the next step.
     bool Load(FLuaManager& InManager);
-    bool Invoke(const FString& FunctionName);
-    bool Invoke(const FString& FunctionName, float Argument);
-    bool Reload();
-    void Destroy();
+
+    virtual void InitializeComponent() override;
+    virtual void BeginPlay() override;
+    virtual void TickComponent(float DeltaSeconds) override;
+    //virtual void EndPlay() override;
 
     const FString& GetScriptPath() const
     {
@@ -31,25 +32,14 @@ public:
 
     bool SetScriptPath(const FString& InPath)
     {
-        if (InstanceIndex != -1)
-        {
-            return false;
-        }
-
         ScriptPath = InPath;
         return true;
     }
 
-    int32 GetInstanceIndex() const
-    {
-        return InstanceIndex;
-    }
+    bool GetInitialized() const { return Instance != nullptr; }
 
 private:
-    // Path relative to Assets/Scripts, assigned by Create Script and saved with the scene.
     FString ScriptPath;
 
-    // Runtime-only data. The manager must outlive the script instance.
-    FLuaManager* LuaManager = nullptr;
-    int32 InstanceIndex = -1;
+    FLuaInstance* Instance = nullptr;
 };

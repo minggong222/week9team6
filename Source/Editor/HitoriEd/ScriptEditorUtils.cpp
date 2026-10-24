@@ -58,7 +58,7 @@ bool FScriptEditorUtils::CreateScript(ULuaComponent* Component, const FString& S
 {
     if (!Component || !Component->GetOwner()) return false;
     const UWorld* World = Component->GetOwner()->GetWorld();
-    if (Component->GetInstanceIndex() != -1 ||
+    if (!Component->GetInitialized() ||
         (World && (World->HasBegunPlay() || World->GetWorldType() != EWorldType::Editor)))
     {
         HTR_LOG(Warning, "Create Script: stop play before creating a script.");
@@ -166,7 +166,7 @@ bool FScriptEditorUtils::RenameScript(const FString& RelativePath, const FString
                             if (ULuaComponent* Script = Cast<ULuaComponent>(Component))
                                 if (Script->GetScriptPath() == OldReference)
                                 {
-                                    if (Script->GetInstanceIndex() != -1)
+                                    if (!Script->GetInitialized())
                                     {
                                         OutError = "Stop the script before renaming it.";
                                         return false;
