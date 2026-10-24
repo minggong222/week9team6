@@ -29,9 +29,9 @@ void FLuaManager::Initialize()
 }
 
 
-FLua FLuaManager::Load(FStringView Path)
+FLuaInstance FLuaManager::Load(FStringView Path)
 {
-	FLua Lua{ State };
+	FLuaInstance Lua{ State };
 
     if (!Lua.Load(Path))
     {

@@ -6,25 +6,29 @@
 
 #include "sol/sol.hpp"
 
-class FLua
+class FLuaInstance
 {
 private: 
 
 	// 스크립트의 경로를 가리킵니다.
 	FString Path;
 
-	// 비소유 참조: 이 스크립트보다 FLuaManager가 오래 살아 있어야 합니다.
-	sol::state* State;
+	sol::state& State;
 	sol::environment Environment;
+
+	// 스크립트를 소유하는 객체를 가리킵니다.
+	UObject* Owner;
 
 public:
 
-	FLua(sol::state& InState);
+	FLuaInstance(sol::state& InState);
 
-	FLua(const FLua&) = delete;
-	FLua& operator=(const FLua&) = delete;
-	FLua(FLua&&) = default;
-	FLua& operator=(FLua&&) = default;
+	// 이동 생성자 빼고 모두 삭제.
+	// 이동 대입 연산자의 경우, 참조 변수 때문에 컴파일러가 생성할 수 없음. 근데 어처피 쓸 일 없어보임
+	FLuaInstance(const FLuaInstance&) = delete;
+	FLuaInstance& operator=(const FLuaInstance&) = delete;
+	FLuaInstance(FLuaInstance&&) = default;
+	FLuaInstance& operator=(FLuaInstance&&) = delete;
 
 	bool Load(FStringView InPath);
 
@@ -35,10 +39,13 @@ public:
 
 	void Destroy();
 
+	UObject* GetOwner() const { return Owner; }
+	void SetOwner(UObject* InOwner);
+
 };
 
 template<typename... Args>
-bool FLua::Invoke(FStringView FunctionName, Args... args)
+bool FLuaInstance::Invoke(FStringView FunctionName, Args... args)
 {
 	// Environment가 없음
 	if (!Environment.valid())

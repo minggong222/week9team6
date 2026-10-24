@@ -193,9 +193,9 @@ project "HitoriEditor"
 		"%{IncludeDir.ImGui}/backends",
 		"%{IncludeDir.stb}",
 		"%{IncludeDir.json}",
+		"%{IncludeDir.LuaJIT}",
+		"%{IncludeDir.Sol}",
 	}
-
-	libdirs { "%{IncludeDir.LuaJIT}" }
 	
 	links
 	{
@@ -203,7 +203,7 @@ project "HitoriEditor"
 		"dxgi.lib",
 		"dxguid.lib",
 		"d3dcompiler.lib",
-		"lua51.lib",
+		"d3dcompiler.lib",
 	}
 
 	filter "configurations:ObjViewer"
@@ -256,9 +256,9 @@ project "HitoriGame"
         "%{IncludeDir.stb}",
         "%{IncludeDir.json}",
         "%{IncludeDir.DDSLoader}",
+		"%{IncludeDir.LuaJIT}",
+		"%{IncludeDir.Sol}",
     }
-	
-	libdirs { "%{IncludeDir.LuaJIT}" }
 	
 	links
 	{
@@ -267,7 +267,6 @@ project "HitoriGame"
 		"dxgi.lib",
 		"dxguid.lib",
 		"d3dcompiler.lib",
-		"lua51.lib",
 	}
 	local engineLibPath = path.getabsolute("Build/Bin")
 		.. "\\%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\\HitoriEngine.lib"
