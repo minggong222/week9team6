@@ -18,7 +18,7 @@ public:
     virtual ~ULuaComponent() override;
 
     // Runtime operation implementations will be connected in the next step.
-    bool Load(FLuaManager& InManager);
+    bool Load();
 
     virtual void InitializeComponent() override;
     virtual void BeginPlay() override;

@@ -104,5 +104,7 @@ void UEngine::DestroyWorldContext(UWorld* InWorld)
 
 void FWorldContext::SetCurrentWorld(UWorld* World)
 {
+	if (ThisCurrentWorld) ThisCurrentWorld->SetGameInstance(nullptr);
 	ThisCurrentWorld = World;
+	if (ThisCurrentWorld) ThisCurrentWorld->SetGameInstance(OwningGameInstance);
 }

@@ -19,6 +19,8 @@
 
 //class ACameraActor;
 class ULevel;
+class UGameInstance;
+class FLuaManager;
 class UBillboardComponent;
 class APawn;
 class APlayerController;
@@ -34,6 +36,9 @@ public:
 	virtual ~UWorld();
 
 	bool Init();
+	void SetGameInstance(UGameInstance* InGameInstance) { OwningGameInstance = InGameInstance; }
+	UGameInstance* GetGameInstance() const { return OwningGameInstance; }
+	FLuaManager* GetLuaManager() const;
 	/*UPrimitiveComponent* SpawnPrimitive(FClass* Class);*/
 	AActor* SpawnActor(UClass* Class, FName InName = NAME_None, const FTransform* Transform = nullptr);
 
@@ -104,6 +109,7 @@ public:
 	using Super::Serialize;
 	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 private:
+	UGameInstance* OwningGameInstance = nullptr;
 	EWorldType WorldType = EWorldType::None;
 
 	struct alignas(64) FGatherChunk

@@ -1,5 +1,8 @@
 #include "EnginePCH.h"
 #include "LuaComponent.h"
+#include "Engine/World.h"
+#include "Engine/GameInstance.h"
+
 
 ULuaComponent::~ULuaComponent()
 {
@@ -9,6 +12,21 @@ ULuaComponent::~ULuaComponent()
 	}
 
 	Instance->Destroy();
+}
+
+bool ULuaComponent::Load()
+{
+	FLuaManager& Manager = *GetWorld()->GetLuaManager();
+	FLuaInstance* Item = Manager.CreateInstance(ScriptPath, this);
+
+	if (!Item)
+	{
+		// 실패
+		return false;
+	}
+
+	Instance = Item;
+	return true;
 }
 
 void ULuaComponent::InitializeComponent()

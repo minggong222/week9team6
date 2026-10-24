@@ -12,6 +12,7 @@ void UGameInstance::Init()
 void UGameInstance::Shutdown()
 {
 	if (!WorldContext) return;
+	if (UWorld* World = GetWorld()) World->SetGameInstance(nullptr);
 	if (WorldContext->GameViewport)
 	{
 		WorldContext->GameViewport->Reset();
@@ -28,8 +29,17 @@ UWorld* UGameInstance::GetWorld() const
 
 void UGameInstance::SetWorldContext(FWorldContext* Context)
 {
+	if (WorldContext && WorldContext->OwningGameInstance == this)
+	{
+		if (UWorld* World = GetWorld()) World->SetGameInstance(nullptr);
+		WorldContext->OwningGameInstance = nullptr;
+	}
 	WorldContext = Context;
-	if (Context) Context->OwningGameInstance = this;
+	if (Context)
+	{
+		Context->OwningGameInstance = this;
+		if (UWorld* World = GetWorld()) World->SetGameInstance(this);
+	}
 }
 
 bool UGameInstance::InitializeForPlayInEditor(int32 PIEInstance)

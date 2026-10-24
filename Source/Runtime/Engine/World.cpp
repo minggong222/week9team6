@@ -1,5 +1,6 @@
 #include "EnginePCH.h"
 #include "World.h"
+#include "Engine/GameInstance.h"
 #include "Level.h"
 
 #include "Core/EngineStatics.h"
@@ -53,6 +54,11 @@ DECLARE_CYCLE_STAT("Gather - Submit", STAT_GatherSubmit);
 UWorld::~UWorld()
 {
 
+}
+
+FLuaManager* UWorld::GetLuaManager() const
+{
+	return OwningGameInstance ? OwningGameInstance->GetLuaManager() : nullptr;
 }
 
 bool UWorld::Init()
