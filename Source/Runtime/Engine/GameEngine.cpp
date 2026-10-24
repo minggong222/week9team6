@@ -118,10 +118,12 @@ void UGameEngine::PreExit()
 	}
 
 	GameWorld->ClearWorld();
-	GameContext = nullptr;
 
 	ACameraActor* MainCamera = GameWorld->GetMainCamera();
 	GameWorld->SetMainCamera(nullptr);
+
+	DestroyWorldContext(GameWorld);
+	GameContext = nullptr;
 
 	for (ULevel* Level : GameWorld->GetLevels())
 		delete Level;

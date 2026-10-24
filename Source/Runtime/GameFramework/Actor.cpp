@@ -100,7 +100,7 @@ void AActor::DispatchEndPlay()
 			}
 		}
 		if (bStillOwned && Component->IsPlaying())
-			Component->BeginPlayComponent();
+			Component->EndPlayComponent();
 	}
 	bIsDispatchingEndPlay = false;
 }

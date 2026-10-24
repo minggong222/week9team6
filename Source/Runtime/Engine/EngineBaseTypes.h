@@ -31,21 +31,20 @@ public:
 	void RegisterTickFunction(FTickTaskManager& InManager);
 	void UnRegisterTickFunction();
 	void SetTickFunctionEnable(bool bEnable);
+	bool SetTickGroup(ETickingGroup InTickGroup);
+	ETickingGroup GetTickGroup() const { return TickGroup; }
 	bool IsTickFunctionRegistered() const { return Manager != nullptr; }
 	bool IsTickFunctionEnabled() const { return TickState != ETickState::Disabled; }
-
-	void RunTickGroup(ETickingGroup Group, float DeltaTime, bool bIsPaused = false);
-	void RunAllTickGroups(float DeltaTime, bool bIsPaused = false);
 
 	uint8 bTickEvenWhenPaused : 1 = false;
 	uint8 bCanEverTick : 1 = false;          // UE 기본값
 	uint8 bStartWithTickEnabled : 1 = true;  // 등록할때 바로 Tick을 켤 껀지?
 
-	ETickingGroup TickGroup = ETickingGroup::PrePhysics; // 실행 순서 그룹
 	float TickInterval = 0.0f;               // 0이면 매 프레임 Tick을 몇초마다 실행할 것인가?
 
 private:
 	friend class FTickTaskManager;
+	ETickingGroup TickGroup = ETickingGroup::PrePhysics; // 실행 순서 그룹
 	// 현재 Tick의 상태
 	ETickState TickState = ETickState::Disabled;
 	// 다음 Tick 실행까지 남은 시간
@@ -81,8 +80,8 @@ public:
 	void AddTickFunction(FTickFunction* Function);
 	void RemoveTickFunction(FTickFunction* Function);
 
-	void RunTickGroup(ETickingGroup Group, float DeltaTime);
-	void RunAllTickGroups(float DeltaTime);
+	void RunTickGroup(ETickingGroup Group, float DeltaTime, bool bIsPaused = false);
+	void RunAllTickGroups(float DeltaTime, bool bIsPaused = false);
 
 	int32 GetRegisteredCount() const;
 

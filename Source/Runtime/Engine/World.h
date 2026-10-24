@@ -105,6 +105,14 @@ public:
 	using Super::Serialize;
 	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 private:
+	void ProcessPendingDestroyActors();
+
+	struct FPendingActorDestroy
+	{
+		AActor* Actor = nullptr;
+		uint32 UUID = 0;
+	};
+
 	EWorldType WorldType = EWorldType::None;
 
 	struct alignas(64) FGatherChunk
@@ -124,6 +132,7 @@ private:
 	FTickTaskManager TickTaskManager;
 
 	TQueue<AActor*> BeginPlayList;
+	TQueue<FPendingActorDestroy> PendingDestroyList;
 
 	//메인 카메라 
 	ACameraActor* MainCamera = nullptr;

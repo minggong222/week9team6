@@ -91,5 +91,6 @@ private:
 	bool bIsBeingDestroyed = false;
 	bool bIsDispatchingBeginPlay = false;
 	bool bIsDispatchingEndPlay = false;
+	bool bIsPendingDestroy = false;
 	DECLARE_DELEGATE(Test, int);
 };

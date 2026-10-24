@@ -29,6 +29,27 @@ void FTickFunction::SetTickFunctionEnable(bool bEnable)
 	RelativeTickCooldown = TickInterval;
 }
 
+bool FTickFunction::SetTickGroup(ETickingGroup InTickGroup)
+{
+	if (static_cast<uint8>(InTickGroup) >= static_cast<uint8>(ETickingGroup::Max))
+	{
+		HTR_LOG(Warning, "SetTickGroup: Invalid ticking group.");
+		return false;
+	}
+
+	if (TickGroup == InTickGroup)
+		return true;
+
+	if (Manager)
+	{
+		HTR_LOG(Warning, "SetTickGroup: Unregister the tick function before changing its group.");
+		return false;
+	}
+
+	TickGroup = InTickGroup;
+	return true;
+}
+
 void FActorTickFunction::ExecuteTick(float DeltaTime)
 {
 	if (Target)
@@ -86,7 +107,7 @@ void FTickTaskManager::RemoveTickFunction(FTickFunction* Function)
 		Functions[Index]->ManagerIndex = Index;
 }
 
-void FTickTaskManager::RunTickGroup(ETickingGroup Group, float DeltaTime)
+void FTickTaskManager::RunTickGroup(ETickingGroup Group, float DeltaTime, bool bIsPaused)
 {
 	TArray<FTickFunction*>& Functions = Groups[static_cast<uint8>(Group)];
 
@@ -97,6 +118,8 @@ void FTickTaskManager::RunTickGroup(ETickingGroup Group, float DeltaTime)
 	{
 		FTickFunction* Function = Functions[i];
 		if (!Function || Function->TickState == FTickFunction::ETickState::Disabled)
+			continue;
+		if (bIsPaused && !Function->bTickEvenWhenPaused)
 			continue;
 
 		float TickDelta = DeltaTime;
@@ -122,10 +145,10 @@ void FTickTaskManager::RunTickGroup(ETickingGroup Group, float DeltaTime)
 		FlushPendingRemovals();
 }
 
-void FTickTaskManager::RunAllTickGroups(float DeltaTime)
+void FTickTaskManager::RunAllTickGroups(float DeltaTime, bool bIsPaused)
 {
 	for (uint8 Group = 0; Group < static_cast<uint8>(ETickingGroup::Max); ++Group)
-		RunTickGroup(static_cast<ETickingGroup>(Group), DeltaTime);
+		RunTickGroup(static_cast<ETickingGroup>(Group), DeltaTime, bIsPaused);
 }
 
 int32 FTickTaskManager::GetRegisteredCount() const
