@@ -3,6 +3,7 @@
 #include "UObject/Object.h"
 #include "UObject/Class.h"
 #include "GameFramework/Actor.h"
+#include "Collision/CollisionScene.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/MovementComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -85,6 +86,9 @@ public:
 	void SetPaused(bool bPaused) { bIsPaused = bPaused; }
 
 	FScene& GetScene() { return Scene; }
+
+	FCollisionScene& GetCollisionScene() { return CollisionScene; }
+
 	FTickTaskManager& GetTickTaskManager() { return TickTaskManager; }
 
 	const FRenderStats& GetRenderStats() const { return RenderStats; }
@@ -138,6 +142,7 @@ private:
 	TArray<ULevel*> Levels;
 
 	FScene Scene;
+	FCollisionScene CollisionScene;
 
 	// GatherRenderPackets가 매 프레임 채우는 컬링 결과. 용량을 재사용한다.
 	TArray<FPrimitiveSceneProxy*> VisibleProxies;

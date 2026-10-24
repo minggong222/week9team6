@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PrimitiveComponent.h"
+#include "Engine/World.h"
 
 class FLineBatcher;
 
@@ -20,11 +21,24 @@ public:
 	bool GetDrawOnlyIfSelected() const { return bDrawOnlyIfSelected; }
 
 	virtual void DrawDebug(FLineBatcher* LineBatcher, const FVector4& Color) const = 0;
+	void QueryCandidates(UShapeComponent* Shape, TArray<UShapeComponent*>& OutCandidates);
 	
 protected: 
 	bool ShouldCreateRenderState() const override { return false; }
+	void OnRegister() override;
+	void OnUnregister() override;
+	void OnTransformDirty() override;
 
 private: 
 	FColor ShapeColor = FColor(223, 149, 157, 255);
 	bool bDrawOnlyIfSelected = false;
+
+	// 충돌 시스템 참여 가능 여부
+	bool bCollisionEnabled = true;
+
+	// Overlap 이벤트 발생시킬지 여부
+	bool bGenerateOverlapEvents = true;
+
+	// Hit 알림 제어 변수: 보류
+	// bool bNotifyHit = true;
 };
