@@ -2,6 +2,7 @@
 #include "LuaInstance.h"
 
 #include "Core/EngineLog.h"
+#include "IO/FileUtils.h"
 
 FLuaInstance::FLuaInstance(
     sol::state& InState,
@@ -15,6 +16,9 @@ FLuaInstance::FLuaInstance(
 
 bool FLuaInstance::Load(FStringView InPath)
 {
+    const FString AssetPath{ InPath };
+    const FString FullPath = FileUtils::GetAssetFullPath(AssetPath);
+
     Environment = sol::environment{
         State,
         sol::create,
@@ -26,7 +30,7 @@ bool FLuaInstance::Load(FStringView InPath)
 
     // Lua 스크립트를 실행합니다.
     sol::protected_function_result Result = State.safe_script_file(
-        InPath.data(),
+        FullPath.c_str(),
         Environment,
         sol::script_pass_on_error
     );
@@ -38,7 +42,7 @@ bool FLuaInstance::Load(FStringView InPath)
         return false;
     }
 
-    Path = InPath;
+    Path = AssetPath;
     bInitialized = true;
 
     return true;
@@ -57,6 +61,7 @@ bool FLuaInstance::Reload()
 void FLuaInstance::Unload()
 {
     Environment = sol::lua_nil;
+    bInitialized = false;
 }
 
 void FLuaInstance::SetOwner(UObject* InOwner)

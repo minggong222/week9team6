@@ -1,6 +1,6 @@
 
 -- 컴포넌트가 초기화될 때 호출합니다.
-function Initialize(Self)
+function InitializeComponent(Self)
 
 end
 

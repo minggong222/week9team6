@@ -12,7 +12,7 @@ class FLuaInstance
 {
 private: 
 
-	// 스크립트의 경로를 가리킵니다.
+	// Reload에 사용할 Assets 기준 스크립트 상대 경로입니다.
 	FString Path;
 
 	sol::state& State;
@@ -44,7 +44,7 @@ public:
 
 	const FString& GetPath() const { return Path; }
 	
-	// 주어진 Path로 Lua 스크립트를 불러옵니다.
+	// Assets 기준 상대 경로를 받아 내부에서 절대 경로로 변환해 불러옵니다.
 	bool Load(FStringView InPath);
 
 	// Lua 스크립트에서 함수를 호출합니다.

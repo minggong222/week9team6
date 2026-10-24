@@ -6,6 +6,7 @@
 #include "Engine/Level.h"
 #include "GameFramework/Actor.h"
 #include "Core/EngineLog.h"
+#include "IO/FileUtils.h"
 #include <filesystem>
 #include <vector>
 #include <cctype>
@@ -86,7 +87,7 @@ bool FScriptEditorUtils::CreateScript(ULuaComponent* Component, const FString& S
         for (int Suffix = 1; Files::exists(Destination); ++Suffix)
             Destination = Directory / Files::u8path(BaseName + "_" + std::to_string(Suffix) + ".lua");
 
-        const FString RelativePath = ToUtf8(Destination.filename());
+        const FString RelativePath = ToUtf8(Destination.lexically_relative(Files::path("Assets")));
         Files::copy_file(Template, Destination, Files::copy_options::none);
         if (!Component->SetScriptPath(RelativePath))
         {
@@ -136,7 +137,9 @@ bool FScriptEditorUtils::RenameScript(const FString& RelativePath, const FString
     try
     {
         const Files::path Root = Files::weakly_canonical(Files::u8path(GetScriptRoot()));
-        const Files::path OldPath = Files::weakly_canonical(Root / Files::u8path(RelativePath));
+        const Files::path AssetRoot = Files::weakly_canonical(Files::path("Assets"));
+        const Files::path OldPath = Files::weakly_canonical(
+            Files::u8path(FileUtils::GetAssetFullPath(RelativePath)));
         const Files::path OldRelative = OldPath.lexically_relative(Root);
         if (OldRelative.empty() || OldRelative.is_absolute() || *OldRelative.begin() == ".." ||
             OldPath.extension() != ".lua" || OldRelative == "template.lua" || !Files::is_regular_file(OldPath))
@@ -152,8 +155,8 @@ bool FScriptEditorUtils::RenameScript(const FString& RelativePath, const FString
             return false;
         }
         const Files::path NewPath = OldPath.parent_path() / Files::u8path(FileName);
-        const FString OldReference = ToUtf8(OldRelative);
-        const FString NewReference = ToUtf8(NewPath.lexically_relative(Root));
+        const FString OldReference = ToUtf8(OldPath.lexically_relative(AssetRoot));
+        const FString NewReference = ToUtf8(NewPath.lexically_relative(AssetRoot));
         if (OldPath == NewPath) { OutRelativePath = OldReference; return true; }
         if (Files::exists(NewPath)) { OutError = "A file with that name already exists."; return false; }
 
@@ -166,7 +169,7 @@ bool FScriptEditorUtils::RenameScript(const FString& RelativePath, const FString
                             if (ULuaComponent* Script = Cast<ULuaComponent>(Component))
                                 if (Script->GetScriptPath() == OldReference)
                                 {
-                                    if (!Script->GetInitialized())
+                                    if (Script->GetInitialized())
                                     {
                                         OutError = "Stop the script before renaming it.";
                                         return false;
@@ -194,8 +197,7 @@ bool FScriptEditorUtils::EditScript(const FString& RelativePath)
 
     try
     {
-        const Files::path ScriptPath = Files::absolute(
-            Files::u8path(GetScriptRoot()) / Files::u8path(RelativePath));
+        const Files::path ScriptPath = Files::u8path(FileUtils::GetAssetFullPath(RelativePath));
 
         if (ScriptPath.extension() != ".lua" || !Files::is_regular_file(ScriptPath))
         {

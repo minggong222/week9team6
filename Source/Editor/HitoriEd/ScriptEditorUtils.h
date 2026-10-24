@@ -11,6 +11,7 @@ class FScriptEditorUtils
 public:
     static const FString& GetScriptRoot();
 
+    // RelativePath is relative to Assets (e.g. Scripts/Test.lua).
     // Open an existing Lua file in its Windows-associated editor.
     static bool EditScript(const FString& RelativePath);
 
@@ -19,6 +20,7 @@ public:
     // Reuse an existing component, or attach one automatically on success.
     static ULuaComponent* CreateScriptForActor(AActor* Actor, const FString& ScenePath);
 
+    // Input and output paths are relative to Assets.
     // Rename within the script's folder; update references in the open editor World.
     // Save the scene afterwards to persist those reference changes.
     static bool RenameScript(const FString& RelativePath, const FString& NewName,

@@ -4,6 +4,11 @@
 #include "Engine/GameInstance.h"
 #include "Scripting/LuaInstance.h"
 
+ULuaComponent::ULuaComponent()
+{
+	// 스크립트가 동작해야 하므로 Tick을 활성화
+	PrimaryComponentTick.bCanEverTick = true;
+}
 
 ULuaComponent::~ULuaComponent()
 {
@@ -12,22 +17,41 @@ ULuaComponent::~ULuaComponent()
 		return;
 	}
 
-	Instance->Unload();
 	Instance->OnLoaded.Clear();
 	Instance->SetOwner(nullptr);
+	InstanceManager->Remove(Instance);
+	Instance = nullptr;
+	InstanceManager = nullptr;
 }
 
 void ULuaComponent::InitializeLua()
 {
-	FLuaManager& Manager = *GetWorld()->GetLuaManager();
-	Instance = Manager.CreateInstance(ScriptPath, this);
+	if (GetInitialized())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FLuaManager* Manager = World->GetLuaManager();
+	if (!Manager)
+	{
+		return;
+	}
+
+	Instance = Manager->CreateInstance(ScriptPath, this);
+	InstanceManager = Manager;
 
 	Instance->OnLoaded.AddDynamic(this, &ULuaComponent::OnInstanceLoaded);
 }
 
 bool ULuaComponent::LoadLua()
 {
-	if (!Instance)
+	if (!Instance || ScriptPath.empty())
 	{
 		return false;
 	}

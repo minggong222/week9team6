@@ -195,8 +195,7 @@ void FContentDrawerPanel::OnRender()
 					}
                     else if (Path.extension() == ".lua")
                     {
-                        const fs::path ScriptRoot = fs::u8path(FScriptEditorUtils::GetScriptRoot());
-                        const fs::path RelativePath = Path.lexically_relative(ScriptRoot);
+                        const fs::path RelativePath = Path.lexically_relative(AssetRootPath);
                         FScriptEditorUtils::EditScript(Utf8AssetPath(RelativePath));
                     }
 				}
@@ -276,7 +275,7 @@ void FContentDrawerPanel::DrawRenameDialog()
         ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
     if (ImGui::Button("Rename") || bSubmit)
     {
-        const fs::path Root = fs::u8path(FScriptEditorUtils::GetScriptRoot());
+        const fs::path Root = AssetRootPath;
         const FString Relative = Utf8AssetPath(PendingRenamePath.lexically_relative(Root));
         FString NewRelative;
         if (FScriptEditorUtils::RenameScript(Relative, RenameBuffer, World, NewRelative, RenameError))

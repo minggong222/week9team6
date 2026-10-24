@@ -153,7 +153,7 @@ bool UEditorEngine::Init()
     ContentDrawerPanel->SetWorld(EditorWorld);
     DetailsPanel->SetScriptCreatedCallback([this](const FString& ScriptPath)
     {
-        ContentDrawerPanel->SelectAsset("Assets/Scripts/" + ScriptPath);
+        ContentDrawerPanel->SelectAsset("Assets/" + ScriptPath);
     });
 
 	// OutLine
