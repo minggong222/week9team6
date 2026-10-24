@@ -36,6 +36,7 @@ namespace
 UPrimitiveComponent::UPrimitiveComponent()
 {
 	//SetMaterial(UAssetManager::GetAssetByPath<UMaterial>("DefaultMaterial"));
+	CollisionResponses.fill(ECollisionResponse::Block);
 }
 
 UPrimitiveComponent::~UPrimitiveComponent()
@@ -47,7 +48,6 @@ void UPrimitiveComponent::BeginPlay()
 {
 	Super::BeginPlay();
 }
-
 
 void UPrimitiveComponent::SubmitToRenderQueue(FRenderQueue& RenderQueue, const FViewContext& ViewContext)
 {
@@ -143,4 +143,29 @@ bool UPrimitiveComponent::TraceMesh(const FRay& WorldRay, const FStaticMeshData&
 bool UPrimitiveComponent::TraceMeshLocal(const FRay& LocalRay, const FStaticMeshData& Mesh, float& OutT)
 {
 	return RayIntersectsMesh(LocalRay, Mesh, OutT);
+}
+
+ECollisionResponse UPrimitiveComponent::GetCollisionResponseToChannel(ECollisionChannel Channel) const
+{
+	const size_t Index = static_cast<size_t>(Channel);
+
+	if (Index >= CollisionResponses.size())
+		return ECollisionResponse::Ignore;
+
+	return CollisionResponses[Index];
+}
+
+void UPrimitiveComponent::SetCollisionResponseToChannel(ECollisionChannel Channel, ECollisionResponse Response)
+{
+	const size_t Index = static_cast<size_t>(Channel);
+
+	if (Index >= CollisionResponses.size())
+		return;
+
+	CollisionResponses[Index] = Response;
+}
+
+void UPrimitiveComponent::SetCollisionResponseToAllChannels(ECollisionResponse Response)
+{
+	CollisionResponses.fill(Response);
 }

@@ -6,6 +6,9 @@
 #include "Render/RenderPacket.h"
 #include "Render/GeometryGenerator.h"
 #include "Collision/HitResult.h"
+#include "Collision/CollisionTypes.h"
+
+#include <array>
 
 class FPrimitiveSceneProxy;
 
@@ -80,10 +83,19 @@ public:
 	bool bCastShadow = true;
 	bool bReceiveShadow = true;
 
-	// 추후 추가할 Deligate
-	// OnComponentHit();
-	// OnComponentBeginOverlap();
-	// OnComponentEndOverlap();
+	ECollisionEnabled GetCollisionEnabled() const { return CollisionEnabled; }
+	void SetCollisionEnabled(ECollisionEnabled InEnabled) { CollisionEnabled = InEnabled; }
+
+	ECollisionChannel GetCollisionObjectType() const { return ObjectType; }
+	void SetCollisionObjectType(ECollisionChannel InChannel) { ObjectType = InChannel; }
+
+	bool GetGenerateOverlapEvents() const { return bGenerateOverlapEvents; }
+	void SetGenerateOverlapEvents(bool bEnabled) { bGenerateOverlapEvents = bEnabled; }
+
+	ECollisionResponse GetCollisionResponseToChannel(ECollisionChannel Channel) const;
+	void SetCollisionResponseToChannel(ECollisionChannel Channel, ECollisionResponse Response);
+	void SetCollisionResponseToAllChannels(ECollisionResponse Response);
+
 
 protected:
 	virtual bool ShouldCreateRenderState() const override
@@ -94,7 +106,6 @@ protected:
 	virtual void CreateRenderState() override;
 	virtual void DestroyRenderState() override;
 
-
 	bool TraceMesh(const FRay& WorldRay, const FStaticMeshData& Mesh, const FMatrix& WorldMatrix, FHitResult& OutResult);
 	bool TraceMeshLocal(const FRay& LocalRay, const FStaticMeshData& Mesh, float& OutT);
 
@@ -104,4 +115,8 @@ private:
 
 	bool bGenerateOverlapEvents = true;
 	bool bBlockComponent = true;
+
+	ECollisionEnabled CollisionEnabled = ECollisionEnabled::QueryOnly;
+	ECollisionChannel ObjectType = ECollisionChannel::WorldDynamic;
+	std::array<ECollisionResponse, CollisionChannelCount> CollisionResponses;
 };
