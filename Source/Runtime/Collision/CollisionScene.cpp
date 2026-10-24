@@ -52,16 +52,27 @@ void FCollisionScene::RemoveShape(UShapeComponent* Shape)
         return;
 
     Shapes.RemoveAtSwap(Index);
+    bElementListChanged = true;
 
+    TArray<FCollisionPair> EndPairs;
     for (int32 i = ActiveOverlapPairs.Num() - 1; i >= 0; --i)
     {
         const FCollisionPair& Pair = ActiveOverlapPairs[i];
 
         if (Pair.A == Shape || Pair.B == Shape)
+        {
+            EndPairs.Add(Pair);
             ActiveOverlapPairs.RemoveAtSwap(i);
+        }
     }
 
-    bElementListChanged = true;
+    // 콜백이 다시 등록을 해제해도 같은 쌍을 중복 종료하지 않는다.
+    for (const FCollisionPair& Pair : EndPairs)
+    {
+        UShapeComponent* Other = Pair.A == Shape ? Pair.B : Pair.A;
+        if (Shapes.Find(Other) != INDEX_NONE)
+            BroadcastOverlapEvent(Pair, false);
+    }
 }
 
 void FCollisionScene::BuildBVH()
@@ -213,10 +224,7 @@ void FCollisionScene::UpdateOverlapPairs()
         if (!IsPairRegistered(Pair))
             continue;
 
-        Pair.A->OnComponentBeginOverlap.Broadcast(Pair.B);
-
-        if (IsPairRegistered(Pair))
-            Pair.B->OnComponentBeginOverlap.Broadcast(Pair.A);
+        BroadcastOverlapEvent(Pair, true);
     }
 
     for (const FCollisionPair& Pair : EndPairs)
@@ -224,11 +232,37 @@ void FCollisionScene::UpdateOverlapPairs()
         if (!IsPairRegistered(Pair))
             continue;
 
-        Pair.A->OnComponentEndOverlap.Broadcast(Pair.B);
-
-        if (IsPairRegistered(Pair))
-            Pair.B->OnComponentEndOverlap.Broadcast(Pair.A);
+        BroadcastOverlapEvent(Pair, false);
     }
+}
+
+void FCollisionScene::BroadcastOverlapEvent(const FCollisionPair& Pair, bool bBeginOverlap)
+{
+    AActor* OwnerA = Pair.A->GetOwner();
+    AActor* OwnerB = Pair.B->GetOwner();
+    const bool bWasExecutingA = OwnerA && OwnerA->bIsExecutingComponentCallback;
+    const bool bWasExecutingB = OwnerB && OwnerB->bIsExecutingComponentCallback;
+
+    // Overlap 콜백 안에서 삭제를 요청해도 콜백이 끝날 때까지 객체를 유지한다.
+    if (OwnerA) OwnerA->bIsExecutingComponentCallback = true;
+    if (OwnerB) OwnerB->bIsExecutingComponentCallback = true;
+
+    if (bBeginOverlap)
+    {
+        Pair.A->OnComponentBeginOverlap.Broadcast(Pair.B);
+
+        if (Shapes.Find(Pair.A) != INDEX_NONE && Shapes.Find(Pair.B) != INDEX_NONE)
+            Pair.B->OnComponentBeginOverlap.Broadcast(Pair.A);
+    }
+    else
+    {
+        Pair.A->OnComponentEndOverlap.Broadcast(Pair.B);
+        Pair.B->OnComponentEndOverlap.Broadcast(Pair.A);
+    }
+
+    // 바깥쪽 콜백이 실행 중일 수 있으므로 저장해 둔 상태를 복원한다.
+    if (OwnerA) OwnerA->bIsExecutingComponentCallback = bWasExecutingA;
+    if (OwnerB) OwnerB->bIsExecutingComponentCallback = bWasExecutingB;
 }
 
 bool FCollisionScene::IntersectsShapes(UShapeComponent* A, UShapeComponent* B, int32* OutNarrowTests)

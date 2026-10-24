@@ -56,5 +56,9 @@ private:
             return (A == Other.A && B == Other.B) || (A == Other.B && B == Other.A);
         }
     };
+
+    // 두 컴포넌트에 BeginOverlap 또는 EndOverlap을 호출한다.
+    // bBeginOverlap이 true이면 BeginOverlap, false이면 EndOverlap을 호출한다.
+    void BroadcastOverlapEvent(const FCollisionPair& Pair, bool bBeginOverlap);
     TArray<FCollisionPair> ActiveOverlapPairs;
 };

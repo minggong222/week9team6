@@ -86,6 +86,7 @@ protected:
 	ULevel* Level = nullptr;
 private:
 	friend class UActorComponent;
+	friend class FCollisionScene;
 
 	struct FPendingComponentDestroy
 	{
