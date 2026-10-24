@@ -42,7 +42,7 @@ private:
     bool bElementListChanged = false;
     bool bBoundsDirty = false;
 
-    // Sphere / Box / Capsule의 모든 조합에 대해 실제 교차 여부를 판정한다.
+    // Sphere, Box, Capsule 사이의 6가지 조합에 대해 실제 교차 여부를 판정한다.
     static bool IntersectsShapes(UShapeComponent* A, UShapeComponent* B, int32* OutNarrowTests = nullptr);
 
     // A-B와 B-A를 동일한 충돌 쌍으로 취급한다.
@@ -57,8 +57,8 @@ private:
         }
     };
 
-    // 두 컴포넌트에 BeginOverlap 또는 EndOverlap을 호출한다.
-    // bBeginOverlap이 true이면 BeginOverlap, false이면 EndOverlap을 호출한다.
+    // 두 컴포넌트의 Overlap 이벤트를 호출한다.
+    // bBeginOverlap: true = BeginOverlap, false = EndOverlap.
     void BroadcastOverlapEvent(const FCollisionPair& Pair, bool bBeginOverlap);
     TArray<FCollisionPair> ActiveOverlapPairs;
 };

@@ -41,6 +41,7 @@ public:
 		return CapsuleHalfHeight * GetShapeScale();
 	}
 
+	// 캡슐의 두 반구 중심을 월드 좌표로 구한다.
 	void GetWorldCapsuleSegment(FVector& OutStart, FVector& OutEnd) const
 	{
 		const FVector Axis = GetWorldRotation().Quaternion().RotateVector(FVector(0.0f, 0.0f, 1.0f));

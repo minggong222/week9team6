@@ -54,6 +54,8 @@ void FCollisionScene::RemoveShape(UShapeComponent* Shape)
     Shapes.RemoveAtSwap(Index);
     bElementListChanged = true;
 
+    // EndOverlap에서 다시 삭제를 요청해도 같은 이벤트가 반복되지 않도록
+    // 해당 Shape가 포함된 쌍을 활성 목록에서 먼저 제거한다.
     TArray<FCollisionPair> EndPairs;
     for (int32 i = ActiveOverlapPairs.Num() - 1; i >= 0; --i)
     {
@@ -66,7 +68,6 @@ void FCollisionScene::RemoveShape(UShapeComponent* Shape)
         }
     }
 
-    // 콜백이 다시 등록을 해제해도 같은 쌍을 중복 종료하지 않는다.
     for (const FCollisionPair& Pair : EndPairs)
     {
         UShapeComponent* Other = Pair.A == Shape ? Pair.B : Pair.A;
@@ -243,7 +244,7 @@ void FCollisionScene::BroadcastOverlapEvent(const FCollisionPair& Pair, bool bBe
     const bool bWasExecutingA = OwnerA && OwnerA->bIsExecutingComponentCallback;
     const bool bWasExecutingB = OwnerB && OwnerB->bIsExecutingComponentCallback;
 
-    // Overlap 콜백 안에서 삭제를 요청해도 콜백이 끝날 때까지 객체를 유지한다.
+    // 콜백에서 요청한 Actor/Component 삭제는 이벤트 처리가 끝날 때까지 미룬다.
     if (OwnerA) OwnerA->bIsExecutingComponentCallback = true;
     if (OwnerB) OwnerB->bIsExecutingComponentCallback = true;
 
@@ -277,7 +278,7 @@ bool FCollisionScene::IntersectsShapes(UShapeComponent* A, UShapeComponent* B, i
     if ((!SphereA && !BoxA && !CapsuleA) || (!SphereB && !BoxB && !CapsuleB))
         return false;
 
-    // 비대칭 조합의 인자 순서를 Sphere, Capsule, Box 순으로 통일한다.
+    // 순서만 반대인 조합도 같은 판정 코드를 쓰도록 인자를 바꾼다.
     if ((!SphereA && SphereB) || (BoxA && CapsuleB))
         return IntersectsShapes(B, A, OutNarrowTests);
 
