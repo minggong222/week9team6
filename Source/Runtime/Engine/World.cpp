@@ -85,8 +85,8 @@ bool UWorld::Init()
 
 AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transform)
 {
-	if (!Class) return nullptr;
-	if (!Class->IsChildOf(AActor::StaticClass())) return nullptr;
+	if (bIsEndingPlay || bIsClearingWorld) return nullptr;
+	if (!Class || !Class->IsChildOf(AActor::StaticClass())) return nullptr;
 
 	// 1. ObjectFactory로 Actor 생성
 	AActor* NewActor = NewObject<AActor>(PersistentLevel, Class, InName);
@@ -126,77 +126,133 @@ void UWorld::Tick(float DeltaTime)
 		Scene.UpdateAllTransforms();
 	}
 
-	// 에디터 월드가 아니면 액터 틱을 돌린다
-	if (WorldType != EWorldType::Editor)
+	// 에디터 월드는 별도의 프리뷰 업데이트 경로를 사용한다.
+	if (WorldType == EWorldType::Editor)
 	{
-		while (!BeginPlayList.IsEmpty())
-		{
-			AActor* Actor = BeginPlayList.Peek();
-			BeginPlayList.Dequeue();
-			if (Actor) Actor->BeginPlay();
-		}
-
-		if (!bIsPaused)
-		{
-			SCOPE_CYCLE_COUNTER(STAT_ActorTick);
-			// 모든 Actor를 도는 대신 등록된 Tick 함수만 실행한다
-			TickTaskManager.RunAllTickGroups(DeltaTime);
-
-			for (ULevel* Level : Levels)
-			{
-				PathTracker.Tick(Level->GetActors(), DeltaTime);
-			}
-		}
-	}
-	else
-	{
-		// 에디터 월드에서도 파티클 시뮬레이션은 틱이 돌아야 한다
+		// 기존 에디터 파티클 Tick 루프를 여기에 그대로 유지
 		for (TObjectIterator<UParticleSubUVComponent> Comp; Comp; ++Comp)
 		{
 			if (!Comp || !Comp->IsRegistered() || Comp->GetWorld() != this)
 			{
 				continue;
 			}
+
 			if (Comp->GetParticlesForView().IsEmpty())
-			{
 				Comp->SetParticles(10);
-			}
-			Comp->TickComponent(DeltaTime);
+
+			Comp->DispatchTickComponent(DeltaTime);
 		}
+
+		ProcessPendingComponentDestructions();
+		ProcessPendingDestroyActors();
+
+		return;
+	}
+
+	// 플레이 종료 또는 전체 월드 정리 중에는 게임 Tick을 실행하지 않는다.
+	if (!bBegunPlay || bIsEndingPlay || bIsClearingWorld)
+		return;
+
+	// 플레이 중 새로 생성된 액터의 BeginPlay 처리
+	while (!BeginPlayList.IsEmpty())
+	{
+		AActor* Actor = BeginPlayList.Peek();
+		BeginPlayList.Dequeue();
+
+		if (!Actor)
+			continue;
+
+		Actor->DispatchBeginPlay();
+		ProcessPendingDestroyActors();
 	}
 
 
+	{
+		SCOPE_CYCLE_COUNTER(STAT_ActorTick);
+		TickTaskManager.RunAllTickGroups(DeltaTime, bIsPaused);
+	}
+
+	ProcessPendingComponentDestructions();
+	ProcessPendingDestroyActors();
+
+	if (bIsPaused)
+		return;
+
+	for (ULevel* Level : Levels)
+	{
+		if (Level)
+			PathTracker.Tick(Level->GetActors(), DeltaTime);
+	}
 }
 
 void UWorld::ClearWorld()
 {
-	EndPlay();
-	// BeginPlay 대기 중인 Actor 제거
-	while (!BeginPlayList.IsEmpty())
+	if (bIsClearingWorld || bIsEndingPlay)
+		return;
+
+	// Tick 또는 컴포넌트 삭제 처리 중에는 월드를 정리하지 않는다.
+	if (TickTaskManager.IsTicking() || bIsProcessingPendingComponentDestruction)
 	{
-		BeginPlayList.Dequeue();
+		HTR_LOG(Warning, "ClearWorld: Cannot clear during active tick or component destruction.");
+		return;
 	}
+
+	// Actor/Component 콜백 실행 중인지 확인한다.
+	for (ULevel* Level : Levels)
+	{
+		if (!Level)
+			continue;
+
+		for (AActor* Actor : Level->GetActors())
+		{
+			if (!Actor)
+				continue;
+
+			if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || Actor->bIsExecutingComponentCallback)
+			{
+				HTR_LOG(Warning, "ClearWorld: Cannot clear during an actor or component callback.");
+				return;
+			}
+		}
+	}
+
+	bIsClearingWorld = true;
+
+	EndPlay();
+
+	while (!BeginPlayList.IsEmpty())
+		BeginPlayList.Dequeue();
+
+	while (!PendingDestroyList.IsEmpty())
+		PendingDestroyList.Dequeue();
 
 	PathTracker.SetPlaybackEnabled(false);
 	PathTracker.SetPathRenderingEnabled(false);
 	PathTracker.ClearPath();
 
-	
 	for (ULevel* Level : Levels)
 	{
-		for (AActor* Actor : Level->Actors)
+		if (!Level)
+			continue;
+
+		for (AActor* Actor : Level->GetActors())
 		{
-			if (!Actor) continue;
+			if (!Actor)
+				continue;
+
 			Actor->UnregisterAllComponents();
 			Actor->RegisterAllActorTickFunctions(false);
 		}
+
 		Level->ClearActors();
 	}
-	// 액터를 지우기 전에 렌더 프록시와 틱 등록부터 푼다. ClearActors는 액터를 delete만 하므로,
-	// 그대로 두면 지워진 컴포넌트를 가리키는 프록시가 FScene에 남아 다음 프레임에 터진다.
+
 	Scene.RemoveAllLights();
 	Scene.RemoveAllPrimitives();
+
 	HTR_LOG(Info, "{} : ", PersistentLevel->GetActorNum());
+
+	bIsClearingWorld = false;
 }
 
 void UWorld::GatherRenderPackets(FRenderQueue& RenderQueue, const FViewContext* LODView, const FFrustumPlanes* Frustum, FRenderer* Renderer)
@@ -520,13 +576,43 @@ int32 UWorld::GetActorNum()
 
 bool UWorld::DestroyActor(AActor* Actor)
 {
-	if (!Actor)
+	if (!Actor || Actor->GetWorld() != this)
 		return false;
 
 	ULevel* Level = Actor->GetLevel();
 
-	if (!Level)
+	if (!Level || Actor->bIsBeingDestroyed)
 		return false;
+
+	bool bFoundInLevel = false;
+
+	for (AActor* Existing : Level->GetActors())
+	{
+		if (Existing == Actor)
+		{
+			bFoundInLevel = true;
+			break;
+		}
+	}
+
+	if (!bFoundInLevel)
+		return false;
+
+	if (bIsClearingWorld)
+		return true;
+
+	if (Actor->bIsPendingDestroy)
+		return true;
+
+	if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || Actor->bIsExecutingComponentCallback || bIsEndingPlay || TickTaskManager.IsTicking() || bIsProcessingPendingComponentDestruction)
+	{
+		Actor->bIsPendingDestroy = true;
+		PendingDestroyList.Enqueue({ Actor, Actor->GetUUID() });
+		Actor->RegisterAllActorTickFunctions(false);
+		return true;
+	}
+
+	Actor->bIsBeingDestroyed = true;
 
 	// 1. BeginPlay 대기열에서 제거
 	TQueue<AActor*> NewBeginPlayList;
@@ -543,6 +629,27 @@ bool UWorld::DestroyActor(AActor* Actor)
 	}
 
 	BeginPlayList = std::move(NewBeginPlayList);
+
+	if (Actor->IsPlaying())
+	{
+		Actor->DispatchEndPlay();
+	}
+
+	if (Actor == PlayerPawn)
+	{
+		if (PlayerController)
+		{
+			PlayerController->UnPossess();
+		}
+		PlayerPawn = nullptr;
+	}
+
+	if (Actor == PlayerController)
+	{
+		PlayerController->ClearInputState();
+		PlayerController->UnPossess();
+		PlayerController = nullptr;
+	}
 
 	// 2. PathTracker에서 제거
 	PathTracker.OnObjectDestroyed(Actor);
@@ -764,7 +871,7 @@ bool UWorld::LineTraceSingle(const FRay& WorldRay, FHitResult& OutHit,
 
 void UWorld::BeginPlay()
 {
-	if (WorldType != EWorldType::PIE && WorldType != EWorldType::Game|| bBegunPlay) return;
+	if (WorldType != EWorldType::PIE && WorldType != EWorldType::Game || bBegunPlay || bIsEndingPlay || bIsClearingWorld) return;
 	if (!PlayerPawn)
 	{
 		for (AActor* Actor : PersistentLevel->GetActors())
@@ -781,27 +888,78 @@ void UWorld::BeginPlay()
 	if (PlayerController && PlayerPawn) PlayerController->Possess(PlayerPawn);
 
 	// 기존 액터 목록을 고정한 후 시작한다. BeginPlay 중 생성된 액터는 대기열로 간다.
-	TArray<AActor*> InitialActors;
+
+	struct FActorBeginEntry
+	{
+		AActor* Actor;
+		uint32 UUID;
+	};
+	TArray<FActorBeginEntry> InitialActors;
+
 	for (ULevel* Level : Levels)
-		if (Level)
-			for (AActor* Actor : Level->GetActors())
-				if (Actor) InitialActors.Add(Actor);
+	{
+		if (!Level)
+			continue;
+
+		for (AActor* Actor : Level->GetActors())
+			if (Actor) 
+				InitialActors.Add({ Actor, Actor->GetUUID() });
+	}
 	bBegunPlay = true;
-	for (AActor* Actor : InitialActors)
-		Actor->BeginPlay();
+	for (const FActorBeginEntry& Entry : InitialActors) 
+	{
+		if (IsActorInWorld(Entry.Actor, Entry.UUID))
+		{	
+			Entry.Actor->DispatchBeginPlay();
+		}
+		ProcessPendingDestroyActors();
+	}
 
 	// PIE 입력 전에 DefaultPawn의 투사체 풀까지 시작한다.
 	while (!BeginPlayList.IsEmpty())
 	{
 		AActor* Actor = BeginPlayList.Peek();
 		BeginPlayList.Dequeue();
-		if (Actor) Actor->BeginPlay();
+		if (Actor) Actor->DispatchBeginPlay();
+		ProcessPendingDestroyActors();
 	}
 }
 
 void UWorld::EndPlay()
 {
+	if (bIsEndingPlay)
+		return;
+	bIsEndingPlay = true;
 	bBegunPlay = false;
+
+	while (!BeginPlayList.IsEmpty())
+		BeginPlayList.Dequeue();
+
+	struct FActorEndEntry
+	{
+		AActor* Actor;
+		uint32 UUID;
+	};
+
+	TArray<FActorEndEntry> ActorsToEnd;
+
+	for (ULevel* Level : Levels)
+	{
+		if (!Level)
+			continue;
+		for (AActor* Actor : Level->GetActors())
+		{
+			if (Actor)
+				ActorsToEnd.Add({ Actor, Actor->GetUUID() });
+		}
+	}
+
+	for (const FActorEndEntry& Entry : ActorsToEnd)
+	{
+		if (IsActorInWorld(Entry.Actor, Entry.UUID))
+			Entry.Actor->DispatchEndPlay();
+	}
+
 	if (PlayerController)
 	{
 		PlayerController->ClearInputState();
@@ -810,6 +968,20 @@ void UWorld::EndPlay()
 	PlayerController = nullptr;
 	PlayerPawn = nullptr;
 	bIsPaused = false;
+	bIsEndingPlay = false;
+	if (!bIsClearingWorld)
+	{
+		ProcessPendingDestroyActors();
+	}
+}
+
+void UWorld::SetPaused(bool bPaused)
+{
+	if (bIsPaused == bPaused)
+		return;
+	bIsPaused = bPaused;
+	if (bIsPaused && PlayerController)
+		PlayerController->ClearInputState();
 }
 
 UWorld* UWorld::CreateWorld(const EWorldType InWorldType, bool bInformEngineOfWorld, FName WorldName)
@@ -875,6 +1047,23 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 	Scene.BuildBVH();
 }
 
+bool UWorld::IsActorInWorld(const AActor* Actor, uint32 ExpectedUUID) const
+{
+	if (!Actor)
+		return false;
+	for (ULevel* Level : Levels)
+	{
+		if (!Level)
+			continue;
+		for (AActor* Current : Level->GetActors())
+		{
+			if (Current == Actor)
+				return Current->GetUUID() == ExpectedUUID;
+		}
+	}
+	return false;
+}
+
 void UWorld::Serialize(FStructuredArchive::FRecord Record)
 {
 	Super::Serialize(Record);   // "Properties"
@@ -884,4 +1073,71 @@ void UWorld::Serialize(FStructuredArchive::FRecord Record)
 
 	// (선택) 메인 카메라는 레벨에 속하지 않아 따로 쓴다. PIE 시작 시점이나 에디터 시점을 복원할 때 쓸 수 있다.
 	// MainCamera->GetCameraComponent()->Serialize(Record.EnterRecord("MainCamera"));
+}
+
+void UWorld::ProcessPendingDestroyActors()
+{
+	while (!PendingDestroyList.IsEmpty())
+	{
+		FPendingActorDestroy Pending = PendingDestroyList.Peek();
+		PendingDestroyList.Dequeue();
+		if (!IsActorInWorld(Pending.Actor, Pending.UUID))
+			continue;
+
+		AActor* Actor = Pending.Actor;
+		if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || Actor->bIsExecutingComponentCallback || bIsEndingPlay)
+		{
+			Actor->bIsPendingDestroy = true;
+			PendingDestroyList.Enqueue(Pending);
+			return;
+		}
+		Actor->bIsPendingDestroy = false;
+
+		DestroyActor(Actor);
+	}
+}
+
+void UWorld::ProcessPendingComponentDestructions()
+{
+	if (bIsProcessingPendingComponentDestruction || TickTaskManager.IsTicking())
+	{
+		return;
+	}
+
+	bIsProcessingPendingComponentDestruction = true;
+
+	struct FActorEntry
+	{
+		AActor* Actor;
+		uint32 UUID;
+	};
+
+	TArray<FActorEntry> ActorsToProcess;
+
+	for (ULevel* Level : Levels)
+	{
+		if (!Level)
+			continue;
+
+		for (AActor* Actor : Level->GetActors())
+		{
+			if (Actor)
+			{
+				ActorsToProcess.Add({ Actor, Actor->GetUUID() });
+			}
+		}
+	}
+
+	for (const FActorEntry& Entry : ActorsToProcess)
+	{
+		if (!IsActorInWorld(Entry.Actor, Entry.UUID))
+			continue;
+
+		if (Entry.Actor->bIsPendingDestroy)
+			continue;
+
+		Entry.Actor->ProcessPendingComponentDestruction();
+	}
+
+	bIsProcessingPendingComponentDestruction = false;
 }

@@ -87,7 +87,7 @@ public:
 	APawn* GetPlayerPawn() const { return PlayerPawn; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
 	bool IsPaused() const { return bIsPaused; }
-	void SetPaused(bool bPaused) { bIsPaused = bPaused; }
+	void SetPaused(bool bPaused);
 
 	FScene& GetScene() { return Scene; }
 	FTickTaskManager& GetTickTaskManager() { return TickTaskManager; }
@@ -105,10 +105,20 @@ public:
 
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 
+	bool IsActorInWorld(const AActor* Actor, uint32 ExpectedUUID) const;
 
 	using Super::Serialize;
 	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 private:
+	void ProcessPendingDestroyActors();
+	void ProcessPendingComponentDestructions();
+	bool bIsProcessingPendingComponentDestruction = false;
+	struct FPendingActorDestroy
+	{
+		AActor* Actor = nullptr;
+		uint32 UUID = 0;
+	};
+
 	UGameInstance* OwningGameInstance = nullptr;
 	EWorldType WorldType = EWorldType::None;
 
@@ -129,6 +139,7 @@ private:
 	FTickTaskManager TickTaskManager;
 
 	TQueue<AActor*> BeginPlayList;
+	TQueue<FPendingActorDestroy> PendingDestroyList;
 
 	//메인 카메라 
 	ACameraActor* MainCamera = nullptr;
@@ -152,4 +163,6 @@ private:
 
 	FRenderStats RenderStats;
 
+	bool bIsEndingPlay = false;
+	bool bIsClearingWorld = false;
 };

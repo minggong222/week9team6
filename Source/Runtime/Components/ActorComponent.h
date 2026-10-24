@@ -24,11 +24,14 @@ public:
 	virtual void InitializeComponent() { bIsInitialized = true; }
 	virtual void BeginPlay() {};
 	void BeginPlayComponent();
+	virtual void EndPlay() {};
+	void EndPlayComponent();
 	bool HasBegunPlay() const { return bHasBegunPlay; }
+	bool IsPlaying() const { return bIsPlaying; }
 	virtual void TickComponent(float DeltaTime)
 	{
 	};
-
+	void DispatchTickComponent(float DeltaTime);
 	void SetOwner(AActor* InOwner) { Owner = InOwner; }
 	AActor* GetOwner() const { return Owner; }
 
@@ -88,13 +91,19 @@ protected:
 	void ExecuteUnregisterEvents();
 
 private:
+	friend class AActor;
 	AActor* Owner = nullptr;
 	bool bHiddenInDetails = false;
 	bool bIsActive = false;
 	bool bRegistered = false;
 	bool bIsInitialized = false;
 	bool bHasBegunPlay = false;
-
+	bool bIsPlaying = false;
 	UWorld* WorldPrivate = nullptr;
 	bool bRenderStateCreated = false;
+	bool bIsBeingDestroyed = false;
+	bool bIsDispatchingBeginPlay = false;
+	bool bIsDispatchingEndPlay = false;
+	bool bIsDispatchingTick = false;
+	bool bIsPendingDestroy = false;
 };

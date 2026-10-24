@@ -217,6 +217,9 @@ FImGuiRenderer::~FImGuiRenderer()
 
 bool FImGuiRenderer::Init(HWND WindowHandle, ID3D11Device* Device, ID3D11DeviceContext* DeviceContext)
 {
+    if (!WindowHandle || !Device || !DeviceContext)
+        return false;
+
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 
@@ -225,8 +228,18 @@ bool FImGuiRenderer::Init(HWND WindowHandle, ID3D11Device* Device, ID3D11DeviceC
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
-	ImGui_ImplWin32_Init(WindowHandle);
-	ImGui_ImplDX11_Init(Device, DeviceContext);
+    if (!ImGui_ImplWin32_Init(WindowHandle))
+    {
+        ImGui::DestroyContext();
+        return false;
+    }
+
+    if (!ImGui_ImplDX11_Init(Device, DeviceContext))
+    {
+        ImGui_ImplWin32_Shutdown();
+        ImGui::DestroyContext();
+        return false;
+    }
 	// Reuse ImGui's vertex shader and draw commands; only array-depth sampling differs.
 	ComPtr<ID3DBlob> Bytecode;
 	ComPtr<ID3DBlob> Errors;

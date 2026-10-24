@@ -107,24 +107,23 @@ void UGameEngine::PreExit()
 {
 	Super::PreExit();
 	SkyboxRenderer.reset();
-	if (GameContext)
+	if (!GameContext)
 		return;
 	UWorld* GameWorld = GameContext->World();
 	if (!GameWorld)
 	{
+		DestroyWorldContext(nullptr);
 		GameContext = nullptr;
 		return;
 	}
 
-	GameWorld->EndPlay();
-
-	DestroyWorldContext(GameWorld);
-	GameContext = nullptr;
+	GameWorld->ClearWorld();
 
 	ACameraActor* MainCamera = GameWorld->GetMainCamera();
 	GameWorld->SetMainCamera(nullptr);
 
-	GameWorld->ClearWorld();
+	DestroyWorldContext(GameWorld);
+	GameContext = nullptr;
 
 	for (ULevel* Level : GameWorld->GetLevels())
 		delete Level;
