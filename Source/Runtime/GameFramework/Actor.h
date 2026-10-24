@@ -85,6 +85,20 @@ protected:
 	UWorld* World = nullptr;
 	ULevel* Level = nullptr;
 private:
+	friend class UActorComponent;
+
+	struct FPendingComponentDestroy
+	{
+		UActorComponent* Component = nullptr;
+		uint32 UUID = 0;
+	};
+
+	TArray<FPendingComponentDestroy> PendingComponentDestroyList;
+
+	void ProcessPendingComponentDestruction();
+
+	bool bIsProcessingComponentDestruction = false;
+	bool bIsExecutingComponentCallback = false;
 	bool bActorEnableCollision = true;
 	bool bHasBegunPlay = false;
 	bool bIsPlaying = false;

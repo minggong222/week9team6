@@ -106,7 +106,8 @@ public:
 	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 private:
 	void ProcessPendingDestroyActors();
-
+	void ProcessPendingComponentDestructions();
+	bool bIsProcessingPendingComponentDestruction = false;
 	struct FPendingActorDestroy
 	{
 		AActor* Actor = nullptr;

@@ -75,6 +75,7 @@ void AActor::DispatchBeginPlay()
 	BeginPlay();
 
 	bIsDispatchingBeginPlay = false;
+	ProcessPendingComponentDestruction();
 }
 
 void AActor::DispatchEndPlay()
@@ -103,6 +104,7 @@ void AActor::DispatchEndPlay()
 			Component->EndPlayComponent();
 	}
 	bIsDispatchingEndPlay = false;
+	ProcessPendingComponentDestruction();
 }
 
 void AActor::RegisterAllActorTickFunctions(bool bRegister)
@@ -358,6 +360,18 @@ void AActor::DestroyComponent(UActorComponent* Component)
 		return;
 	}
 
+	if (Component->bIsPendingDestroy)
+		return;
+	const bool bIsTicking = World && World->GetTickTaskManager().IsTicking();
+
+	if (Component->bIsDispatchingBeginPlay || Component->bIsDispatchingEndPlay || Component->bIsDispatchingTick || bIsTicking)
+	{
+		Component->bIsPendingDestroy = true;
+		PendingComponentDestroyList.Add({ Component, Component->GetUUID() });
+		Component->RegisterComponentTickFunctions(false);
+		return;
+	}
+
 	if (USceneComponent* Parent = Cast<USceneComponent>(Component))
 	{
 		TArray<USceneComponent*> Children = Parent->GetAttachChildren();
@@ -384,6 +398,52 @@ void AActor::OnDefaultSubobjectCreated(UObject* Subobject)
 		Component->SetOwner(this);
 		Components.Add(Component);
 	}
+}
+
+void AActor::ProcessPendingComponentDestruction()
+{
+	if (PendingComponentDestroyList.Num() == 0)
+		return;
+
+	if (World && World->GetTickTaskManager().IsTicking())
+		return;
+
+	const bool bWasProcessing = bIsProcessingComponentDestruction;
+	bIsProcessingComponentDestruction = true;
+
+	TArray<FPendingComponentDestroy> Pending = PendingComponentDestroyList;
+	PendingComponentDestroyList.Reset();
+
+	for (const FPendingComponentDestroy& Entry : Pending)
+	{
+		UActorComponent* Component = nullptr;
+
+		// 포인터가 아직 이 Actor에 소속된 경우에만 UUID를 확인한다.
+		for (UActorComponent* Current : Components)
+		{
+			if (Current == Entry.Component)
+			{
+				Component = Current;
+				break;
+			}
+		}
+
+		if (!Component || Component->GetUUID() != Entry.UUID || !Component->bIsPendingDestroy)
+		{
+			continue;
+		}
+
+		if (Component->bIsDispatchingBeginPlay || Component->bIsDispatchingEndPlay || Component->bIsDispatchingTick)
+		{
+			PendingComponentDestroyList.Add(Entry);
+			continue;
+		}
+
+		Component->bIsPendingDestroy = false;
+		DestroyComponent(Component);
+	}
+
+	bIsProcessingComponentDestruction = bWasProcessing;
 }
 
 UActorComponent* AActor::FindComponentByName(FName Name) const

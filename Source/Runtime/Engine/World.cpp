@@ -137,6 +137,9 @@ void UWorld::Tick(float DeltaTime)
 			Comp->TickComponent(DeltaTime);
 		}
 
+		ProcessPendingComponentDestructions();
+		ProcessPendingDestroyActors();
+
 		return;
 	}
 
@@ -162,6 +165,9 @@ void UWorld::Tick(float DeltaTime)
 		SCOPE_CYCLE_COUNTER(STAT_ActorTick);
 		TickTaskManager.RunAllTickGroups(DeltaTime, bIsPaused);
 	}
+
+	ProcessPendingComponentDestructions();
+	ProcessPendingDestroyActors();
 
 	if (bIsPaused)
 		return;
@@ -563,10 +569,12 @@ bool UWorld::DestroyActor(AActor* Actor)
 	if (Actor->bIsPendingDestroy)
 		return true;
 
-	if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay)
+	if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || TickTaskManager.IsTicking() || bIsProcessingPendingComponentDestruction)
 	{
 		Actor->bIsPendingDestroy = true;
 		PendingDestroyList.Enqueue({ Actor, Actor->GetUUID() });
+		if (TickTaskManager.IsTicking())
+			Actor->RegisterAllActorTickFunctions(false);
 		return true;
 	}
 
@@ -916,7 +924,6 @@ void UWorld::EndPlay()
 	{
 		if (IsActorInWorld(Entry.Actor, Entry.UUID))
 			Entry.Actor->DispatchEndPlay();
-		ProcessPendingDestroyActors();
 	}
 
 	if (PlayerController)
@@ -928,6 +935,10 @@ void UWorld::EndPlay()
 	PlayerPawn = nullptr;
 	bIsPaused = false;
 	bIsEndingPlay = false;
+	if (!bIsClearingWorld)
+	{
+		ProcessPendingDestroyActors();
+	}
 }
 
 void UWorld::SetPaused(bool bPaused)
@@ -1040,8 +1051,9 @@ void UWorld::ProcessPendingDestroyActors()
 			continue;
 
 		AActor* Actor = Pending.Actor;
-		if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay)
+		if (Actor->bIsDispatchingBeginPlay || Actor->bIsDispatchingEndPlay || bIsEndingPlay)
 		{
+			Actor->bIsPendingDestroy = true;
 			PendingDestroyList.Enqueue(Pending);
 			return;
 		}
@@ -1049,4 +1061,49 @@ void UWorld::ProcessPendingDestroyActors()
 
 		DestroyActor(Actor);
 	}
+}
+
+void UWorld::ProcessPendingComponentDestructions()
+{
+	if (bIsProcessingPendingComponentDestruction || TickTaskManager.IsTicking())
+	{
+		return;
+	}
+
+	bIsProcessingPendingComponentDestruction = true;
+
+	struct FActorEntry
+	{
+		AActor* Actor;
+		uint32 UUID;
+	};
+
+	TArray<FActorEntry> ActorsToProcess;
+
+	for (ULevel* Level : Levels)
+	{
+		if (!Level)
+			continue;
+
+		for (AActor* Actor : Level->GetActors())
+		{
+			if (Actor)
+			{
+				ActorsToProcess.Add({ Actor, Actor->GetUUID() });
+			}
+		}
+	}
+
+	for (const FActorEntry& Entry : ActorsToProcess)
+	{
+		if (!IsActorInWorld(Entry.Actor, Entry.UUID))
+			continue;
+
+		if (Entry.Actor->bIsPendingDestroy)
+			continue;
+
+		Entry.Actor->ProcessPendingComponentDestruction();
+	}
+
+	bIsProcessingPendingComponentDestruction = false;
 }

@@ -31,7 +31,7 @@ public:
 	virtual void TickComponent(float DeltaTime)
 	{
 	};
-
+	void DispatchTickComponent(float DeltaTime);
 	void SetOwner(AActor* InOwner) { Owner = InOwner; }
 	AActor* GetOwner() const { return Owner; }
 
@@ -102,4 +102,8 @@ private:
 	UWorld* WorldPrivate = nullptr;
 	bool bRenderStateCreated = false;
 	bool bIsBeingDestroyed = false;
+	bool bIsDispatchingBeginPlay = false;
+	bool bIsDispatchingEndPlay = false;
+	bool bIsDispatchingTick = false;
+	bool bIsPendingDestroy = false;
 };

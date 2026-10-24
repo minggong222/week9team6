@@ -84,9 +84,14 @@ public:
 	void RunAllTickGroups(float DeltaTime, bool bIsPaused = false);
 
 	int32 GetRegisteredCount() const;
-
+	bool IsTicking() const { return bIsTicking; }
 private:
 	void FlushPendingRemovals();
+	void FlushPendingAdditions();
+
+	TArray<FTickFunction*> PendingAdditions;
+
+	bool bIsRunningAllTickGroups = false;
 
 	TArray<FTickFunction*> Groups[static_cast<uint8>(ETickingGroup::Max)];
 	// Tick 실행 중 해제된 슬롯은 nullptr로만 비워 두고 그룹 순회가 끝난 뒤 정리한다.
