@@ -52,7 +52,7 @@ bool FGameViewportClient::InputKey(FViewport* Viewport, int32 Key, bool bDown)
 
 	if (bSIEMode && Key == static_cast<int32>(EKeyCode::LButton)) return true;
 
-	if (World && World->IsPaused())
+	if (World && !World->IsPaused())
 	{
 		if (APlayerController* PC = World->GetPlayerController())
 		{
@@ -68,7 +68,7 @@ bool FGameViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, EGa
 	if (HandleUIAxis(AxisKey, Delta))
 		return true;
 
-	if (World && World->IsPaused())
+	if (World && !World->IsPaused())
 	{
 		if (APlayerController* PC = World->GetPlayerController())
 		{
