@@ -1,10 +1,12 @@
 #include "EnginePCH.h"
+#include "Utility/WindowsUtils.h"
 #include "ImageLoader.h"
 #include "RenderCommand.h"
 #include "DDSTextureLoader11.h"
 
 #include <algorithm>
 
+#define STBI_WINDOWS_UTF8
 #define STB_IMAGE_IMPLEMENTATION   // 이미 다른 곳에 있으면 여기선 빼세요
 #include "stb_image.h"
 
@@ -116,8 +118,7 @@ FImageData ImageLoader::LoadDDS(const FString& Path)
 		return FImageData();
 	}
 
-	const std::u8string UTF8Path{ Path.begin(), Path.end() };
-	const std::wstring FilePath{ std::filesystem::path{ UTF8Path }.wstring() };
+	const std::wstring FilePath{ WindowsUtils::ToWstring(Path) };
 
 	ComPtr<ID3D11Resource> Resource{};
 	const HRESULT LoadResult{ DirectX::CreateDDSTextureFromFileEx(
@@ -187,7 +188,7 @@ FImageData ImageLoader::LoadDDS(const FString& Path)
 
 FImageData ImageLoader::LoadAuto(const FString& Path)
 {
-	const fs::path Ext = fs::path(Path).extension();
+	const fs::path Ext = fs::path{ WindowsUtils::ToWstring(Path) }.extension();
 	if (Ext == ".hdr" || Ext == ".HDR") return LoadHDR(Path);
 	if (Ext == ".dds" || Ext == ".DDS") return LoadDDS(Path);
 	return Load(Path);

@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Utility/WindowsUtils.h"
 #include "StaticMeshBake.h"
 
 #include <cstring>
@@ -98,7 +99,7 @@ namespace
 
 TUniquePtr<FStaticMeshData> FStaticMeshBake::ReadBaked(const FString& BinPath)
 {
-	std::ifstream In(BinPath, std::ios::binary);
+	std::ifstream In(fs::path{ WindowsUtils::ToWstring(BinPath) }, std::ios::binary);
 	if (!In)
 	{
 		return nullptr;   // .bin이 없음 (처음 로드)
@@ -161,7 +162,7 @@ TUniquePtr<FStaticMeshData> FStaticMeshBake::ReadBaked(const FString& BinPath)
 
 void FStaticMeshBake::WriteBaked(const FString& BinPath, const FStaticMeshData& Data)
 {
-	std::ofstream Out(BinPath, std::ios::binary);
+	std::ofstream Out(fs::path{ WindowsUtils::ToWstring(BinPath) }, std::ios::binary);
 	if (!Out)
 	{
 		HTR_LOG(Warning, "[BAKE] {}: cannot open for writing", BinPath);

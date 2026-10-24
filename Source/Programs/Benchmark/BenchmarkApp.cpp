@@ -115,7 +115,7 @@ bool UBenchmarkEngine::Init()
 			}
 		});
 
-	FSplashScreen::SetText(L"Loading Scene...");
+	FSplashScreen::SetText("Loading Scene...");
 	FSplashScreen::SetProgress(0.9f);
 
 	// 실행 인자로 씬 경로를 받으면 그 씬을, 없으면 기본 씬을 연다. 예: Benchmark.exe Scenes/Bocchi.scene

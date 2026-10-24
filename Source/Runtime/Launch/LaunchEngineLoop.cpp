@@ -60,7 +60,7 @@ bool FEngineLoop::PreInit(HINSTANCE hInstance, UClass* EngineClass)
 		FSplashScreen::Show(hInstance, Config.SplashImage);
 	}
 
-	FSplashScreen::SetText(L"Initializing Renderer...");
+	FSplashScreen::SetText("Initializing Renderer...");
 	FSplashScreen::SetProgress(0.1f);
 
 	// 0이면 주 모니터 해상도
@@ -86,7 +86,7 @@ bool FEngineLoop::PreInit(HINSTANCE hInstance, UClass* EngineClass)
 		CreateDepthBuffer(MainWindow->GetWidth(), MainWindow->GetHeight());
 	}
 
-	FSplashScreen::SetText(L"Loading Assets...");
+	FSplashScreen::SetText("Loading Assets...");
 	FRenderResourceManager::Init();
 
 	constexpr float AssetStart = 0.1f;
@@ -97,7 +97,7 @@ bool FEngineLoop::PreInit(HINSTANCE hInstance, UClass* EngineClass)
 			FSplashScreen::SetProgress(AssetStart + (AssetEnd - AssetStart) * Loaded / Total);
 		});
 
-	FSplashScreen::SetText(L"Initializing Engine...");
+	FSplashScreen::SetText("Initializing Engine...");
 	FSplashScreen::SetProgress(0.8f);
 	if (!GEngine->Init())
 	{

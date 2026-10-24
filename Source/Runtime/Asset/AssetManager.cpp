@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Utility/WindowsUtils.h"
 #include "AssetManager.h"
 #include "Render/Buffer.h"
 #include "Render/Material.h"
@@ -21,8 +22,8 @@
 namespace
 {
 	FString GetAssetExtension(const FString& Path) {
-		const std::u8string UTF8Path{ Path.begin(), Path.end() };
-		FString Extension{ std::filesystem::path{ UTF8Path }.extension().string() };
+		const fs::path FilePath{ WindowsUtils::ToWstring(Path) };
+		FString Extension{ WindowsUtils::ToString(FilePath.extension().native()) };
 		for (char& Character : Extension) {
 			Character = static_cast<char>(std::tolower(static_cast<unsigned char>(Character)));
 		}
@@ -117,7 +118,7 @@ namespace
 
 	FString MakeAssetKey(const FString& Path)
 	{
-		return fs::relative(Path, "Assets").generic_string();
+		return WindowsUtils::ToString(fs::relative(fs::path{ WindowsUtils::ToWstring(Path) }, "Assets").generic_wstring());
 	}
 }
 
@@ -160,8 +161,8 @@ void UAssetManager::ScanAssets(const fs::path& AssetRoot, const FAssetLoadProgre
 	const int32 Total = Files.Num();
 	for (int32 i = 0; i < Total; ++i)
 	{
-		FString Key = fs::relative(Files[i], AssetRoot).generic_string();
-		FString Path = Files[i].generic_string();
+		FString Key = WindowsUtils::ToString(fs::relative(Files[i], AssetRoot).generic_wstring());
+		FString Path = WindowsUtils::ToString(Files[i].generic_wstring());
 		AssetPathMap.Add(Key, Path);
 		LoadAsset(Key, Path);
 
@@ -180,7 +181,7 @@ void UAssetManager::LoadAsset(const FString& Key, const FString& Path) {
 		}
 	}
 	if (Extension == ".json") {
-		const FString TexturePath{ fs::path{ Path }.replace_extension(".png").string() };
+		const FString TexturePath{ WindowsUtils::ToString(fs::path{ WindowsUtils::ToWstring(Path) }.replace_extension(".png").native()) };
 		if (UFont* Font{ LoadFontAtlas(Path, TexturePath) }) {
 			AssetMap[Key] = Font;
 		}
@@ -464,7 +465,7 @@ void UAssetManager::ForEachObjStaticMesh(const std::function<void(const FString&
 {
 	for (auto& [Key, Asset] : Get().AssetMap)
 	{
-		if (!Asset || !Asset->IsA<UStaticMesh>() || !fs::path(Key).extension().string().ends_with(".obj"))
+		if (!Asset || !Asset->IsA<UStaticMesh>() || !fs::path{ WindowsUtils::ToWstring(Key) }.extension().string().ends_with(".obj"))
 			continue;
 		Func(Key, *Cast<UStaticMesh>(Asset));
 	}

@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Utility/WindowsUtils.h"
 #include "RenderUtil.h"
 
 #include <algorithm>
@@ -55,7 +56,7 @@ FShaderByteCode RenderUtil::CompileShader(FString Path, const char* EntryPoint, 
 
 	FShaderByteCode ByteCode;
 
-	std::wstring WPath(Path.begin(), Path.end());
+	const std::wstring WPath = WindowsUtils::ToWstring(Path);
 
 	//for (const auto& D : Defines)
 	//	Macros.push_back({ D.first.c_str(), D.second.c_str() });
