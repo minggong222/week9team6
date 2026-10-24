@@ -32,7 +32,7 @@ public:
 	virtual void EndPlay() {};
 	void DispatchEndPlay();
 	// FActorTickFunction이 호출하는 진입점
-	void TickActor(float DeltaTime) { Tick(DeltaTime); }
+	void TickActor(float DeltaTime);
 
 	UWorld* GetWorld() const { return World; }
 	ULevel* GetLevel() const { return Level; }

@@ -602,8 +602,7 @@ bool UWorld::DestroyActor(AActor* Actor)
 	{
 		Actor->bIsPendingDestroy = true;
 		PendingDestroyList.Enqueue({ Actor, Actor->GetUUID() });
-		if (TickTaskManager.IsTicking())
-			Actor->RegisterAllActorTickFunctions(false);
+		Actor->RegisterAllActorTickFunctions(false);
 		return true;
 	}
 

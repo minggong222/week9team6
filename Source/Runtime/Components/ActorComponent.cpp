@@ -142,7 +142,7 @@ void UActorComponent::DispatchTickComponent(float DeltaTime)
 	AActor* MyOwner = Owner;
 	const bool bWasExecuting = MyOwner ? MyOwner->bIsExecutingComponentCallback : false;
 
-	if (MyOwner)
+	if (MyOwner && Owner->bIsPendingDestroy)
 		MyOwner->bIsExecutingComponentCallback = true;
 
 	bIsDispatchingTick = true;

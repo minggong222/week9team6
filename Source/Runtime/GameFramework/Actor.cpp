@@ -127,6 +127,12 @@ void AActor::DispatchEndPlay()
 	ProcessPendingComponentDestruction();
 }
 
+void AActor::TickActor(float DeltaTime)
+{
+	if (!bIsPendingDestroy)
+		Tick(DeltaTime);
+}
+
 void AActor::RegisterAllActorTickFunctions(bool bRegister)
 {
 	if (bRegister && !World)
