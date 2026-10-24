@@ -18,7 +18,10 @@ public:
     virtual ~ULuaComponent() override;
 
     // Runtime operation implementations will be connected in the next step.
+    void Initialize();
     bool Load();
+
+    void OnInstanceLoaded(FLuaInstance& Instance);
 
     virtual void InitializeComponent() override;
     virtual void BeginPlay() override;

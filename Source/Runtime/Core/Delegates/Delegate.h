@@ -33,7 +33,11 @@ public:
 	}
 
 	//  TODO: Clear(), Remove(Handle), RemoveAll(Object) 함수 추가
-	
+	void Clear()
+	{
+		Handlers.clear();
+	}
+
 
 private:
 	std::vector<HandlerType> Handlers;

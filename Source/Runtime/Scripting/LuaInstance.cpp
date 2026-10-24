@@ -15,27 +15,31 @@ FLuaInstance::FLuaInstance(
 
 bool FLuaInstance::Load(FStringView InPath)
 {
-    sol::environment NewEnvironment = sol::environment{
+    Environment = sol::environment{
         State,
         sol::create,
         State.globals()
     };
 
-    // Lua 파일을 읽고 최상위 코드를 실행합니다.
+    // 로드 이벤트 호출
+    OnLoaded.Broadcast(*this);
+
+    // Lua 스크립트를 실행합니다.
     sol::protected_function_result Result = State.safe_script_file(
         InPath.data(),
-        NewEnvironment,
+        Environment,
         sol::script_pass_on_error
     );
 
     if (!Result.valid()) {
         sol::error Error = Result;
         HTR_LOG(Error, "Lua 스크립트 로드 실패: {}", Error.what());
+        bInitialized = false;
         return false;
     }
 
     Path = InPath;
-    Environment = NewEnvironment;
+    bInitialized = true;
 
     return true;
 }
@@ -50,7 +54,7 @@ bool FLuaInstance::Reload()
     return true;
 }
 
-void FLuaInstance::Destroy()
+void FLuaInstance::Unload()
 {
     Environment = sol::lua_nil;
 }

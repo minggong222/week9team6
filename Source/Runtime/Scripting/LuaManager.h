@@ -15,7 +15,10 @@ public:
     FLuaManager& operator=(const FLuaManager&) = delete;
 
     void Initialize();
-    FLuaInstance* CreateInstance(FStringView Path, UObject* Owner);
+    FLuaInstance* CreateInstance(
+        FStringView Path,
+        UObject* Owner
+    );
 
     bool SetJITEnable(bool Value);
     bool GetJITEnable() const { return bJITEnabled; }

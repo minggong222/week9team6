@@ -27,21 +27,15 @@ void FLuaManager::Initialize()
     LuaRegister(State);
 }
 
-FLuaInstance* FLuaManager::CreateInstance(FStringView Path, UObject* Owner)
+FLuaInstance* FLuaManager::CreateInstance(
+    FStringView Path,
+    UObject* Owner
+)
 {
     int32 Index = Instances.Num();
     Instances.Add(MakeUnique<FLuaInstance>(State, Index, Owner));
 
-    FLuaInstance* Lua = Instances.Last().get();
-
-    if (!Lua->Load(Path))
-    {
-        Lua->Destroy();
-        Instances.RemoveLast();
-        return nullptr;
-    }
-
-	return Lua;
+	return Instances.Last().get();
 }
 
 bool FLuaManager::SetJITEnable(bool Value)
@@ -96,7 +90,7 @@ bool FLuaManager::Remove(int32 Index)
         return false;
     }
 
-    Instances[Index]->Destroy();
+    Instances[Index]->Unload();
     Instances.RemoveAtSwap(Index);
 
     if (Index >= Instances.Num())

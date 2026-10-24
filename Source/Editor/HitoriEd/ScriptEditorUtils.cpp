@@ -58,7 +58,7 @@ bool FScriptEditorUtils::CreateScript(ULuaComponent* Component, const FString& S
 {
     if (!Component || !Component->GetOwner()) return false;
     const UWorld* World = Component->GetOwner()->GetWorld();
-    if (!Component->GetInitialized() ||
+    if (Component->GetInitialized() ||
         (World && (World->HasBegunPlay() || World->GetWorldType() != EWorldType::Editor)))
     {
         HTR_LOG(Warning, "Create Script: stop play before creating a script.");

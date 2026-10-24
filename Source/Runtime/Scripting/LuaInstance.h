@@ -3,6 +3,7 @@
 #include "Core/Types.h"
 #include "Core/EngineString.h"
 #include "Core/EngineLog.h"
+#include "Core/Delegates/Delegate.h"
 #include "Containers/StringView.h"
 
 #include "sol/sol.hpp"
@@ -24,6 +25,7 @@ private:
 	int32 Index;
 	friend class FLuaManager;
 
+	bool bInitialized = false;
 
 public:
 
@@ -49,14 +51,20 @@ public:
 	template<typename... Args>
 	bool Invoke(FStringView FunctionName, Args... args);
 
+	template<typename T>
+	bool SetGlobalVariable(FStringView VariableName, T Value);
+
 	// Path에서 Lua 스크립트를 다시 불러옵니다.
 	bool Reload();
 
 	// 로드된 Lua 스크립트를 언로드합니다.
-	void Destroy();
+	void Unload();
 
 	UObject* GetOwner() const { return Owner; }
 	void SetOwner(UObject* InOwner);
+
+	// 스크립트가 로드될 때 호출될 콜백 함수입니다.
+	DECLARE_DELEGATE(OnLoaded, FLuaInstance&);
 
 };
 
@@ -85,6 +93,20 @@ bool FLuaInstance::Invoke(FStringView FunctionName, Args... args)
 		HTR_LOG(Error, "Lua 함수 실행 실패: {}", Error.what());
 		return false;
 	}
+
+	return true;
+}
+
+template<typename T>
+inline bool FLuaInstance::SetGlobalVariable(FStringView VariableName, T Value)
+{
+	// Environment가 없음
+	if (!Environment.valid())
+	{
+		return false;
+	}
+
+	Environment[VariableName] = Value;
 
 	return true;
 }

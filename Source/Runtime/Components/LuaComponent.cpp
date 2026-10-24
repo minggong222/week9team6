@@ -11,22 +11,38 @@ ULuaComponent::~ULuaComponent()
 		return;
 	}
 
-	Instance->Destroy();
+	Instance->Unload();
+	Instance->OnLoaded.Clear();
+	Instance->SetOwner(nullptr);
+}
+
+void ULuaComponent::Initialize()
+{
+	FLuaManager& Manager = *GetWorld()->GetLuaManager();
+	Instance = Manager.CreateInstance(ScriptPath, this);
+
+	Instance->OnLoaded.AddDynamic(this, &ULuaComponent::OnInstanceLoaded);
 }
 
 bool ULuaComponent::Load()
 {
-	FLuaManager& Manager = *GetWorld()->GetLuaManager();
-	FLuaInstance* Item = Manager.CreateInstance(ScriptPath, this);
-
-	if (!Item)
+	if (!Instance)
 	{
-		// 실패
 		return false;
 	}
 
-	Instance = Item;
+	if (!Instance->Load(ScriptPath))
+	{
+		Instance->Unload();
+		return false;
+	}
+
 	return true;
+}
+
+void ULuaComponent::OnInstanceLoaded(FLuaInstance& Instance)
+{
+	Instance.SetGlobalVariable("Actor", GetOwner());
 }
 
 void ULuaComponent::InitializeComponent()
@@ -36,8 +52,7 @@ void ULuaComponent::InitializeComponent()
 		return;
 	}
 
-	// TODO: Self를 넘길 수 있도록 수정
-	Instance->Invoke("InitializeComponent");
+	Instance->Invoke("InitializeComponent", this);
 }
 
 void ULuaComponent::BeginPlay()
@@ -47,8 +62,7 @@ void ULuaComponent::BeginPlay()
 		return;
 	}
 
-	// TODO: Self를 넘길 수 있도록 수정
-	Instance->Invoke("BeginPlay");
+	Instance->Invoke("BeginPlay", this);
 }
 
 void ULuaComponent::TickComponent(float DeltaSeconds)
@@ -58,8 +72,7 @@ void ULuaComponent::TickComponent(float DeltaSeconds)
 		return;
 	}
 
-	// TODO: Self를 넘길 수 있도록 수정
-	Instance->Invoke("TickComponent", DeltaSeconds);
+	Instance->Invoke("TickComponent", this, DeltaSeconds);
 }
 
 /*
@@ -70,7 +83,6 @@ void ULuaComponent::EndPlay()
 		return;
 	}
 
-	// TODO: Self를 넘길 수 있도록 수정
-	Instance->Invoke("EndPlay");
+	Instance->Invoke("EndPlay", this);
 }
 */
