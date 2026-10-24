@@ -476,14 +476,16 @@ void UEditorEngine::TickWorldAndEditor(const float DeltaTime)
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_WorldTick);
-		if (bStepRequested && bIsPaused)
+		UWorld* ActiveWorld = GetActiveWorld();
+
+		if (bStepRequested && bIsPaused && ActiveWorld)
 		{
 			GetActiveWorld()->SetPaused(false);
 			GetActiveWorld()->Tick(1.0f / 60.0f);
 			GetActiveWorld()->SetPaused(true);
 			bStepRequested = false;
 		}
-		else if(!bIsPaused)
+		else if(ActiveWorld && (!bIsPaused || ActiveWorld == PlayWorld))
 			GetActiveWorld()->Tick(DeltaTime);
 
 	}

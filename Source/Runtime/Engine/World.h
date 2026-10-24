@@ -82,7 +82,7 @@ public:
 	APawn* GetPlayerPawn() const { return PlayerPawn; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
 	bool IsPaused() const { return bIsPaused; }
-	void SetPaused(bool bPaused) { bIsPaused = bPaused; }
+	void SetPaused(bool bPaused);
 
 	FScene& GetScene() { return Scene; }
 	FTickTaskManager& GetTickTaskManager() { return TickTaskManager; }

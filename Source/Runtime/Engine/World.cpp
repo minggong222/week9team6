@@ -602,6 +602,13 @@ bool UWorld::DestroyActor(AActor* Actor)
 		PlayerPawn = nullptr;
 	}
 
+	if (Actor == PlayerController)
+	{
+		PlayerController->ClearInputState();
+		PlayerController->UnPossess();
+		PlayerController = nullptr;
+	}
+
 	// 2. PathTracker에서 제거
 	PathTracker.OnObjectDestroyed(Actor);
 
@@ -921,6 +928,15 @@ void UWorld::EndPlay()
 	PlayerPawn = nullptr;
 	bIsPaused = false;
 	bIsEndingPlay = false;
+}
+
+void UWorld::SetPaused(bool bPaused)
+{
+	if (bIsPaused == bPaused)
+		return;
+	bIsPaused = bPaused;
+	if (bIsPaused && PlayerController)
+		PlayerController->ClearInputState();
 }
 
 UWorld* UWorld::CreateWorld(const EWorldType InWorldType, bool bInformEngineOfWorld, FName WorldName)
