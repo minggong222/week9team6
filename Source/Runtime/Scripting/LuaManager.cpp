@@ -114,7 +114,7 @@ bool FLuaManager::Remove(FLuaInstance* Instance)
 {
     if (!Instance)
     {
-        return;
+        return false;
     }
 
     return Remove(Instance->Index);
