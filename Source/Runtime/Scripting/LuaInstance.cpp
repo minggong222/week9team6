@@ -1,22 +1,22 @@
 #include "EnginePCH.h"
-#include "Lua.h"
+#include "LuaInstance.h"
 
 #include "Core/EngineLog.h"
 
-FLua::FLua(sol::state& InState)
-    : State{ &InState }
+FLuaInstance::FLuaInstance(sol::state& InState)
+    : State{ InState }
 {}
 
-bool FLua::Load(FStringView InPath)
+bool FLuaInstance::Load(FStringView InPath)
 {
     sol::environment NewEnvironment = sol::environment{
-        *State,
+        State,
         sol::create,
-        State->globals()
+        State.globals()
     };
 
     // Lua 파일을 읽고 최상위 코드를 실행합니다.
-    sol::protected_function_result Result = State->safe_script_file(
+    sol::protected_function_result Result = State.safe_script_file(
         InPath.data(),
         NewEnvironment,
         sol::script_pass_on_error
@@ -34,7 +34,7 @@ bool FLua::Load(FStringView InPath)
     return true;
 }
 
-bool FLua::Reload()
+bool FLuaInstance::Reload()
 {
     if (!Load(Path))
     {
@@ -44,7 +44,12 @@ bool FLua::Reload()
     return true;
 }
 
-void FLua::Destroy()
+void FLuaInstance::Destroy()
 {
     Environment = sol::lua_nil;
+}
+
+void FLuaInstance::SetOwner(UObject* InOwner)
+{
+    Owner = InOwner;
 }

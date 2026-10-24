@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Scripting/Lua.h"
+#include "Scripting/LuaInstance.h"
 
 class ULuaComponent;
 
-// Manager-owned record: FLua handles execution, this record adds the owner link.
+// Manager-owned record: FLuaInstance handles execution, this record adds the owner link.
 class FScriptInstance
 {
 public:
@@ -16,12 +16,12 @@ public:
     FScriptInstance(const FScriptInstance&) = delete;
     FScriptInstance& operator=(const FScriptInstance&) = delete;
 
-    FLua& GetScript() { return Script; }
-    const FLua& GetScript() const { return Script; }
+    FLuaInstance& GetScript() { return Script; }
+    const FLuaInstance& GetScript() const { return Script; }
     const FString& GetLoadedPath() const { return Script.GetPath(); }
     ULuaComponent* GetOwnerComponent() const { return OwnerComponent; }
 
 private:
-    FLua Script;
+    FLuaInstance Script;
     ULuaComponent* OwnerComponent = nullptr;
 };

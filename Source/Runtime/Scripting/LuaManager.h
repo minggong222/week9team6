@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Scripting/Lua.h"
+#include "Scripting/LuaInstance.h"
 #include "Scripting/ScriptInstance.h"
 #include "Containers/Array.h"
 
@@ -15,7 +15,7 @@ public:
     FLuaManager& operator=(const FLuaManager&) = delete;
 
     void Initialize();
-    FLua Load(FStringView Path);
+    FLuaInstance Load(FStringView Path);
 
     bool SetJITEnable(bool Value);
     bool GetJITEnable() const { return bJITEnabled; }

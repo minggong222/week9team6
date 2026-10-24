@@ -4,6 +4,11 @@
 #include "Engine/World.h"
 #include "Engine/GameViewportClient.h"
 
+void UGameInstance::Init()
+{
+	LuaManager.Initialize();
+}
+
 void UGameInstance::Shutdown()
 {
 	if (!WorldContext) return;
@@ -52,4 +57,9 @@ bool UGameInstance::StartPlayInEditorGameInstance()
 UEngine* UGameInstance::GetEngine() const
 {
 	return GEngine;
+}
+
+FLuaManager* UGameInstance::GetLuaManager()
+{
+	return &LuaManager;
 }
