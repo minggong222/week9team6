@@ -143,6 +143,11 @@ bool UEditorEngine::Init()
 	EditorControlsPanel = EditorUI->AddEditorPanel<FEditorControlsPanel>();
 	ViewportsPanel = EditorUI->AddEditorPanel<FViewportsPanel>();
 	ContentDrawerPanel = EditorUI->AddEditorPanel<FContentDrawerPanel>();
+    ContentDrawerPanel->SetWorld(EditorWorld);
+    DetailsPanel->SetScriptCreatedCallback([this](const FString& ScriptPath)
+    {
+        ContentDrawerPanel->SelectAsset("Assets/Scripts/" + ScriptPath);
+    });
 
 	// OutLine
 	OutlineRenderer = MakeUnique<FOutlineRenderer>();
@@ -1309,6 +1314,7 @@ void UEditorEngine::OnActiveWorldChanged()
 	UWorld* UIWorld = PlayWorld ? PlayWorld : EditorWorld;
 	if (OutlinerPanel) OutlinerPanel->SetWorld(UIWorld);
 	if (DetailsPanel) DetailsPanel->SetWorld(UIWorld);
+	if (ContentDrawerPanel) ContentDrawerPanel->SetWorld(UIWorld);
 	if (EditorControlsPanel) EditorControlsPanel->SetWorld(UIWorld);
 	if (SettingsPanel) SettingsPanel->SetWorld(UIWorld);
 }

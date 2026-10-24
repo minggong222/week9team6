@@ -37,6 +37,8 @@ public:
 	void SetSelectionCallback(DetailsSelectionCallback InCallback) { Callback = InCallback; }
 	void SetDeleteComponentCallback(DetailsDeleteComponentCallback InCallback) { DeleteCallback = InCallback; }
 
+	void SetScriptCreatedCallback(std::function<void(const FString&)> InCallback)
+    { ScriptCreatedCallback = std::move(InCallback); }
 	void SetWorld(UWorld* InWorld) { World = InWorld; }
 	const ULightComponent* GetSelectedLight() const;
 	void SetShadowPreviewQuery(FShadowPreviewQuery InQuery) { QueryShadowPreview = std::move(InQuery); }
@@ -58,6 +60,7 @@ private:
 	AActor* TargetActor = nullptr;
 	UActorComponent* TargetComponent = nullptr;
 	DetailsSelectionCallback Callback;
+	std::function<void(const FString&)> ScriptCreatedCallback;
 	DetailsDeleteComponentCallback DeleteCallback;
 
 	UActorComponent* PendingDeleteComponent = nullptr;
