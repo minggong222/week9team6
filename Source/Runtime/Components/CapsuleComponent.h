@@ -22,6 +22,7 @@ public:
 	{
 		CapsuleRadius = std::max(0.001f, InRadius);
 		CapsuleHalfHeight = std::max(CapsuleRadius, InHalfHeight);
+		MarkCollisionBoundsDirty();
 	}
 
 	float GetShapeScale() const

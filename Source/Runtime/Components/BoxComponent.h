@@ -23,6 +23,7 @@ public:
 		BoxExtent.X = std::max(0.0f, InExtent.X); 
 		BoxExtent.Y = std::max(0.0f, InExtent.Y);
 		BoxExtent.Z = std::max(0.0f, InExtent.Z);
+		MarkCollisionBoundsDirty();
 	}
 
 	FVector GetScaledBoxExtent() const { return BoxExtent * GetWorldScale3D().GetAbs(); }

@@ -35,6 +35,12 @@ void UShapeComponent::OnTransformDirty()
 	GetWorld()->GetCollisionScene().MarkBoundsDirty();
 }
 
+void UShapeComponent::MarkCollisionBoundsDirty()
+{
+	if (UWorld* World = GetWorld(); IsRegistered() && World)
+		World->GetCollisionScene().MarkBoundsDirty();
+}
+
 //UShapeComponent::~UShapeComponent()
 //{
 //}

@@ -19,6 +19,7 @@ public:
 	void SetSphereRadius(float InRadius)
 	{
 		SphereRadius = std::max(0.0f, InRadius);
+		MarkCollisionBoundsDirty();
 	}
 
 	float GetScaledSphereRadius() const

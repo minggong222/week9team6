@@ -20,13 +20,13 @@ public:
 	bool GetDrawOnlyIfSelected() const { return bDrawOnlyIfSelected; }
 
 	virtual void DrawDebug(FLineBatcher* LineBatcher, const FVector4& Color) const = 0;
-	void QueryCandidates(UShapeComponent* Shape, TArray<UShapeComponent*>& OutCandidates);
 	
 protected: 
 	bool ShouldCreateRenderState() const override { return false; }
 	void OnRegister() override;
 	void OnUnregister() override;
 	void OnTransformDirty() override;
+	void MarkCollisionBoundsDirty();
 
 private: 
 	FColor ShapeColor = FColor(223, 149, 157, 255);
