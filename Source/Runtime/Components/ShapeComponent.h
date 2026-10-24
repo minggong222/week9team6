@@ -20,6 +20,7 @@ public:
 	bool GetDrawOnlyIfSelected() const { return bDrawOnlyIfSelected; }
 
 	virtual void DrawDebug(FLineBatcher* LineBatcher, const FVector4& Color) const = 0;
+	void PostEditChangeProperty(const FProperty& Property) override;
 	
 protected: 
 	bool ShouldCreateRenderState() const override { return false; }

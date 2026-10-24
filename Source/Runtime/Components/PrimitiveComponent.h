@@ -77,6 +77,7 @@ public:
 	virtual bool MoveComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* Hit = nullptr) override;
 
 	virtual void PostEditChangeProperty(const FProperty& Property) override;
+	using Super::Serialize;
 
 	void SetCastShadow(bool NewValue);
 	void SetReceiveShadow(bool NewValue);
