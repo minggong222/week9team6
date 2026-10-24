@@ -24,7 +24,10 @@ public:
 	virtual void InitializeComponent() { bIsInitialized = true; }
 	virtual void BeginPlay() {};
 	void BeginPlayComponent();
+	virtual void EndPlay() {};
+	void EndPlayComponent();
 	bool HasBegunPlay() const { return bHasBegunPlay; }
+	bool IsPlaying() const { return bIsPlaying; }
 	virtual void TickComponent(float DeltaTime)
 	{
 	};
@@ -94,7 +97,7 @@ private:
 	bool bRegistered = false;
 	bool bIsInitialized = false;
 	bool bHasBegunPlay = false;
-
+	bool bIsPlaying = false;
 	UWorld* WorldPrivate = nullptr;
 	bool bRenderStateCreated = false;
 };

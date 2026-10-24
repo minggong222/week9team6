@@ -41,6 +41,65 @@ void AActor::BeginPlay()
 	Test.Add([](int i) {FLog::Log(ELogVerbosity::Info, "Add {}", i);});
 }
 
+void AActor::DispatchBeginPlay()
+{
+	if (bIsPlaying || !World || !World->HasBegunPlay())
+	{
+		return;
+	}
+	RegisterAllComponents();
+	bIsPlaying = true;
+	bHasBegunPlay = true;
+
+	TArray<UActorComponent*> ComponentsToBegin = Components;
+	for (UActorComponent* Component : ComponentsToBegin)
+	{
+		if (!Component)
+			continue;
+		bool bStillOwned = false;
+		for (UActorComponent* Current : Components)
+		{
+			if (Current == Component)
+			{
+				bStillOwned = true;
+				break;
+			}
+		}
+		if (bStillOwned)
+			Component->BeginPlayComponent();
+	}
+
+	RegisterAllActorTickFunctions(true);
+
+	BeginPlay();
+}
+
+void AActor::DispatchEndPlay()
+{
+	if (!bIsPlaying)
+		return;
+	bIsPlaying = false;
+	RegisterAllActorTickFunctions(false);
+	EndPlay();
+	TArray<UActorComponent*> ComponentsToEnd = Components;
+	for (UActorComponent* Component : ComponentsToEnd)
+	{
+		if (!Component)
+			continue;
+		bool bStillOwned = false;
+		for (UActorComponent* Current : Components)
+		{
+			if (Current == Component)
+			{
+				bStillOwned = true;
+				break;
+			}
+		}
+		if (bStillOwned)
+			Component->BeginPlayComponent();
+	}
+}
+
 void AActor::RegisterAllActorTickFunctions(bool bRegister)
 {
 	if (bRegister && !World)
@@ -285,7 +344,7 @@ UActorComponent* AActor::AddComponent(UClass* ComponentClass, FName Name)
 
 void AActor::DestroyComponent(UActorComponent* Component)
 {
-	if (!Component)
+	if (!Component || Component->GetOwner() != this)
 		return;
 
 	if (Component == RootComponent)
@@ -306,6 +365,7 @@ void AActor::DestroyComponent(UActorComponent* Component)
 		}
 	}
 
+	Component->EndPlayComponent();
 	Component->UnregisterComponent();
 	RemoveOwnedComponent(Component);
 	delete Component;

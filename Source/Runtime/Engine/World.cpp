@@ -79,8 +79,8 @@ bool UWorld::Init()
 
 AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transform)
 {
-	if (!Class) return nullptr;
-	if (!Class->IsChildOf(AActor::StaticClass())) return nullptr;
+	if (bIsEndingPlay || bIsClearingWorld) return nullptr;
+	if (!Class || !Class->IsChildOf(AActor::StaticClass())) return nullptr;
 
 	// 1. ObjectFactory로 Actor 생성
 	AActor* NewActor = NewObject<AActor>(PersistentLevel, Class, InName);
@@ -121,7 +121,7 @@ void UWorld::Tick(float DeltaTime)
 	}
 
 	// 에디터 월드가 아니면 액터 틱을 돌린다
-	if (WorldType != EWorldType::Editor)
+	if (WorldType != EWorldType::Editor && !bBegunPlay)
 	{
 		while (!BeginPlayList.IsEmpty())
 		{
@@ -164,6 +164,9 @@ void UWorld::Tick(float DeltaTime)
 
 void UWorld::ClearWorld()
 {
+	if (bIsClearingWorld)
+		return;
+	bIsClearingWorld = true;
 	EndPlay();
 	// BeginPlay 대기 중인 Actor 제거
 	while (!BeginPlayList.IsEmpty())
@@ -191,6 +194,8 @@ void UWorld::ClearWorld()
 	Scene.RemoveAllLights();
 	Scene.RemoveAllPrimitives();
 	HTR_LOG(Info, "{} : ", PersistentLevel->GetActorNum());
+
+	bIsClearingWorld = false;
 }
 
 void UWorld::GatherRenderPackets(FRenderQueue& RenderQueue, const FViewContext* LODView, const FFrustumPlanes* Frustum, FRenderer* Renderer)
@@ -514,12 +519,12 @@ int32 UWorld::GetActorNum()
 
 bool UWorld::DestroyActor(AActor* Actor)
 {
-	if (!Actor)
+	if (!Actor || Actor->GetWorld() != this)
 		return false;
 
 	ULevel* Level = Actor->GetLevel();
 
-	if (!Level)
+	if (!Level || Actor->bIsBeingDestroyed)
 		return false;
 
 	// 1. BeginPlay 대기열에서 제거
@@ -758,7 +763,7 @@ bool UWorld::LineTraceSingle(const FRay& WorldRay, FHitResult& OutHit,
 
 void UWorld::BeginPlay()
 {
-	if (WorldType != EWorldType::PIE && WorldType != EWorldType::Game|| bBegunPlay) return;
+	if (WorldType != EWorldType::PIE && WorldType != EWorldType::Game || bBegunPlay || bIsEndingPlay || bIsClearingWorld) return;
 	if (!PlayerPawn)
 	{
 		for (AActor* Actor : PersistentLevel->GetActors())
@@ -782,20 +787,52 @@ void UWorld::BeginPlay()
 				if (Actor) InitialActors.Add(Actor);
 	bBegunPlay = true;
 	for (AActor* Actor : InitialActors)
-		Actor->BeginPlay();
+		Actor->DispatchBeginPlay();
 
 	// PIE 입력 전에 DefaultPawn의 투사체 풀까지 시작한다.
 	while (!BeginPlayList.IsEmpty())
 	{
 		AActor* Actor = BeginPlayList.Peek();
 		BeginPlayList.Dequeue();
-		if (Actor) Actor->BeginPlay();
+		if (Actor) Actor->DispatchBeginPlay();
 	}
 }
 
 void UWorld::EndPlay()
 {
+	if (bIsEndingPlay)
+		return;
+	bIsEndingPlay = true;
 	bBegunPlay = false;
+
+	while (!BeginPlayList.IsEmpty())
+		BeginPlayList.Dequeue();
+
+	struct FActorEndEntry
+	{
+		AActor* Actor;
+		uint32 UUID;
+	};
+
+	TArray<FActorEndEntry> ActorsToEnd;
+
+	for (ULevel* Level : Levels)
+	{
+		if (!Level)
+			continue;
+		for (AActor* Actor : Level->GetActors())
+		{
+			if (Actor)
+				ActorsToEnd.Add({ Actor, Actor->GetUUID() });
+		}
+	}
+
+	for (const FActorEndEntry& Entry : ActorsToEnd)
+	{
+		if (IsActorInWorld(Entry.Actor, Entry.UUID))
+			Entry.Actor->DispatchEndPlay();
+	}
+
 	if (PlayerController)
 	{
 		PlayerController->ClearInputState();
@@ -804,6 +841,7 @@ void UWorld::EndPlay()
 	PlayerController = nullptr;
 	PlayerPawn = nullptr;
 	bIsPaused = false;
+	bIsEndingPlay = false;
 }
 
 UWorld* UWorld::CreateWorld(const EWorldType InWorldType, bool bInformEngineOfWorld, FName WorldName)
@@ -867,6 +905,23 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 	}
 
 	Scene.BuildBVH();
+}
+
+bool UWorld::IsActorInWorld(const AActor* Actor, uint32 ExpectedUUID) const
+{
+	if (!Actor)
+		return false;
+	for (ULevel* Level : Levels)
+	{
+		if (!Level)
+			continue;
+		for (AActor* Current : Level->GetActors())
+		{
+			if (Current == Actor)
+				return Current->GetUUID() == ExpectedUUID;
+		}
+	}
+	return false;
 }
 
 void UWorld::Serialize(FStructuredArchive::FRecord Record)

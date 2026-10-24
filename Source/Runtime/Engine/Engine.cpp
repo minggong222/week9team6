@@ -79,14 +79,6 @@ void UEngine::DestroyWorldContext(UWorld* InWorld)
 				WorldContextlist[idx].GameViewport->LostFocus();
 				WorldContextlist[idx].GameViewport->Reset();
 			}
-			if (WorldContextlist[idx].OwningGameInstance)
-			{
-				UGameInstance* Instance = WorldContextlist[idx].OwningGameInstance;
-				Instance->Shutdown();
-				delete Instance;
-			}
-			WorldContextlist[idx].SetCurrentWorld(nullptr);
-			WorldContextlist.RemoveAt(idx);
 			if (InWorld && ContextType == EWorldType::PIE)
 			{
 				ACameraActor* Camera = InWorld->GetMainCamera();
@@ -97,6 +89,14 @@ void UEngine::DestroyWorldContext(UWorld* InWorld)
 				if (bOwnsCamera) delete Camera;
 				delete InWorld;
 			}
+			if (WorldContextlist[idx].OwningGameInstance)
+			{
+				UGameInstance* Instance = WorldContextlist[idx].OwningGameInstance;
+				Instance->Shutdown();
+				delete Instance;
+			}
+			WorldContextlist[idx].SetCurrentWorld(nullptr);
+			WorldContextlist.RemoveAt(idx);
 			break;
 		}
 	}

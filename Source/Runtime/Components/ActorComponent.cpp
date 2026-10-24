@@ -42,13 +42,28 @@ void UActorComponent::PostEditChangeProperty(const FProperty& Property)
 void UActorComponent::BeginPlayComponent()
 {
 	if (!IsRegistered() || !WorldPrivate || !WorldPrivate->HasBegunPlay()) return;
+	if (bIsPlaying)
+	{
+		RegisterComponentTickFunctions(true);
+		return;
+	}
+	bIsPlaying = true;
+	bHasBegunPlay = true;
 	if (!bIsInitialized) InitializeComponent();
 	RegisterComponentTickFunctions(true);
-	if (bHasBegunPlay) return;
 	if (bAutoActivate) Activate();
 	else SetComponentTickEnabled(false);
-	bHasBegunPlay = true;
 	BeginPlay();
+}
+
+void UActorComponent::EndPlayComponent()
+{
+	if (!bIsPlaying)
+		return;
+	bIsPlaying = false;
+	SetComponentTickEnabled(false);
+	EndPlay();
+	Deactivate();
 }
 
 void UActorComponent::Activate(bool bReset)
@@ -123,7 +138,7 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 
 	WorldPrivate = InWorld;
 	ExecuteRegisterEvents();
-	if (AActor* MyOwner = GetOwner(); MyOwner && MyOwner->HasBegunPlay())
+	if (AActor* MyOwner = GetOwner(); MyOwner && MyOwner->IsPlaying())
 		BeginPlayComponent();
 }
 

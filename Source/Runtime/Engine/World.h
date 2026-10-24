@@ -100,6 +100,7 @@ public:
 
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 
+	bool IsActorInWorld(const AActor* Actor, uint32 ExpectedUUID) const;
 
 	using Super::Serialize;
 	virtual void Serialize(FStructuredArchive::FRecord Record) override;
@@ -146,4 +147,6 @@ private:
 
 	FRenderStats RenderStats;
 
+	bool bIsEndingPlay = false;
+	bool bIsClearingWorld = false;
 };
