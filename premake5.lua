@@ -203,12 +203,15 @@ project "HitoriEditor"
 		"%{IncludeDir.json}",
 	}
 
+	libdirs { "%{IncludeDir.LuaJIT}" }
+	
 	links
 	{
 		"d3d11.lib",
 		"dxgi.lib",
 		"dxguid.lib",
 		"d3dcompiler.lib",
+		"lua51.lib",
 	}
 
 	filter "configurations:ObjViewer"
@@ -240,4 +243,43 @@ project "Shaders"
 	filter "files:**.hlsli"
 		excludefrombuild "On"
 
+	filter {}
+
+-- 독립 실행 게임 애플리케이션
+project "HitoriGame"
+    location "Source/Game"
+    kind "WindowedApp"
+    CommonSettings()
+
+    files
+    {
+        "Source/Game/**.h",
+        "Source/Game/**.cpp",
+    }
+
+    includedirs
+    {
+        "Source",
+        "Source/Runtime",
+        "%{IncludeDir.stb}",
+        "%{IncludeDir.json}",
+        "%{IncludeDir.DDSLoader}",
+    }
+	
+	libdirs { "%{IncludeDir.LuaJIT}" }
+	
+	links
+	{
+		"HitoriEngine",
+		"d3d11.lib",
+		"dxgi.lib",
+		"dxguid.lib",
+		"d3dcompiler.lib",
+		"lua51.lib",
+	}
+	local engineLibPath = path.getabsolute("Build/Bin")
+		.. "\\%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\\HitoriEngine.lib"
+
+	filter { "system:windows", "action:vs*" }
+		linkoptions { '/WHOLEARCHIVE:"' .. engineLibPath .. '"' }
 	filter {}

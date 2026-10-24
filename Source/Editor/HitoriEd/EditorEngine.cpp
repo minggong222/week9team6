@@ -45,6 +45,7 @@
 #include "Core/EngineLog.h"
 #include "Core/Stats/LightweightStats.h"
 
+#include "Serialization/JsonArchive.h"
 namespace
 {
 	DECLARE_CYCLE_STAT("Viewport Update", STAT_ViewportUpdate);
@@ -96,6 +97,7 @@ bool UEditorEngine::Init()
 	EditorUI->SetOpenSceneCallback([this]() { OpenScene(); });
 	EditorUI->SetSaveSceneCallback([this]() { SaveCurrentScene(); });
 	EditorUI->SetSaveSceneAsCallback([this]() { SaveSceneAs(); });
+	EditorUI->SetPackageGameCallback([this]() { RunGameBuildScript(); });
 
 	OutputLogPanel = EditorUI->AddEditorPanel<FOutputLogPanel>();
 	FLog::AddSink(OutputLogPanel);
@@ -1483,4 +1485,61 @@ void UEditorEngine::SaveSceneAs()
 		return;
 	}
 	FEditorFileUtils::SaveSceneAs(EditorWorld);
+}
+
+void UEditorEngine::RunGameBuildScript()
+{
+	wchar_t RootPath[MAX_PATH]{};
+	if (GetCurrentDirectoryW(MAX_PATH, RootPath) == 0)
+	{
+		HTR_LOG(Error, "Failed to get current directory");
+		return;
+	}
+
+	std::wstring ScriptPath = std::wstring(RootPath) + L"\\BuildGame.bat";
+
+	if (GetFileAttributesW(ScriptPath.c_str()) == INVALID_FILE_ATTRIBUTES)
+	{
+		HTR_LOG(Error, "BuildGame.bat was not found.");
+		return;
+	}
+
+	const std::filesystem::path StagingDir = std::filesystem::path(RootPath) / "Intermediate" / "PackageStaging";
+
+	std::error_code FsError;
+	std::filesystem::create_directories(StagingDir, FsError);
+
+	if (FsError)
+	{
+		HTR_LOG(Error, "Failed to create package staging directory.");
+		return;
+	}
+
+	const std::filesystem::path ScenePath = StagingDir / "Startup.scene";
+
+	if (!FJsonArchive::SaveWorld(EditorWorld, ScenePath.string()))
+	{
+		HTR_LOG(Error, "Failed to save current world for packaging.");
+		return;
+	}
+
+	HTR_LOG(Info, "Current world prepared for packaging.");
+
+	std::wstring CommandList = L"cmd.exe /k \"\"" + ScriptPath + L"\"\"";
+
+	STARTUPINFOW StartupInfo{};
+	StartupInfo.cb = sizeof(StartupInfo);
+
+	PROCESS_INFORMATION ProcessInfo{};
+
+	if (!CreateProcessW(nullptr, CommandList.data(), nullptr, nullptr, FALSE, CREATE_NEW_CONSOLE, nullptr, RootPath, &StartupInfo, &ProcessInfo))
+	{
+		HTR_LOG(Error, "Failed to launch BuildGame.bat.");
+		return;
+	}
+
+	CloseHandle(ProcessInfo.hThread);
+	CloseHandle(ProcessInfo.hProcess);
+
+	HTR_LOG(Info, "Started HitoriGame build.");
 }
