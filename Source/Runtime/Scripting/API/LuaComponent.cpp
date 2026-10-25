@@ -105,6 +105,10 @@ void LuaRegisterComponentBase(sol::state& State)
             FHitResult Hit;
             bool Success = Component.MoveComponent(Delta, Rotation, Sweep, &Hit);
             return std::make_tuple(Success, Hit);
+        },
+        "TryMoveWithBlocking", [](USceneComponent& Component, const FVector& Delta, const FRotator& Rotation)
+        {
+            return Component.TryMoveWithBlocking(Delta, Rotation);
         });
 
     State.new_usertype<UPrimitiveComponent>("UPrimitiveComponent", sol::no_constructor,

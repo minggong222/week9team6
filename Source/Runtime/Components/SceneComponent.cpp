@@ -1,6 +1,8 @@
 #include "EnginePCH.h"
 #include "Components/SceneComponent.h"
 
+#include "Components/ShapeComponent.h"
+#include "Collision/CollisionScene.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 
@@ -294,8 +296,10 @@ bool USceneComponent::MoveComponent(const FVector& Delta, const FRotator& NewRot
 	FHitResult LocalHit(1.0f);
 	FHitResult& Result = Hit ? *Hit : LocalHit;
 	Result = FHitResult(1.0f);
+
 	const FVector Start = GetWorldLocation();
 	FVector Destination = Start + Delta;
+
 	bool bBlocked = false;
 	AActor* Owner = GetOwner();
 	if (bSweep && Delta.SizeSquared() > EPSILON_1E_8 && Owner && Owner->GetActorEnableCollision())
@@ -319,6 +323,77 @@ float USceneComponent::GetCollisionRadius() const
 	const FVector Extent = (Bounds.Max - Bounds.Min) * 0.5f;
 	if (Extent.SizeSquared() <= EPSILON_1E_8) return 10.0f;
 	return std::min({ Extent.X, Extent.Y, Extent.Z });
+}
+
+bool USceneComponent::TryMoveWithBlocking(const FVector& Delta, const FRotator& NewRotation, UShapeComponent** OutBlockingShape)
+{
+	if (OutBlockingShape)
+		*OutBlockingShape = nullptr;
+
+	const FTransform OriginalTransform = GetTransform();
+	const FVector Start = GetWorldLocation();
+
+	AActor* Owner = GetOwner();
+	UWorld* World = GetWorld();
+
+	if (!Owner || !World)
+	{
+		SetWorldLocationAndRotation(Start + Delta, NewRotation, false);
+		return true;
+	}
+
+	FCollisionScene& CollisionScene = World->GetCollisionScene();
+
+	TArray<UShapeComponent*> MovedShapes;
+	TArray<TArray<UShapeComponent*>> PreviousBlocks;
+
+	// 현재 컴포넌트를 이동하면 함께 움직이는 Shape를 찾는다.
+	for (UActorComponent* Component : Owner->GetComponents())
+	{
+		UShapeComponent* Shape = Cast<UShapeComponent>(Component);
+
+		if (!Shape || !Shape->IsRegistered())
+			continue;
+
+		for (USceneComponent* Parent = Shape; Parent; Parent = Parent->GetAttachParent())
+		{
+			if (Parent != this)
+				continue;
+
+			TArray<UShapeComponent*> Overlaps;
+			TArray<UShapeComponent*> Blocks;
+			CollisionScene.QueryCollisionInteractions(Shape, Overlaps, Blocks);
+
+			MovedShapes.Add(Shape);
+			PreviousBlocks.Add(Blocks);
+			break;
+		}
+	}
+
+	// 목표 위치로 이동한 뒤 새로운 Block이 생겼는지 확인한다.
+	SetWorldLocationAndRotation(Start + Delta, NewRotation, false);
+
+	for (int32 i = 0; i < MovedShapes.Num(); ++i)
+	{
+		TArray<UShapeComponent*> Overlaps;
+		TArray<UShapeComponent*> Blocks;
+		CollisionScene.QueryCollisionInteractions(MovedShapes[i], Overlaps, Blocks);
+
+		for (UShapeComponent* Block : Blocks)
+		{
+			if (PreviousBlocks[i].Find(Block) != INDEX_NONE)
+				continue;
+
+			SetTransform(OriginalTransform);
+
+			if (OutBlockingShape)
+				*OutBlockingShape = Block;
+
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void USceneComponent::MarkTransformDirty()

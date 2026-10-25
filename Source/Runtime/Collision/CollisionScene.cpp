@@ -24,7 +24,7 @@ namespace
         const AActor* OwnerA = A->GetOwner();
         const AActor* OwnerB = B->GetOwner();
 
-        if (!OwnerA || !OwnerB || !OwnerA->GetActorEnableCollision() || !OwnerB->GetActorEnableCollision())
+        if (!OwnerA || !OwnerB || OwnerA == OwnerB || !OwnerA->GetActorEnableCollision() || !OwnerB->GetActorEnableCollision())
             return ECollisionResponse::Ignore;
 
         return ResolveCollisionResponse(
