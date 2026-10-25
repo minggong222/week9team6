@@ -17,6 +17,8 @@ private:
 
 	sol::state& State;
 	sol::environment Environment;
+	sol::table EngineBindings;
+	bool bHotReloading = false;
 
 	// 스크립트를 소유하는 객체를 가리킵니다.
 	UObject* Owner;
@@ -57,6 +59,11 @@ public:
 	// 같은 경로에 전달받은 소스로 실행 상태를 초기화합니다.
 	bool Reload(FStringView Source);
 
+	// Lua 호출이 끝난 시점에 실행합니다. 일반 호출자는 매니저에 요청을 예약합니다.
+	// 최상위 코드는 선언과 초기화만 수행해야 하며, 테이블 내부 함수는 지원하지 않습니다.
+	// 실패 시 기존 환경을 유지하고, 성공 시 OnHotReloaded에서 외부 함수 참조를 갱신합니다.
+	bool HotReload(FStringView Source);
+
 	// 로드된 Lua 스크립트를 언로드합니다.
 	void Unload();
 
@@ -68,6 +75,7 @@ public:
 	// 스크립트가 로드될 때 호출될 콜백 함수입니다.
 	DECLARE_DELEGATE(OnLoaded, FLuaInstance&);
 	DECLARE_DELEGATE(OnUnloaded, FLuaInstance&);
+	DECLARE_DELEGATE(OnHotReloaded, FLuaInstance&);
 
 };
 

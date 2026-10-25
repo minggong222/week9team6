@@ -156,6 +156,11 @@ void UWorld::Tick(float DeltaTime)
 	if (!bBegunPlay || bIsEndingPlay || bIsClearingWorld)
 		return;
 
+	if (FLuaManager* Manager = GetLuaManager())
+	{
+		Manager->ProcessPendingHotReloads();
+	}
+
     if (!bIsPaused)
     {
         if (FLuaManager* Manager = GetLuaManager())

@@ -70,12 +70,17 @@ bool ULuaComponent::LoadLua()
 bool ULuaComponent::ReloadLua()
 {
 	const UWorld* World = GetWorld();
-	if (!GEngine || !World || World->GetWorldType() != EWorldType::Editor)
+	if (!GEngine || !World || ScriptPath.empty())
 	{
 		return false;
 	}
 
-	return GEngine->GetLuaRegistry().Reload(ScriptPath);
+	if (World->GetWorldType() == EWorldType::Editor)
+	{
+		return GEngine->GetLuaRegistry().Reload(ScriptPath);
+	}
+
+	return GetLoaded() && InstanceManager && InstanceManager->RequestHotReload(Instance);
 }
 
 bool ULuaComponent::SetScriptPath(const FString& InPath)

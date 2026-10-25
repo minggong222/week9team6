@@ -79,6 +79,7 @@ FLuaInstance* FLuaManager::CreateInstance(
     FLuaInstance* Instance = Instances.Last().get();
     Instance->OnLoaded.AddDynamic(this, &FLuaManager::OnInstanceLoaded);
     Instance->OnUnloaded.AddDynamic(this, &FLuaManager::OnInstanceUnloaded);
+    Instance->OnHotReloaded.AddDynamic(this, &FLuaManager::OnInstanceHotReloaded);
     return Instance;
 }
 
@@ -126,6 +127,68 @@ bool FLuaManager::Reload(int32 Index)
 
     const FLuaScriptSource* Script = Registry->FindOrLoad(Instances[Index]->GetPath());
     return Script && Instances[Index]->Reload(Script->Source);
+}
+
+bool FLuaManager::RequestHotReload(FLuaInstance* Instance)
+{
+    if (!Registry || !Instance)
+    {
+        return false;
+    }
+
+    for (const auto& Candidate : Instances)
+    {
+        if (Candidate.get() != Instance)
+        {
+            continue;
+        }
+
+        if (!Instance->GetInitialized())
+        {
+            return false;
+        }
+
+        for (FLuaInstance* Pending : PendingHotReloads)
+        {
+            if (Pending == Instance)
+            {
+                return true;
+            }
+        }
+
+        PendingHotReloads.Add(Instance);
+        HTR_LOG(Info, "Lua Hot Reload 예약: {}", Instance->GetPath());
+        return true;
+    }
+
+    return false;
+}
+
+void FLuaManager::ProcessPendingHotReloads()
+{
+    // 콜백에서 추가된 요청은 다음 프레임에 처리합니다.
+    TArray<FLuaInstance*> Requests = std::move(PendingHotReloads);
+    PendingHotReloads = {};
+
+    for (FLuaInstance* Request : Requests)
+    {
+        for (const auto& Instance : Instances)
+        {
+            if (Instance.get() == Request)
+            {
+                const FString Path = Instance->GetPath();
+                FString Source;
+                if (Registry && Registry->ReadCandidate(Path, Source) && Instance->HotReload(Source))
+                {
+                    // 실행까지 성공해야 다음 PIE에서 사용할 소스 버전을 갱신합니다.
+                    const FLuaScriptSource& Script = Registry->Accept(Path, std::move(Source));
+                    HTR_LOG(Info, "Lua Hot Reload 완료: {} (버전 {})", Path, Script.Version);
+                }
+
+                break;
+            }
+        }
+    }
 }
 
 bool FLuaManager::Remove(int32 Index)
@@ -200,6 +263,26 @@ void FLuaManager::OnInstanceLoaded(FLuaInstance& Instance)
 void FLuaManager::OnInstanceUnloaded(FLuaInstance& Instance)
 {
     StopCoroutines(&Instance);
+
+    for (int32 Index = PendingHotReloads.Num() - 1; Index >= 0; --Index)
+    {
+        if (PendingHotReloads[Index] == &Instance)
+        {
+            PendingHotReloads.RemoveAt(Index);
+        }
+    }
+}
+
+void FLuaManager::OnInstanceHotReloaded(FLuaInstance& Instance)
+{
+    // 안전한 교체 시점이므로 다음 업데이트까지 기다리지 않고 참조를 해제합니다.
+    for (int32 Index = Coroutines.Num() - 1; Index >= 0; --Index)
+    {
+        if (Coroutines[Index]->Instance == &Instance)
+        {
+            Coroutines.RemoveAt(Index);
+        }
+    }
 }
 
 void FLuaManager::StopCoroutines(FLuaInstance* Instance)
@@ -216,6 +299,11 @@ void FLuaManager::StartCoroutine(FLuaInstance* Instance, sol::protected_function
 {
     if (!Instance || !Function.valid())
         return;
+
+    if (Instance->bHotReloading)
+    {
+        throw sol::error("Hot Reload 중에는 최상위 코드에서 coroutine을 시작할 수 없습니다.");
+    }
 
     bool bOwned = false;
     for (const auto& Candidate : Instances)

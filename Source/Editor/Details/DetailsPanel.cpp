@@ -1061,7 +1061,7 @@ void FDetailsPanel::DrawLuaComponentActions(ULuaComponent* Component)
 	const bool bIsEditor = ComponentWorld && ComponentWorld->GetWorldType() == EWorldType::Editor;
 	const bool bHasScript = !Component->GetScriptPath().empty();
 
-	ImGui::BeginDisabled(!bHasScript || !bIsEditor);
+	ImGui::BeginDisabled(!bHasScript || (!bIsEditor && !Component->GetLoaded()));
 	if (ImGui::Button("Reload"))
 	{
 		Component->ReloadLua();

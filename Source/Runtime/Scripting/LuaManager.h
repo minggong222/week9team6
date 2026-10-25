@@ -39,6 +39,11 @@ public:
 
     bool ReloadAll();
     bool Reload(int32 Handle);
+
+    // 중복 요청은 합치며, 실제 교체는 월드 Tick 시작 시 수행합니다.
+    bool RequestHotReload(FLuaInstance* Instance);
+    void ProcessPendingHotReloads();
+
     bool Remove(int32 Handle);
     bool Remove(FLuaInstance* Instance);
 
@@ -48,6 +53,7 @@ private:
     bool ResumeCoroutine(FCoroutineTask& Task);
     void OnInstanceLoaded(FLuaInstance& Instance);
     void OnInstanceUnloaded(FLuaInstance& Instance);
+    void OnInstanceHotReloaded(FLuaInstance& Instance);
 
     sol::state State;
     FLuaRegistry* Registry = nullptr;
@@ -57,6 +63,7 @@ private:
     float ElapsedSeconds = 0.0f;
     
     TArray<TUniquePtr<FLuaInstance>> Instances;
+    TArray<FLuaInstance*> PendingHotReloads;
     // Destroy coroutine references before instances and their shared Lua state.
     TArray<TUniquePtr<FCoroutineTask>> Coroutines;
 };
