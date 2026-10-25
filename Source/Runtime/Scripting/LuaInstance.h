@@ -44,8 +44,8 @@ public:
 
 	const FString& GetPath() const { return Path; }
 	
-	// Assets 기준 상대 경로를 받아 내부에서 절대 경로로 변환해 불러옵니다.
-	bool Load(FStringView InPath);
+	// 디스크를 읽지 않고 Registry에서 채택한 소스를 새 환경에 실행합니다.
+	bool Load(FStringView InPath, FStringView Source);
 
 	// Lua 스크립트에서 함수를 호출합니다.
 	template<typename... Args>
@@ -54,8 +54,8 @@ public:
 	template<typename T>
 	bool SetGlobalVariable(FStringView VariableName, T Value);
 
-	// Path에서 Lua 스크립트를 다시 불러옵니다.
-	bool Reload();
+	// 같은 경로에 전달받은 소스로 실행 상태를 초기화합니다.
+	bool Reload(FStringView Source);
 
 	// 로드된 Lua 스크립트를 언로드합니다.
 	void Unload();

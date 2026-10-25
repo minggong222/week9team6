@@ -7,6 +7,7 @@
 
 struct FTransform;
 class FImGuiRenderer;
+class ULuaComponent;
 using FShadowPreviewQuery = std::function<bool(const ULightComponent*, FTexture2DArray*&, TArray<FLightShadowRenderData>&)>;
 
 using DetailsSelectionCallback = std::function<void(UActorComponent*)>;
@@ -47,6 +48,7 @@ public:
 	ImFont* GetCustomFont() { return CustomFont; }
 
 private:
+	void DrawLuaComponentActions(ULuaComponent* Component);
 	void DrawShadowPreview();
 	FShadowPreviewQuery QueryShadowPreview;
 	FImGuiRenderer* ImGuiRenderer = nullptr;

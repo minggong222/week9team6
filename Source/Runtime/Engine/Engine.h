@@ -9,6 +9,7 @@
 #include "EngineTypes.h"
 
 #include "Asset/AssetManager.h"
+#include "Scripting/LuaRegistry.h"
 
 class UGameInstance;
 class FGameViewportClient;
@@ -81,6 +82,7 @@ public:
 	FWorldContext* GetWorldContextFromPIEInstance(int32 PIEInstance);
 	UWorld* GetEditorWorld() const;
 	virtual UWorld* CreatePIEWorldByDuplication(FWorldContext& Context, UWorld* SourceWorld);
+	FLuaRegistry& GetLuaRegistry() { return LuaRegistry; }
 	// PIE 컨텍스트는 게임 인스턴스와 복제 월드까지 함께 정리한다.
 	void DestroyWorldContext(UWorld* InWorld);
 
@@ -93,6 +95,7 @@ protected:
 	//UWorld* World = nullptr;
 	int32 NextWorldContextHandle = 0;
 private:
+	FLuaRegistry LuaRegistry;
 	FEngineLoop* EngineLoop = nullptr;
 };
 

@@ -14,7 +14,7 @@ FLuaInstance::FLuaInstance(
     , Owner{ InOwner }
 {}
 
-bool FLuaInstance::Load(FStringView InPath)
+bool FLuaInstance::Load(FStringView InPath, FStringView Source)
 {
     const FString AssetPath{ InPath };
     Unload();
@@ -30,10 +30,11 @@ bool FLuaInstance::Load(FStringView InPath)
     OnLoaded.Broadcast(*this);
 
     // Lua 스크립트를 실행합니다.
-    sol::protected_function_result Result = State.safe_script_file(
-        FullPath.c_str(),
+    sol::protected_function_result Result = State.safe_script(
+        Source,
         Environment,
-        sol::script_pass_on_error
+        sol::script_pass_on_error,
+        "@" + FullPath
     );
 
     if (!Result.valid()) {
@@ -49,14 +50,9 @@ bool FLuaInstance::Load(FStringView InPath)
     return true;
 }
 
-bool FLuaInstance::Reload()
+bool FLuaInstance::Reload(FStringView Source)
 {
-    if (!Load(Path))
-    {
-        return false;
-    }
-
-    return true;
+    return Load(Path, Source);
 }
 
 void FLuaInstance::Unload()

@@ -2,6 +2,7 @@
 #include "LuaComponent.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
+#include "Engine/Engine.h"
 #include "Scripting/LuaInstance.h"
 
 ULuaComponent::ULuaComponent()
@@ -51,18 +52,56 @@ void ULuaComponent::InitializeLua()
 
 bool ULuaComponent::LoadLua()
 {
-	if (!Instance || ScriptPath.empty())
+	if (!Instance || ScriptPath.empty() || !GEngine)
 	{
 		return false;
 	}
 
-	if (!Instance->Load(ScriptPath))
+	const FLuaScriptSource* Script = GEngine->GetLuaRegistry().FindOrLoad(ScriptPath);
+	if (!Script || !Instance->Load(ScriptPath, Script->Source))
 	{
 		Instance->Unload();
 		return false;
 	}
 
 	return true;
+}
+
+bool ULuaComponent::ReloadLua()
+{
+	const UWorld* World = GetWorld();
+	if (!GEngine || !World || World->GetWorldType() != EWorldType::Editor)
+	{
+		return false;
+	}
+
+	return GEngine->GetLuaRegistry().Reload(ScriptPath);
+}
+
+bool ULuaComponent::SetScriptPath(const FString& InPath)
+{
+	// 연결 시 소스만 확보합니다. 게임 코드 실행은 플레이 초기화까지 미룹니다.
+	if (!InPath.empty() && GEngine && !GEngine->GetLuaRegistry().FindOrLoad(InPath))
+	{
+		return false;
+	}
+
+	ScriptPath = InPath;
+	return true;
+}
+
+void ULuaComponent::Serialize(FStructuredArchive::FRecord Record)
+{
+	Super::Serialize(Record);
+
+	// 씬 로드는 컴포넌트를 먼저 등록한 뒤 경로를 읽으므로, 역직렬화 후 소스를 확보합니다.
+	// PIE 복제는 이미 채택한 소스를 사용하며 파일을 다시 읽지 않습니다.
+	FArchive& Archive = Record.GetUnderlyingArchive();
+	if (GEngine && Archive.IsLoading() && !Archive.HasAnyPortFlags(EPropertyPortFlags::PPF_Duplicate)
+		&& !ScriptPath.empty())
+	{
+		GEngine->GetLuaRegistry().FindOrLoad(ScriptPath);
+	}
 }
 
 void ULuaComponent::OnInstanceLoaded(FLuaInstance& Instance)

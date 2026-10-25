@@ -1,5 +1,6 @@
 #include "EnginePCH.h"
 #include "LuaManager.h"
+#include "LuaRegistry.h"
 
 #include "luajit.h"
 #include <cmath>
@@ -10,6 +11,41 @@ extern void LuaRegisterActor(sol::state& State);
 extern void LuaRegisterMath(sol::state& State);
 extern void LuaRegisterComponent(sol::state& State);
 extern void LuaRegisterInput(sol::state& State);
+
+void LuaPrint(FStringView ComponentName, float Seconds, sol::this_state LuaState, sol::variadic_args Args)
+{
+    sol::state_view State{ LuaState };
+    sol::protected_function ToString = State["tostring"];
+    FString Message;
+    bool bFirst = true;
+
+    // Lua의 tostring을 사용하여 nil, boolean, __tostring도 동일하게 출력합니다.
+    for (const auto Argument : Args)
+    {
+        sol::protected_function_result Result = ToString(Argument);
+        if (!Result.valid())
+        {
+            sol::error Error = Result;
+            throw Error;
+        }
+
+        const sol::object Text = Result;
+        if (Text.get_type() != sol::type::string)
+        {
+            throw sol::error("print: tostring must return a string");
+        }
+
+        if (!bFirst)
+        {
+            Message += '\t';
+        }
+
+        Message += Result.get<FString>();
+        bFirst = false;
+    }
+
+    HTR_LOG(Info, "[{}] ({:.3f}) {}", ComponentName, Seconds, Message);
+}
 
 void LuaRegister(sol::state& State)
 {
@@ -22,8 +58,10 @@ void LuaRegister(sol::state& State)
     LuaRegisterInput(State);
 }
 
-void FLuaManager::Initialize()
+void FLuaManager::Initialize(FLuaRegistry& InRegistry)
 {
+    Registry = &InRegistry;
+    ElapsedSeconds = 0.0f;
     State.open_libraries(sol::lib::base);
 
     // Lua에서 호출할 C++ 함수
@@ -71,9 +109,9 @@ bool FLuaManager::ReloadAll()
 {
     bool bSuccessed = true;
 
-    for (auto& Instance : Instances)
+    for (int32 Index = 0; Index < Instances.Num(); ++Index)
     {
-        bSuccessed = Instance->Reload() && bSuccessed;
+        bSuccessed = Reload(Index) && bSuccessed;
     }
 
     return bSuccessed;
@@ -81,12 +119,13 @@ bool FLuaManager::ReloadAll()
 
 bool FLuaManager::Reload(int32 Index)
 {
-    if (!CheckRange(Index))
+    if (!Registry || !CheckRange(Index))
     {
         return false;
     }
 
-    return Instances[Index]->Reload();
+    const FLuaScriptSource* Script = Registry->FindOrLoad(Instances[Index]->GetPath());
+    return Script && Instances[Index]->Reload(Script->Source);
 }
 
 bool FLuaManager::Remove(int32 Index)
@@ -136,6 +175,15 @@ bool FLuaManager::CheckRange(int32 Index) const
 
 void FLuaManager::OnInstanceLoaded(FLuaInstance& Instance)
 {
+    // 인스턴스별로 바인딩하여 일반 함수와 coroutine 모두 소유 컴포넌트를 식별합니다.
+    Instance.SetGlobalVariable("print",
+        [this, Owner = &Instance](sol::this_state LuaState, sol::variadic_args Args)
+        {
+            UObject* Component = Owner->GetOwner();
+            const FString Name = Component ? Component->GetName() : "Lua";
+            LuaPrint(Name, ElapsedSeconds, LuaState, Args);
+        });
+
     Instance.SetGlobalVariable("StartCoroutine",
         [this, Owner = &Instance](sol::protected_function Function)
         {
@@ -229,6 +277,8 @@ void FLuaManager::UpdateCoroutines(float DeltaTime)
 {
     if (!std::isfinite(DeltaTime) || DeltaTime < 0.0f)
         return;
+
+    ElapsedSeconds += DeltaTime;
 
     // New tasks started while resuming wait until the next frame's update.
     for (int32 Index = Coroutines.Num() - 1; Index >= 0; --Index)

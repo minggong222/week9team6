@@ -6,7 +6,7 @@
 
 void UGameInstance::Init()
 {
-	LuaManager.Initialize();
+	LuaManager.Initialize(GetEngine()->GetLuaRegistry());
 }
 
 void UGameInstance::Shutdown()

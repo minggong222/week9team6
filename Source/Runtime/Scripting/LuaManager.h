@@ -5,6 +5,7 @@
 #include "Core/Types.h"
 
 class ULuaComponent;
+class FLuaRegistry;
 
 struct FCoroutineTask
 {
@@ -23,7 +24,7 @@ public:
     FLuaManager(const FLuaManager&) = delete;
     FLuaManager& operator=(const FLuaManager&) = delete;
 
-    void Initialize();
+    void Initialize(FLuaRegistry& InRegistry);
     FLuaInstance* CreateInstance(
         FStringView Path,
         UObject* Owner
@@ -49,7 +50,11 @@ private:
     void OnInstanceUnloaded(FLuaInstance& Instance);
 
     sol::state State;
+    FLuaRegistry* Registry = nullptr;
     bool bJITEnabled = true;
+
+    // 플레이 경과 초입니다. 일시정지 중에는 증가하지 않습니다.
+    float ElapsedSeconds = 0.0f;
     
     TArray<TUniquePtr<FLuaInstance>> Instances;
     // Destroy coroutine references before instances and their shared Lua state.

@@ -1024,6 +1024,11 @@ void FDetailsPanel::OnRender()
 			ImGui::PushID(TargetComponent);
 			ImGui::SeparatorText("Component Properties");
 			DrawProperties(TargetComponent, CustomFont);
+			if (ULuaComponent* Script = Cast<ULuaComponent>(TargetComponent))
+			{
+				DrawLuaComponentActions(Script);
+			}
+
 			DrawShadowPreview();
 
 			if(SelectCandidateComponent != TargetComponent)
@@ -1048,6 +1053,41 @@ void FDetailsPanel::OnRender()
 		}		
 	}	
 	ImGui::End();
+}
+
+void FDetailsPanel::DrawLuaComponentActions(ULuaComponent* Component)
+{
+	const UWorld* ComponentWorld = Component->GetWorld();
+	const bool bIsEditor = ComponentWorld && ComponentWorld->GetWorldType() == EWorldType::Editor;
+	const bool bHasScript = !Component->GetScriptPath().empty();
+
+	ImGui::BeginDisabled(!bHasScript || !bIsEditor);
+	if (ImGui::Button("Reload"))
+	{
+		Component->ReloadLua();
+	}
+	ImGui::EndDisabled();
+
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!bHasScript);
+	if (ImGui::Button("Edit"))
+	{
+		FScriptEditorUtils::EditScript(Component->GetScriptPath());
+	}
+	ImGui::EndDisabled();
+
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!bIsEditor || !DeleteCallback);
+	if (ImGui::Button("Delete"))
+	{
+		// 파일은 유지하고 기존 컴포넌트 삭제 경로로 넘깁니다.
+		PendingDeleteComponent = Component;
+	}
+	ImGui::EndDisabled();
+	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+	{
+		ImGui::SetTooltip("Remove this component. The script file is kept.");
+	}
 }
 
 void FDetailsPanel::SelectComponent(UActorComponent* Component)
