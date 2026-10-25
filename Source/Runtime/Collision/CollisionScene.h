@@ -29,6 +29,9 @@ public:
     // 이전 프레임과 현재 Overlap 쌍을 비교해 진입·이탈을 판별한다.
     void UpdateOverlapPairs();
 
+    // Block으로 이동이 거부됐을 때 양쪽 Shape에 Hit 이벤트를 전달한다.
+    void BroadcastHitEvent(UShapeComponent* MovedShape, UShapeComponent* OtherShape);
+
 private:
     TArray<UShapeComponent*> Shapes;
 

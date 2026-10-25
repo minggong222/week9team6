@@ -389,6 +389,8 @@ bool USceneComponent::TryMoveWithBlocking(const FVector& Delta, const FRotator& 
 			if (OutBlockingShape)
 				*OutBlockingShape = Block;
 
+			CollisionScene.BroadcastHitEvent(MovedShapes[i], Block);
+
 			return false;
 		}
 	}

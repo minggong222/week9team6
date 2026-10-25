@@ -103,6 +103,8 @@ public:
 	DECLARE_DELEGATE(OnComponentBeginOverlap, UPrimitiveComponent*);
 	DECLARE_DELEGATE(OnComponentEndOverlap, UPrimitiveComponent*);
 
+	DECLARE_DELEGATE(OnComponentHit, UPrimitiveComponent*);
+
 protected:
 	virtual bool ShouldCreateRenderState() const override
 	{

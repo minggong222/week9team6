@@ -266,6 +266,34 @@ void FCollisionScene::BroadcastOverlapEvent(const FCollisionPair& Pair, bool bBe
     if (OwnerB) OwnerB->bIsExecutingComponentCallback = bWasExecutingB;
 }
 
+void FCollisionScene::BroadcastHitEvent(UShapeComponent* MovedShape, UShapeComponent* OtherShape)
+{
+    if (!MovedShape || !OtherShape ||
+        Shapes.Find(MovedShape) == INDEX_NONE || Shapes.Find(OtherShape) == INDEX_NONE)
+        return;
+
+    AActor* OwnerA = MovedShape->GetOwner();
+    AActor* OwnerB = OtherShape->GetOwner();
+
+    if (!OwnerA || !OwnerB)
+        return;
+
+    const bool bWasExecutingA = OwnerA->bIsExecutingComponentCallback;
+    const bool bWasExecutingB = OwnerB->bIsExecutingComponentCallback;
+
+    // 이벤트 실행 도중 Actor/Component 삭제 요청을 지연시킨다.
+    OwnerA->bIsExecutingComponentCallback = true;
+    OwnerB->bIsExecutingComponentCallback = true;
+
+    MovedShape->OnComponentHit.Broadcast(OtherShape);
+
+    if (Shapes.Find(MovedShape) != INDEX_NONE && Shapes.Find(OtherShape) != INDEX_NONE)
+        OtherShape->OnComponentHit.Broadcast(MovedShape);
+
+    OwnerA->bIsExecutingComponentCallback = bWasExecutingA;
+    OwnerB->bIsExecutingComponentCallback = bWasExecutingB;
+}
+
 bool FCollisionScene::IntersectsShapes(UShapeComponent* A, UShapeComponent* B, int32* OutNarrowTests)
 {
     USphereComponent* SphereA = Cast<USphereComponent>(A);
