@@ -176,7 +176,8 @@ void ULuaComponent::InitializeComponent()
 
 	// 인스턴스 초기화
 	InitializeLua();
-	if (!LoadLua())
+	// 미리 로드한 스크립트의 차량 설정과 매니저 참조를 유지합니다.
+	if (!GetLoaded() && !LoadLua())
 	{
 		if (!ScriptPath.empty())
 		{

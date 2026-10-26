@@ -1,6 +1,7 @@
 #include "EnginePCH.h"
 #include "LuaManager.h"
 #include "LuaRegistry.h"
+#include "IO/FileUtils.h"
 
 #include "luajit.h"
 #include <cmath>
@@ -166,6 +167,47 @@ bool FLuaManager::RequestHotReload(FLuaInstance* Instance)
     }
 
     return false;
+}
+
+void FLuaManager::UpdateAutoHotReload()
+{
+    TSet<FString> ActivePaths;
+    for (const auto& Instance : Instances)
+    {
+        if (!Instance->GetInitialized())
+        {
+            continue;
+        }
+
+        const FString Path = FileUtils::GetAssetFullPath(Instance->GetPath());
+        if (!ActivePaths.Contains(Path))
+        {
+            ActivePaths.Add(Path);
+            ScriptFileWatcher.Watch(Path);
+        }
+    }
+
+    // 마지막 인스턴스가 제거된 파일은 더 이상 감시하지 않습니다.
+    for (const FString& Path : WatchedScriptPaths)
+    {
+        if (!ActivePaths.Contains(Path))
+        {
+            ScriptFileWatcher.Unwatch(Path);
+        }
+    }
+
+    WatchedScriptPaths = std::move(ActivePaths);
+
+    for (const FString& Path : ScriptFileWatcher.PollChanges())
+    {
+        for (const auto& Instance : Instances)
+        {
+            if (Instance->GetInitialized() && FileUtils::GetAssetFullPath(Instance->GetPath()) == Path)
+            {
+                RequestHotReload(Instance.get());
+            }
+        }
+    }
 }
 
 void FLuaManager::ProcessPendingHotReloads()

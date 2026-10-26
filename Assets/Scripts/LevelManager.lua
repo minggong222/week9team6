@@ -2,9 +2,10 @@
 local PoolCount = 100
 local LaneSpacing = 3.0
 local RoadHalfWidth = 34.0
-local SpawnInterval = 5.0
-local MinSpeed = 3.0
-local MaxSpeed = 8.0
+local MinSpawnInterval = 1.5
+local MaxSpawnInterval = 5.0
+local MinSpeed = 2.0
+local MaxSpeed = 9.0
 
 -- maptest 설정: 수정 후 다음 Play부터 적용됩니다. R은 현재 설정으로 맵을 다시 뽑습니다.
 local RowsBehind = 10 -- 뒤쪽 맵 유지 범위
@@ -56,7 +57,10 @@ local CarList = {
 }
 
 local Pool = {}
-local SpawnElapsed = 0.0
+-- 배치를 기다리는 비활성 차량 액터입니다.
+local AvailableCars = {}
+local PoolByActor = {}
+local LevelManager = nil
 local bWasPlaying = false
 
 -- maptest.scene은 일반 차량 없이 맵/기차 컴포넌트를 풀링합니다.
@@ -413,6 +417,20 @@ local function TickMapTest(DeltaSeconds)
     UpdateMapStats()
 end
 
+local function GetSpawnInterval()
+    return MinSpawnInterval + math.random() * (MaxSpawnInterval - MinSpawnInterval)
+end
+
+function ReturnCar(CarActor)
+    local Entry = PoolByActor[CarActor:GetUUID()]
+    if not Entry or Entry.bAvailable then
+        return
+    end
+
+    Entry.bAvailable = true
+    AvailableCars[#AvailableCars + 1] = CarActor
+end
+
 local function CreateCar(Index, Car)
     local World = Actor:GetWorld()
     local Class = UClass.Find("AStaticMeshActor")
@@ -440,33 +458,68 @@ local function CreateCar(Index, Car)
         return nil
     end
 
-    LuaComponent:Invoke("SetCar", Car)
+    local Entry = { Actor = CarActor, Script = LuaComponent, bAvailable = false }
+    Pool[#Pool + 1] = Entry
+    PoolByActor[CarActor:GetUUID()] = Entry
+
+    LuaComponent:Invoke("SetCar", Car, LevelManager)
     LuaComponent:Invoke("Deactivate")
-    Pool[#Pool + 1] = { Actor = CarActor, Script = LuaComponent }
 end
 
 function SpawnCar(Location, Direction, InSpeed, TravelDistance)
-    for _, Entry in ipairs(Pool) do
-        if not Entry.Script:Invoke("IsActive") then
-            Entry.Script:Invoke("Activate", Location, Direction, InSpeed, TravelDistance)
-            return Entry
-        end
+    if #AvailableCars == 0 then
+        return nil
     end
 
-    -- 풀이 가득 차면 추가 생성 없이 이번 배치를 건너뜁니다.
-    return nil
+    local Index = math.random(1, #AvailableCars)
+    local CarActor = AvailableCars[Index]
+    AvailableCars[Index] = AvailableCars[#AvailableCars]
+    AvailableCars[#AvailableCars] = nil
+
+    local Entry = PoolByActor[CarActor:GetUUID()]
+    Entry.bAvailable = false
+    Entry.Script:Invoke("Activate", Location, Direction, InSpeed, TravelDistance)
+    return Entry
 end
 
-local function SpawnTraffic()
-    local Origin = FVector.new(6.0, 0.0, 0.0)
+local function SpawnLaneCar(Lane, Offset)
+    local Sign = Lane.Direction and 1.0 or -1.0
+    local Direction = FVector.new(0.0, Sign, 0.0)
+    local Location = FVector.new(6.0 + Lane.Index * LaneSpacing, -Sign * RoadHalfWidth, 0.0)
+        + Direction * Offset
+    local RemainingDistance = RoadHalfWidth * 2.0 - Offset
+    local Car = SpawnCar(Location, Direction, Lane.Speed, RemainingDistance)
+
+    if Car then
+        Car.Script:Invoke("SetDirection", Lane.Direction)
+    end
+end
+
+local function SpawnInitialTraffic()
+    -- 특정 차선이 풀을 모두 사용하지 않도록 차선별 초기 수량을 제한합니다.
+    local MaxCarsPerLane = math.floor(#Pool / #ActiveLane)
 
     for _, Lane in ipairs(ActiveLane) do
-        local Sign = Lane.Direction and 1.0 or -1.0
-        local Location = Origin + FVector.new(Lane.Index * LaneSpacing, -Sign * RoadHalfWidth, 0.0)
-        local Car = SpawnCar(Location, FVector.new(0.0, Sign, 0.0), Lane.Speed, RoadHalfWidth * 2.0)
+        local Offset = Lane.Speed * GetSpawnInterval() * math.random()
 
-        if (Car) then
-            Car.Script:Invoke("SetDirection", Lane.Direction)
+        for _ = 1, MaxCarsPerLane do
+            if Offset >= RoadHalfWidth * 2.0 then
+                break
+            end
+
+            SpawnLaneCar(Lane, Offset)
+            Offset = Offset + Lane.Speed * GetSpawnInterval()
+        end
+    end
+end
+
+local function SpawnTraffic(DeltaSeconds)
+    for _, Lane in ipairs(ActiveLane) do
+        -- NextSpawnTime은 다음 생성까지 남은 게임 시간(초)입니다.
+        Lane.NextSpawnTime = Lane.NextSpawnTime - DeltaSeconds
+        if Lane.NextSpawnTime <= 0.0 then
+            SpawnLaneCar(Lane, 0.0)
+            Lane.NextSpawnTime = GetSpawnInterval()
         end
     end
 end
@@ -474,10 +527,12 @@ end
 function BeginPlay(Self)
     bMapTestMode = Actor:FindComponentByName("MapFloor_1") ~= nil
     if bMapTestMode then BeginMapTest(); return end
+    LevelManager = Self
 
     for _, Lane in ipairs(ActiveLane) do
         Lane.Speed = MinSpeed + math.random() * (MaxSpeed - MinSpeed)
         Lane.Direction = math.random(0, 1) == 1
+        Lane.NextSpawnTime = GetSpawnInterval()
     end
 
     local WeightSum = 0.0
@@ -518,30 +573,37 @@ function BeginPlay(Self)
             CreateCar(PoolIndex, Car)
         end
     end
+
+    SpawnInitialTraffic()
+    bWasPlaying = true
 end
 
 function TickComponent(Self, DeltaSeconds)
     if bMapTestMode then TickMapTest(DeltaSeconds); return end
 
     local GameState = _G.CrossyGameState
-    if not GameState or GameState.Phase ~= "Playing" then
-        if bWasPlaying then
-            for _, Entry in ipairs(Pool) do
-                Entry.Script:Invoke("Deactivate")
-            end
 
-            SpawnElapsed = 0.0
-            bWasPlaying = false
-        end
+    if not GameState or GameState.Phase ~= "Playing" then
+        -- 게임 종료 시에는 현재 차량을 유지하고 이동과 생성만 멈춥니다.
+        bWasPlaying = false
         return
     end
 
-    bWasPlaying = true
-    SpawnElapsed = SpawnElapsed - DeltaSeconds
-    if SpawnElapsed <= 0.0 then
-        SpawnElapsed = SpawnInterval
-        SpawnTraffic()
+    if not bWasPlaying then
+        for _, Entry in ipairs(Pool) do
+            Entry.Script:Invoke("Deactivate")
+        end
+
+        for _, Lane in ipairs(ActiveLane) do
+            Lane.NextSpawnTime = GetSpawnInterval()
+        end
+
+        -- 재시작 시에도 빈 도로에서 기다리지 않도록 다시 배치합니다.
+        SpawnInitialTraffic()
+        bWasPlaying = true
     end
+
+    SpawnTraffic(DeltaSeconds)
 end
 
 function EndPlay(Self)
@@ -551,11 +613,16 @@ function EndPlay(Self)
         _G.CrossyMapTest, _G.CrossyGameState = nil, nil
         return
     end
+    -- 종료 중인 차량은 더 이상 반환받지 않습니다.
+    PoolByActor = {}
+    AvailableCars = {}
 
     for _, Entry in ipairs(Pool) do
+        Entry.Script:Invoke("SetCar", nil, nil)
         Entry.Actor:Destroy()
     end
 
     Pool = {}
-    SpawnElapsed = 0.0
+    LevelManager = nil
+    bWasPlaying = false
 end

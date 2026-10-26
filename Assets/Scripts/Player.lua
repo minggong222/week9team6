@@ -1,6 +1,7 @@
 local MoveDistance = 3.0
-local MinY = -24
-local MaxY = 24
+-- maptest에서는 CrossyMapTest의 맵 경계를 우선 사용합니다.
+local MinY = -33
+local MaxY = 33
 local YawOffset = 180.0
 local JumpDuration = 0.1
 local JumpHeight = 0.5
@@ -140,6 +141,7 @@ function TickComponent(Component, DeltaSeconds)
             JumpDirection = MoveDirection
             JumpElapsed = 0.0
             bIsJumping = true
+            Audio.PlaySFX("Audio/Move.wav")
 
             if MeshComponent ~= nil then
                 local Yaw = GetYawFromDirection(MoveDirection)

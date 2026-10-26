@@ -5,10 +5,12 @@ local Speed = 5.0
 local Distance = 0.0
 local bActive = false
 local Car = nil
+local LevelManager = nil
 
-function SetCar(InCar)
+function SetCar(InCar, InLevelManager)
     -- Size는 추후 Collision Box 연결에 사용할 차량 설정으로 보관합니다.
     Car = InCar
+    LevelManager = InLevelManager
 end
 
 function SetSpeed(InSpeed)
@@ -41,7 +43,10 @@ function Deactivate()
     bActive = false
     Actor:SetActorEnableCollision(false)
     Actor:GetRootComponent():SetVisibility(false, true)
-    Actor:GetRootComponent():SetWorldLocation(FVector.new(0.0, 0.0, -1000.0), false)
+
+    if LevelManager then
+        LevelManager:Invoke("ReturnCar", Actor)
+    end
 end
 
 function Activate(Location, InDirection, InSpeed, TravelDistance)
@@ -103,6 +108,12 @@ function TickComponent(Self, DeltaSeconds)
 
     local NextDistance = math.min(Distance + Speed * DeltaSeconds, TotalDistance)
     CheckPlayerCollision(Direction * (NextDistance - Distance))
+
+    -- 충돌로 게임이 끝났다면 이번 프레임의 이동과 풀 반환도 중단합니다.
+    if GameState.Phase ~= "Playing" then
+        return
+    end
+
     Distance = NextDistance
     Actor:GetRootComponent():SetWorldLocation(StartLocation + Direction * Distance, false)
 
