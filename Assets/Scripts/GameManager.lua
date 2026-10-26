@@ -53,6 +53,9 @@ local function GameOver()
     print("Game Over!")
 end
 
+-- 장애물에서도 UI를 포함한 동일한 게임 오버 처리를 사용합니다.
+GameState.GameOver = GameOver
+
 local function GameClear()
     if GameState.Phase ~= GamePhase.Playing then
         return
