@@ -5,6 +5,8 @@ local MaxY = 33
 local YawOffset = 180.0
 local JumpDuration = 0.1
 local JumpHeight = 0.5
+local BounceDuration = 0.12 -- 나무에 부딪힌 뒤 출발 칸으로 돌아오는 시간
+local CollisionStep = 0.01 -- 프레임이 길어져도 점프 이동을 나눠 충돌 검사
 local TreeHitboxExtent = FVector.new(1.0, 1.0, 0.5)
 
 local bWasWDown = false
@@ -13,7 +15,10 @@ local bWasADown = false
 local bWasDDown = false
 
 local bIsJumping = false
+local bIsReturning = false
 local JumpElapsed = 0.0
+local ReturnElapsed, CurrentJumpHeight, ReturnStartHeight = 0.0, 0.0, 0.0
+local ReturnStartLocation = FVector.new(0.0, 0.0, 0.0)
 local JumpStartLocation = FVector.new(0.0, 0.0, 0.0)
 local JumpDirection = FVector.new(0.0, 0.0, 0.0)
 local MeshBaseLocation = nil
@@ -72,8 +77,8 @@ end
 
 -- 진행 중인 점프를 취소하고 메시 위치를 복원한다.
 local function ResetJump(MeshComponent)
-    bIsJumping = false
-    JumpElapsed = 0.0
+    bIsJumping, bIsReturning = false, false
+    JumpElapsed, ReturnElapsed, CurrentJumpHeight = 0.0, 0.0, 0.0
     JumpDirection = FVector.new(0.0, 0.0, 0.0)
 
     if MeshComponent and MeshBaseLocation then
@@ -83,9 +88,8 @@ end
 
 -- 사망/재시작 시 진행 중인 점프까지 즉시 취소합니다.
 function StopMovement()
-    bIsJumping, JumpElapsed = false, 0.0
     local Mesh = FindStaticMeshComponent(Actor)
-    if Mesh and MeshBaseLocation then Mesh:SetRelativeLocation(MeshBaseLocation) end
+    ResetJump(Mesh)
     bWasWDown = Input.IsKeyDown(EKeyCode.W) or Input.IsKeyDown(EKeyCode.Up)
     bWasSDown = Input.IsKeyDown(EKeyCode.S) or Input.IsKeyDown(EKeyCode.Down)
     bWasADown = Input.IsKeyDown(EKeyCode.A) or Input.IsKeyDown(EKeyCode.Left)
@@ -94,9 +98,9 @@ end
 
 -- 캐릭터 선택 완료 후 새 메시의 바닥 위치를 점프 기준으로 갱신합니다.
 function RefreshMeshBaseLocation()
-    bIsJumping, JumpElapsed = false, 0.0
     local Mesh = FindStaticMeshComponent(Actor)
     MeshBaseLocation = Mesh and Mesh:GetRelativeLocation() or nil
+    ResetJump(Mesh)
 end
 
 function TickComponent(Component, DeltaSeconds)
@@ -200,14 +204,7 @@ function TickComponent(Component, DeltaSeconds)
             bWithinBounds = TargetY >= AllowedMinY and TargetY <= AllowedMaxY
         end
 
-        local bCanMove = bWithinBounds
-        if bCanMove then
-            -- 충돌체로 착지점을 검사한 뒤, 성공한 시험 이동은 점프 시작 위치로 되돌립니다.
-            bCanMove = RootComponent:TryMoveWithBlocking(MoveDirection * MoveDistance, RootComponent:GetWorldRotation())
-            if bCanMove then RootComponent:SetWorldLocation(CurrentLocation, false) end
-        end
-
-        if bCanMove then
+        if bWithinBounds then
             JumpStartLocation = RootComponent:GetWorldLocation()
             JumpDirection = MoveDirection
             JumpElapsed = 0.0
@@ -231,42 +228,39 @@ function TickComponent(Component, DeltaSeconds)
     end
 
 
-    -- 매 프레임 점프 애니메이션 갱신
-    if bIsJumping then
-
-        JumpElapsed = JumpElapsed + DeltaSeconds
-
-        local Alpha = JumpElapsed / JumpDuration
-
-        if Alpha > 1.0 then
-            Alpha = 1.0
-        end
-
-        -- 수평 이동을 부드럽게 진행
-        local NewRootLocation = JumpStartLocation + JumpDirection * (MoveDistance * Alpha)
-
-        if not RootComponent:TryMoveWithBlocking(NewRootLocation - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation()) then
-            RootComponent:SetWorldLocation(JumpStartLocation, false)
-            ResetJump(MeshComponent)
-            return
-        end
-
-        -- 포물선 형태로 메쉬가 위아래로 이동
-        local HeightOffset = 4.0 * JumpHeight * Alpha * (1.0 - Alpha)
-
-        if MeshComponent ~= nil and MeshBaseLocation ~= nil then
-            MeshComponent:SetRelativeLocation(MeshBaseLocation + FVector.new(0.0, 0.0, HeightOffset))
-        end
-
-        -- 착지
-        if Alpha >= 1.0 then
-
-            if MeshComponent ~= nil and MeshBaseLocation ~= nil then
-                MeshComponent:SetRelativeLocation(MeshBaseLocation)
+    -- 전진 점프 -> 충돌하면 복귀 -> 출발 칸에 착지. 복귀 중에도 새 이동은 받지 않습니다.
+    local Remaining = DeltaSeconds
+    while bIsJumping and Remaining > 0 do
+        local Step = math.min(Remaining, CollisionStep)
+        Remaining = Remaining - Step
+        if bIsReturning then
+            ReturnElapsed = ReturnElapsed + Step
+            local Alpha = math.min(1.0, ReturnElapsed / BounceDuration)
+            if Alpha > 1.0 - 0.000001 then Alpha = 1.0 end
+            local Location = ReturnStartLocation + (JumpStartLocation - ReturnStartLocation) * Alpha
+            if Alpha >= 1.0 then Location = JumpStartLocation end
+            if not RootComponent:TryMoveWithBlocking(Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation()) then
+                ResetJump(MeshComponent)
+                return
             end
-
-            bIsJumping = false
-            JumpElapsed = 0.0
+            CurrentJumpHeight = ReturnStartHeight * (1.0 - Alpha)
+            if Alpha >= 1.0 then ResetJump(MeshComponent) end
+        else
+            JumpElapsed = JumpElapsed + Step
+            local Alpha = math.min(1.0, JumpElapsed / JumpDuration)
+            if Alpha > 1.0 - 0.000001 then Alpha = 1.0 end
+            local Location = JumpStartLocation + JumpDirection * (MoveDistance * Alpha)
+            if RootComponent:TryMoveWithBlocking(Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation()) then
+                CurrentJumpHeight = 4.0 * JumpHeight * Alpha * (1.0 - Alpha)
+                if Alpha >= 1.0 then ResetJump(MeshComponent) end
+            else
+                bIsReturning, ReturnElapsed = true, 0.0
+                ReturnStartLocation = RootComponent:GetWorldLocation()
+                ReturnStartHeight = CurrentJumpHeight
+            end
+        end
+        if MeshComponent and MeshBaseLocation then
+            MeshComponent:SetRelativeLocation(MeshBaseLocation + FVector.new(0.0, 0.0, CurrentJumpHeight))
         end
     end
 end

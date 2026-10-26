@@ -136,7 +136,8 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
     Base.ECollisionEnabled = { NoCollision = "NoCollision", QueryOnly = "QueryOnly" }
     Base.ECollisionChannel = { Pawn = "Pawn", WorldStatic = "WorldStatic" }
     Base.ECollisionResponse = { Ignore = "Ignore", Block = "Block" }
-    Base.UTextRenderComponent = { Cast = function(C) return C and C.TextKind and C or nil end }
+    Base.UTextRenderComponent = { Cast = function(C) return C and C.TextKind and C or nil end,
+        StaticClass = function() return "UTextRenderComponent" end }
     Base.UAssetManager = { GetAssetByPath = function(_, P) ReadBounds(P); return P end }
     Base.Input = { IsKeyDown = function(K) return Keys[K] or false end, IsKeyPressed = function(K) return Keys[K] or false end }
     Base.EKeyCode = { W = "W", A = "A", S = "S", D = "D", R = "R", P = "P", K = "K",
@@ -196,7 +197,13 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
     end
     local HUD = { TextKind = true, SetText = function(Self, T) Self.Text = T end, SetTextSize = function() end,
         SetVisibility = function(Self, V) Self.Visible = V end, SetWorldLocation = function() end, SetWorldRotation = function() end }
-    local GameActor = { GetWorld = function() return World end, FindComponentByName = function(_, N) if N == "ScoreText" then return HUD end end }
+    local UI = { ScoreText = HUD }
+    local GameActor = { GetWorld = function() return World end, FindComponentByName = function(_, N) return UI[N] end }
+    function GameActor:AddComponent(Class, Name)
+        assert(Class == "UTextRenderComponent")
+        local C = {}; for K, V in pairs(HUD) do C[K] = V end
+        UI[Name] = C; return C
+    end
     local LevelScript, GameScript
     if GameManagerFirst then
         GameScript = Script(GameActor, "Scripts/GameManager.lua"); GameScript:Invoke("BeginPlay", GameScript)
@@ -206,7 +213,7 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
         if WithGameManager then GameScript = Script(GameActor, "Scripts/GameManager.lua"); GameScript:Invoke("BeginPlay", GameScript) end
     end
     local Test = { Shared = Shared, Keys = Keys, Root = Root, Mesh = Mesh, Player = Player, PlayerScript = PlayerScript,
-        Cars = Cars, Previews = Previews, Camera = Camera, Components = Components, World = World, HUD = HUD,
+        Cars = Cars, Previews = Previews, Camera = Camera, Components = Components, World = World, HUD = HUD, UI = UI,
         Sounds = Sounds, LevelScript = LevelScript, GameScript = GameScript }
     function Test:Tick(DT)
         PlayerScript:Invoke("TickComponent", PlayerScript, DT)
@@ -257,7 +264,7 @@ for _, GameFirst in ipairs({ false, true }) do
     assert(Models.bullet and Models.city and Models.freight and #T.Cars == 100)
     T.Root.Position.X = (500 - 6) * 3; T:Tick(0); assert(S.Phase == "Playing")
     T.Root.Position.X = T.Root.Position.X - 0.1; T:Tick(0)
-    assert(S.Phase == "Dead" and T.HUD.Text:find("GAME OVER") and T.Sounds["Audio/Collision.wav"] == 1)
+    assert(S.Phase == "Dead" and T.UI.ResultTitle.Text == "GAME OVER" and T.Sounds["Audio/Collision.wav"] == 1)
     assert(math.abs(T.Mesh.Scale.Z - T.StartScaleZ * 0.25) < 0.0001)
     T:Restart(); assert(S.Phase == "Playing" and S.Score == 0 and Level.HighestRow == 0 and T.Root.Position.X == 0)
     assert(math.abs(T.Mesh.Scale.Z - T.StartScaleZ) < 0.0001 and #T.Cars == 100)
@@ -272,7 +279,7 @@ for _, GameFirst in ipairs({ false, true }) do
     for _, C in ipairs(T.Cars) do if C.Script:Invoke("IsActive") then Car = C; break end end
     assert(Car); T.Root.Position = Car:GetActorLocation(); T.World.CollisionsEnabled = true
     Car.Script:Invoke("TickComponent", Car.Script, 0)
-    assert(S.Phase == "Dead" and T.HUD.Text:find("GAME OVER"))
+    assert(S.Phase == "Dead" and T.UI.ResultTitle.Text == "GAME OVER")
     T.World.CollisionsEnabled = false; T:Restart()
     -- Kill in the middle of a jump; no remaining interpolation may move the pawn.
     T.Keys.W = true; T.PlayerScript:Invoke("TickComponent", T.PlayerScript, 0.04)
@@ -342,13 +349,27 @@ local function PlaceNearTree(Key, OffsetX, OffsetY)
     Trees.Root.Position = Vector(TreePosition.X + OffsetX, TreePosition.Y + OffsetY, 0)
     Trees.Keys[Key] = nil; Trees.PlayerScript:Invoke("StopMovement")
 end
-local Directions = { { "Up", -3, 0 }, { "Down", 3, 0 }, { "Right", 0, -3 }, { "Left", 0, 3 } }
+local Directions = { { "Up", -3, 0, 180 }, { "Down", 3, 0, 0 }, { "Right", 0, -3, -90 }, { "Left", 0, 3, 90 } }
 for _, D in ipairs(Directions) do
     PlaceNearTree(D[1], D[2], D[3])
     local Start, SoundsBefore = Vector(Trees.Root.Position), Trees.Sounds["Audio/Move.wav"] or 0
-    Trees.Keys[D[1]] = true; Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.1); Trees.Keys[D[1]] = nil
-    assert(Trees.Root.Position.X == Start.X and Trees.Root.Position.Y == Start.Y, "Walked through tree from " .. D[1])
-    assert((Trees.Sounds["Audio/Move.wav"] or 0) == SoundsBefore and Trees.Shared.CrossyGameState.Phase == "Playing")
+    local function DistanceFromStart()
+        return math.abs(Trees.Root.Position.X - Start.X) + math.abs(Trees.Root.Position.Y - Start.Y)
+    end
+    local HitsBefore = Trees.World.BlockedMoves or 0
+    Trees.Keys[D[1]] = true; Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.04)
+    assert(Trees.Mesh.Rotation.Yaw == D[4], "Player did not face the tree before impact")
+    assert(DistanceFromStart() > 0 and DistanceFromStart() < 3 and Trees.Mesh.Position.Z > 0, "Did not hop toward tree")
+    Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.02)
+    local HitDistance, HitHeight = DistanceFromStart(), Trees.Mesh.Position.Z
+    assert((Trees.World.BlockedMoves or 0) > HitsBefore and HitDistance > 0 and HitHeight > 0, "No visible contact with tree")
+    Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.04)
+    assert(DistanceFromStart() > 0 and DistanceFromStart() < HitDistance and Trees.Mesh.Position.Z < HitHeight, "Return teleported or did not descend")
+    Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.2)
+    assert(Trees.Root.Position.X == Start.X and Trees.Root.Position.Y == Start.Y and Trees.Mesh.Position.Z == 0, "Did not return to original grid center")
+    Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.2); Trees.Keys[D[1]] = nil
+    assert(DistanceFromStart() == 0, "Held input started another bounce")
+    assert((Trees.Sounds["Audio/Move.wav"] or 0) == SoundsBefore + 1 and Trees.Shared.CrossyGameState.Phase == "Playing")
 end
 -- Keep the same tree position; moving only its collider vertically must unblock the hop.
 PlaceNearTree("Up", -3, 0)
@@ -356,14 +377,24 @@ TreeBox:SetRelativeLocation(Vector(0, 0, 100))
 Trees.Keys.Up = true; Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.1); Trees.Keys.Up = nil
 assert(Trees.Root.Position.X == TreePosition.X, "Movement used a blocked-cell table instead of shape geometry")
 TreeBox:SetRelativeLocation(Vector(0, 0, 1))
--- A collider enabled during a hop must cancel movement and return to the original grid center.
+-- A collider enabled during a hop starts a visible return instead of teleporting.
 PlaceNearTree("Up", -3, 0)
 TreeBox:SetCollisionEnabled("NoCollision")
 Trees.Keys.Up = true; Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.04); Trees.Keys.Up = nil
 assert(Trees.Root.Position.X > TreePosition.X - 3)
 TreeBox:SetCollisionEnabled("QueryOnly")
 Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.06)
+assert(Trees.Root.Position.X > TreePosition.X - 3 and Trees.Root.Position.X < TreePosition.X)
+Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.2)
 assert(Trees.Root.Position.X == TreePosition.X - 3 and Trees.Mesh.Position.Z == 0)
+-- Death/StopMovement must cancel an in-progress return as well as an outgoing hop.
+PlaceNearTree("Up", -3, 0)
+Trees.Keys.Up = true; Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.07); Trees.Keys.Up = nil
+local DeathX = Trees.Root.Position.X
+assert(DeathX > TreePosition.X - 3)
+Trees.Shared.CrossyGameState.GameOver(); Trees.PlayerScript:Invoke("TickComponent", Trees.PlayerScript, 0.2)
+assert(Trees.Root.Position.X == DeathX and Trees.Mesh.Position.Z == 0, "Dead player continued bouncing")
+Trees:Restart()
 -- Recycling and R reuse the existing shapes; hidden/unused slots never retain collision.
 Trees.Root.Position = Vector(200, 0, 0); Trees.LevelScript:Invoke("TickComponent", Trees.LevelScript, 0)
 assert(#Trees.World.TreeShapes == 205)
@@ -374,7 +405,7 @@ for _, Shape in ipairs(Trees.World.TreeShapes) do
 end
 assert(ActiveTrees == Trees.Shared.CrossyLevel.ActiveTrees)
 Trees:Restart(); assert(#Trees.World.TreeShapes == 205); Trees:Finish()
-print("PASS tree shapes: four-way blocking without death/SFX, geometry-based checks, mid-hop cancellation, pooled collider reuse and cleanup")
+print("PASS tree shapes: visible hop/contact/return in four directions, held-input guard, geometry checks, mid-hop activation, death cancels return, pooled collider reuse")
 
 -- Regression: every selectable index must complete confirmation and remain playable after R.
 for _, ConfirmKey in ipairs({ "Enter", "Space" }) do
