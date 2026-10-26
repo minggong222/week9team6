@@ -1,5 +1,5 @@
 local MoveDistance = 3.0
--- maptest에서는 CrossyMapTest의 맵 경계를 우선 사용합니다.
+-- 맵 매니저가 있으면 해당 맵의 이동 경계를 우선 사용합니다.
 local MinY = -33
 local MaxY = 33
 local YawOffset = 180.0
@@ -16,6 +16,7 @@ local JumpElapsed = 0.0
 local JumpStartLocation = FVector.new(0.0, 0.0, 0.0)
 local JumpDirection = FVector.new(0.0, 0.0, 0.0)
 local MeshBaseLocation = nil
+local MeshBaseRotation = nil
 
 local function GetYawFromDirection(Direction)
     local X = Direction.X
@@ -53,6 +54,35 @@ local function FindStaticMeshComponent(TargetActor)
     return nil
 end
 
+-- 진행 중인 점프를 취소하고 메시 위치를 복원한다.
+local function ResetJump(MeshComponent)
+    bIsJumping = false
+    JumpElapsed = 0.0
+    JumpDirection = FVector.new(0.0, 0.0, 0.0)
+
+    if MeshComponent and MeshBaseLocation then
+        MeshComponent:SetRelativeLocation(MeshBaseLocation)
+    end
+end
+
+-- 사망/재시작 시 진행 중인 점프까지 즉시 취소합니다.
+function StopMovement()
+    bIsJumping, JumpElapsed = false, 0.0
+    local Mesh = FindStaticMeshComponent(Actor)
+    if Mesh and MeshBaseLocation then Mesh:SetRelativeLocation(MeshBaseLocation) end
+    bWasWDown = Input.IsKeyDown(EKeyCode.W) or Input.IsKeyDown(EKeyCode.Up)
+    bWasSDown = Input.IsKeyDown(EKeyCode.S) or Input.IsKeyDown(EKeyCode.Down)
+    bWasADown = Input.IsKeyDown(EKeyCode.A) or Input.IsKeyDown(EKeyCode.Left)
+    bWasDDown = Input.IsKeyDown(EKeyCode.D) or Input.IsKeyDown(EKeyCode.Right)
+end
+
+-- 캐릭터 선택 완료 후 새 메시의 바닥 위치를 점프 기준으로 갱신합니다.
+function RefreshMeshBaseLocation()
+    bIsJumping, JumpElapsed = false, 0.0
+    local Mesh = FindStaticMeshComponent(Actor)
+    MeshBaseLocation = Mesh and Mesh:GetRelativeLocation() or nil
+end
+
 function TickComponent(Component, DeltaSeconds)
 
     if Actor == nil then
@@ -69,12 +99,13 @@ function TickComponent(Component, DeltaSeconds)
 
     if MeshComponent ~= nil and MeshBaseLocation == nil then
         MeshBaseLocation = MeshComponent:GetRelativeLocation()
+        MeshBaseRotation = MeshComponent:GetRelativeRotation()
     end
 
-    local bWDown = Input.IsKeyDown(EKeyCode.W)
-    local bSDown = Input.IsKeyDown(EKeyCode.S)
-    local bADown = Input.IsKeyDown(EKeyCode.A)
-    local bDDown = Input.IsKeyDown(EKeyCode.D)
+    local bWDown = Input.IsKeyDown(EKeyCode.W) or Input.IsKeyDown(EKeyCode.Up)
+    local bSDown = Input.IsKeyDown(EKeyCode.S) or Input.IsKeyDown(EKeyCode.Down)
+    local bADown = Input.IsKeyDown(EKeyCode.A) or Input.IsKeyDown(EKeyCode.Left)
+    local bDDown = Input.IsKeyDown(EKeyCode.D) or Input.IsKeyDown(EKeyCode.Right)
 
     local bWPressed = bWDown and not bWasWDown
     local bSPressed = bSDown and not bWasSDown
@@ -105,13 +136,30 @@ function TickComponent(Component, DeltaSeconds)
     end
 
     local State = _G.CrossyGameState
-    local bCanStartMove = true;
 
-    if not State or State.Phase ~= "Playing" then
-        bCanStartMove = false
+    -- 재시작 시 이전 점프를 취소하고 시작 방향 복원
+    if State and State.PlayerResetRequested then
+        State.PlayerResetRequested = false
+
+        ResetJump(MeshComponent)
+
+        if MeshComponent and MeshBaseRotation then
+            MeshComponent:SetRelativeRotation(MeshBaseRotation)
+        end
+
+        return
     end
 
-    if bCanStartMove and not bIsJumping and PressCount == 1 then
+    -- 사망·클리어·캐릭터 선택 중에는 점프도 중단
+    if not State or State.Phase ~= "Playing" then
+        if bIsJumping then
+            ResetJump(MeshComponent)
+        end
+
+        return
+    end
+
+    if not bIsJumping and PressCount == 1 then
 
         local MoveDirection = FVector.new(0.0, 0.0, 0.0)
 
@@ -130,7 +178,7 @@ function TickComponent(Component, DeltaSeconds)
 
         if MoveDirection.Y ~= 0.0 then
             local TargetY = CurrentLocation.Y + MoveDirection.Y * MoveDistance
-            local MapBounds = _G.CrossyMapTest
+            local MapBounds = _G.CrossyLevel or _G.CrossyMapTest
             local AllowedMinY = MapBounds and MapBounds.MinY or MinY
             local AllowedMaxY = MapBounds and MapBounds.MaxY or MaxY
             bWithinBounds = TargetY >= AllowedMinY and TargetY <= AllowedMaxY

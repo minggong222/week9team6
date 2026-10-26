@@ -23,15 +23,14 @@ local Player = nil
 local StartPosition = nil
 local PlayerMesh = nil
 local PlayerMeshStartScale = nil
+local PlayerMeshStartLocation, PlayerMeshStartRotation, PlayerScript = nil, nil, nil
 local ScoreText = nil
 local Camera = nil
 
 local PlayerHitbox = nil
 local BeginOverlapHandle = nil
 
-local GameplayCameraLocation = nil
-local GameplayCameraRotation = nil
-
+-- origin/main의 캐릭터 선택 목록. 프리뷰와 실제 플레이 메시를 같은 비율로 맞춥니다.
 local CharacterOptions = {
     { Name = "Beaver", Path = "Models/OBJ format/animal-beaver.obj" },
     { Name = "Bee", Path = "Models/OBJ format/animal-bee.obj" },
@@ -59,153 +58,103 @@ local CharacterOptions = {
     { Name = "Tiger", Path = "Models/OBJ format/animal-tiger.obj" },
     { Name = "Hitori", Path = "Models/OBJ format/animal-hitori.obj" },
 }
-
 local SelectedCharacterIndex = 1
 local CharacterPreviewActors = {}
-
-local CharacterRowX = -200.0
-local CharacterSpacing = 5.0
+local CharacterRowX, CharacterSpacing, CharacterSize = -200.0, 5.0, 2.0
 local CameraMoveSpeed = 8.0
+local GameplayCameraLocation, GameplayCameraRotation = nil, nil
 
-local CellSize = 1.0
-local GoalRow = 150  -- 실제 맵의 마지막 행에 맞게 수정
+local function FitCharacterMesh(Mesh, Owner)
+    Mesh:SetRelativeLocation(FVector.new(0, 0, 0))
+    Mesh:SetRelativeScale3D(FVector.new(1, 1, 1))
+    local Bounds, Position = Mesh:CalcBounds(), Owner:GetActorLocation()
+    local Size = math.max(Bounds.Max.X - Bounds.Min.X, Bounds.Max.Y - Bounds.Min.Y)
+    assert(Size > 0, "Character has no horizontal bounds")
+    local Scale = CharacterSize / Size
+    Mesh:SetRelativeScale3D(FVector.new(Scale, Scale, Scale))
+    Mesh:SetRelativeLocation(FVector.new(
+        -(Bounds.Min.X + Bounds.Max.X - 2 * Position.X) * Scale / 2,
+        -(Bounds.Min.Y + Bounds.Max.Y - 2 * Position.Y) * Scale / 2,
+        -(Bounds.Min.Z - Position.Z) * Scale))
+    return Mesh:GetRelativeScale3D()
+end
 
 local function GetCharacterRowY(Index)
     return (Index - (#CharacterOptions + 1) / 2) * CharacterSpacing
 end
 
 local function GetSelectionCameraLocation()
-    return FVector.new(
-        CharacterRowX - 8.0,
-        GetCharacterRowY(SelectedCharacterIndex),
-        GameplayCameraLocation.Z
-    )
-end
-
-local function CreateCharacterPreviews()
-    local World = Actor:GetWorld()
-    local PreviewClass = UClass.Find("AStaticMeshActor")
-
-    if not World or not PreviewClass then
-        return
-    end
-
-    for Index, Option in ipairs(CharacterOptions) do
-        local Transform = FTransform.new()
-
-        Transform.Location = FVector.new(
-            CharacterRowX,
-            GetCharacterRowY(Index),
-            0.0
-        )
-
-        local PreviewActor = World:SpawnActor(
-            PreviewClass,
-            "CharacterPreview_" .. Index,
-            Transform
-        )
-
-        if PreviewActor then
-            PreviewActor:SetActorEnableCollision(false)
-
-            local PreviewMesh = UStaticMeshComponent.Cast(
-                PreviewActor:FindComponentByName("UStaticMeshComponent")
-            )
-
-            local MeshAsset = UAssetManager:GetAssetByPath(Option.Path)
-
-            if PreviewMesh and MeshAsset then
-                PreviewMesh:SetStaticMesh(MeshAsset)
-
-                local BaseScale =
-                    PreviewMesh:GetRelativeScale3D() * 1.35
-
-                PreviewMesh:SetRelativeScale3D(BaseScale)
-
-                CharacterPreviewActors[Index] = {
-                    Actor = PreviewActor,
-                    Mesh = PreviewMesh,
-                    BaseScale = BaseScale
-                }
-            else
-                PreviewActor:GetRootComponent():SetHiddenInGame(true, true)
-                print("[CharacterSelect] Preview load failed: " .. Option.Path)
-            end
-        end
-    end
+    return FVector.new(CharacterRowX - 8, GetCharacterRowY(SelectedCharacterIndex), GameplayCameraLocation.Z)
 end
 
 local function ApplyCharacterSelection()
     for Index, Entry in pairs(CharacterPreviewActors) do
-        local Scale = Entry.BaseScale
+        Entry.Mesh:SetRelativeScale3D(Entry.BaseScale * (Index == SelectedCharacterIndex and 1.2 or 1.0))
+    end
+    GameState.PreviewCharacter = CharacterOptions[SelectedCharacterIndex].Name
+end
 
-        if Index == SelectedCharacterIndex then
-            Scale = Scale * 1.2
+local function CreateCharacterPreviews()
+    local World = Actor:GetWorld()
+    for Index, Option in ipairs(CharacterOptions) do
+        local Pose = FTransform.new()
+        Pose.Location = FVector.new(CharacterRowX, GetCharacterRowY(Index), 0)
+        local Preview = World:SpawnActor(UClass.Find("AStaticMeshActor"), "CharacterPreview_" .. Index, Pose)
+        assert(Preview, "Could not create character preview")
+        Preview:SetActorEnableCollision(false)
+        local Mesh = UStaticMeshComponent.Cast(Preview:FindComponentByName("UStaticMeshComponent"))
+        local Asset = UAssetManager:GetAssetByPath(Option.Path)
+        if Mesh and Asset then
+            Mesh:SetStaticMesh(Asset)
+            CharacterPreviewActors[Index] = { Actor = Preview, Mesh = Mesh, BaseScale = FitCharacterMesh(Mesh, Preview) }
+        else
+            Preview:Destroy()
+            print("[CharacterSelect] Missing preview: " .. Option.Path)
         end
-
-        Entry.Mesh:SetRelativeScale3D(Scale)
     end
-end
-
-local function MoveSelectionLeft()
-    SelectedCharacterIndex = SelectedCharacterIndex - 1
-
-    if SelectedCharacterIndex < 1 then
-        SelectedCharacterIndex = #CharacterOptions
-    end
-
     ApplyCharacterSelection()
 end
 
-local function MoveSelectionRight()
-    SelectedCharacterIndex = SelectedCharacterIndex + 1
-
-    if SelectedCharacterIndex > #CharacterOptions then
-        SelectedCharacterIndex = 1
-    end
-
-    ApplyCharacterSelection()
-end
+local CellSize = 3.0
+local GoalRow = 150  -- 실제 맵의 마지막 행에 맞게 수정
 
 local function StartGame()
     GameState.Phase = GamePhase.Playing
     GameState.Score = 0
     GameState.MaxRow = 0
+    GameState.PlayerResetRequested = false
     GameState.GameOverRequested = false
     GameState.ClearRequested = false
+
+    if ScoreText then
+        ScoreText:SetVisibility(true)
+        ScoreText:SetText("Score: 0")
+    end
 
     print("Game Started")
 end
 
 local function EnterSelectedCharacter()
     local Option = CharacterOptions[SelectedCharacterIndex]
-
-    if not PlayerMesh then
-        print("[CharacterSelect] Player mesh not found")
-        return
-    end
-
-    local MeshAsset = UAssetManager:GetAssetByPath(Option.Path)
-
-    if not MeshAsset then
-        print("[CharacterSelect] Character asset not found: " .. Option.Path)
-        return
-    end
-
-    PlayerMesh:SetStaticMesh(MeshAsset)
-
+    -- 강조 표시한 프리뷰와 같은 메시를 확정해 선택 화면/실제 캐릭터를 일치시킵니다.
+    local Preview = CharacterPreviewActors[SelectedCharacterIndex]
+    local Asset = Preview and Preview.Mesh:GetStaticMesh() or UAssetManager:GetAssetByPath(Option.Path)
+    if not PlayerMesh or not Asset then print("[CharacterSelect] Cannot select " .. Option.Name); return end
+    if PlayerScript then PlayerScript:Invoke("StopMovement") end
+    PlayerMesh:SetStaticMesh(Asset)
+    FitCharacterMesh(PlayerMesh, Player)
+    PlayerMeshStartScale, PlayerMeshStartLocation = PlayerMesh:GetRelativeScale3D(), PlayerMesh:GetRelativeLocation()
+    PlayerMeshStartRotation = PlayerMesh:GetRelativeRotation()
+    if PlayerScript then PlayerScript:Invoke("RefreshMeshBaseLocation") end
     GameState.SelectedCharacter = Option.Name
-
-    for _, Entry in pairs(CharacterPreviewActors) do
-        Entry.Actor:GetRootComponent():SetHiddenInGame(true, true)
-    end
-
-    if Camera and GameplayCameraLocation and GameplayCameraRotation then
+    GameState.SelectedCharacterIndex = SelectedCharacterIndex
+    for _, Entry in pairs(CharacterPreviewActors) do Entry.Actor:GetRootComponent():SetVisibility(false, true) end
+    if Camera and GameplayCameraLocation then
         Camera:SetWorldLocation(GameplayCameraLocation, false)
         Camera:SetWorldRotation(GameplayCameraRotation, false)
     end
-
     StartGame()
+    print("[CharacterSelect] Confirmed " .. Option.Name .. " -> Playing")
 end
 
 local function GameOver()
@@ -214,6 +163,8 @@ local function GameOver()
     end
 
     GameState.Phase = GamePhase.Dead
+
+    if PlayerScript then PlayerScript:Invoke("StopMovement") end
 
     if PlayerMesh and PlayerMeshStartScale then
         local Scale = PlayerMesh:GetRelativeScale3D()
@@ -252,14 +203,26 @@ end
 local function Restart()
     GameState.RestartCount = (GameState.RestartCount or 0) + 1
 
+    -- 플레이어 위치와 크기 복원
+    GameState.Phase = GamePhase.Ready
+    if PlayerScript then PlayerScript:Invoke("StopMovement") end
     -- 플레이어를 시작 위치로 복귀
     if Player and StartPosition then
         Player:GetRootComponent():SetWorldLocation(StartPosition, false)
     end
+
     if PlayerMesh and PlayerMeshStartScale then
         PlayerMesh:SetRelativeScale3D(PlayerMeshStartScale)
+        PlayerMesh:SetRelativeLocation(PlayerMeshStartLocation)
+        PlayerMesh:SetRelativeRotation(PlayerMeshStartRotation)
     end
+    -- 무한 맵의 차량/기차/회수 행도 같은 시작 상태로 되돌립니다.
+    local Level = _G.CrossyLevel
+    if Level then Level.Reset(true) end
     StartGame()
+
+    -- Player.lua에서 진행 중인 점프와 방향 초기화
+    GameState.PlayerResetRequested = true
 
     if ScoreText then
         ScoreText:SetText("Score: 0")
@@ -280,6 +243,7 @@ local function OnPlayerOverlap(OtherComponent)
 end
 
 function BeginPlay(Self)
+    GameState.ManagedByGameManager, GameState.EnableTraffic = true, true
     Player = Actor:GetWorld():GetPlayerPawn()
 
     if Player then
@@ -288,8 +252,14 @@ function BeginPlay(Self)
 
         if PlayerMesh then
             PlayerMeshStartScale = PlayerMesh:GetRelativeScale3D()
+            PlayerMeshStartLocation = PlayerMesh:GetRelativeLocation()
+            PlayerMeshStartRotation = PlayerMesh:GetRelativeRotation()
         else
             print("[GameManager] Player StaticMeshComponent not found")
+        end
+        for _, Component in ipairs(Player:GetComponents()) do
+            local Script = ULuaComponent.Cast(Component)
+            if Script and Script:GetScriptPath() == "Scripts/Player.lua" then PlayerScript = Script end
         end
         Player:SetActorEnableCollision(true)
 
@@ -307,11 +277,7 @@ function BeginPlay(Self)
 
     ScoreText = UTextRenderComponent.Cast(Actor:FindComponentByName("ScoreText"))
     Camera = Actor:GetWorld():GetPlayerCamera()
-
-    if Camera then
-        GameplayCameraLocation = Camera:GetWorldLocation()
-        GameplayCameraRotation = Camera:GetWorldRotation()
-    end
+    if Camera then GameplayCameraLocation, GameplayCameraRotation = Camera:GetWorldLocation(), Camera:GetWorldRotation() end
 
     if ScoreText then
         ScoreText:SetText("Score: 0")
@@ -325,16 +291,12 @@ function BeginPlay(Self)
         print("[GameManager] Failed to start BGM")
     end
 
-    GameState.Phase = GamePhase.Selecting
-    GameState.Score = 0
-    GameState.MaxRow = 0
-    GameState.GameOverRequested = false
-    GameState.ClearRequested = false
-
+    local Level = _G.CrossyLevel
+    if Level then Level.EnableTraffic() end
+    GameState.Phase, GameState.Score, GameState.MaxRow = GamePhase.Selecting, 0, 0
+    GameState.GameOverRequested, GameState.ClearRequested = false, false
     CreateCharacterPreviews()
-    ApplyCharacterSelection()
-
-    if Camera and GameplayCameraLocation and GameplayCameraRotation then
+    if Camera and GameplayCameraLocation then
         Camera:SetWorldLocation(GetSelectionCameraLocation(), false)
         Camera:SetWorldRotation(GameplayCameraRotation, false)
     end
@@ -342,28 +304,18 @@ end
 
 function TickComponent(Self, DeltaSeconds)
     if GameState.Phase == GamePhase.Selecting then
-        if Input.IsKeyPressed(EKeyCode.Left) or Input.IsKeyPressed(EKeyCode.A) then
-            MoveSelectionLeft()
-        elseif Input.IsKeyPressed(EKeyCode.Right) or Input.IsKeyPressed(EKeyCode.D) then
-            MoveSelectionRight()
+        local Change = 0
+        if Input.IsKeyPressed(EKeyCode.Left) or Input.IsKeyPressed(EKeyCode.A) then Change = -1
+        elseif Input.IsKeyPressed(EKeyCode.Right) or Input.IsKeyPressed(EKeyCode.D) then Change = 1 end
+        if Change ~= 0 then
+            SelectedCharacterIndex = (SelectedCharacterIndex - 1 + Change) % #CharacterOptions + 1
+            ApplyCharacterSelection()
         end
-
-        if Input.IsKeyPressed(EKeyCode.Enter) or Input.IsKeyPressed(EKeyCode.Space) then
-            EnterSelectedCharacter()
-            return
-        end
-
+        if Input.IsKeyPressed(EKeyCode.Enter) or Input.IsKeyPressed(EKeyCode.Space) then EnterSelectedCharacter(); return end
         if Camera and GameplayCameraLocation then
-            local TargetLocation = GetSelectionCameraLocation()
-            local CurrentLocation = Camera:GetWorldLocation()
-            local Alpha = math.min(1.0, DeltaSeconds * CameraMoveSpeed)
-
-            local NewLocation =
-                CurrentLocation + (TargetLocation - CurrentLocation) * Alpha
-
-            Camera:SetWorldLocation(NewLocation, false)
+            local Current, Target = Camera:GetWorldLocation(), GetSelectionCameraLocation()
+            Camera:SetWorldLocation(Current + (Target - Current) * math.min(1, DeltaSeconds * CameraMoveSpeed), false)
         end
-
         return
     end
     -- 점수 텍스트를 카메라 앞에 고정
@@ -391,14 +343,16 @@ function TickComponent(Self, DeltaSeconds)
         GameOver()
     end
 
-    -- 게임 진행 상태와 관계없이 R키로 재시작합니다.
+    -- 선택 완료 후에는 진행 중에도 R키로 같은 캐릭터로 재시작합니다.
     if Input.IsKeyPressed(EKeyCode.R) then
         Restart()
     end
 
     if GameState.Phase == GamePhase.Playing and Player and StartPosition then
         local Position = Player:GetActorLocation()
-        local Row = math.max(0, math.floor((Position.X - StartPosition.X) / CellSize))
+        local Level = _G.CrossyLevel
+        local Step = Level and Level.CellSize or CellSize
+        local Row = math.max(0, math.floor((Position.X - StartPosition.X) / Step + 0.0001))
 
         -- P키로 현재 위치와 진행 행 확인
         if Input.IsKeyPressed(EKeyCode.P) then
@@ -421,7 +375,7 @@ function TickComponent(Self, DeltaSeconds)
         end
 
         -- 마지막 행에 도달하면 클리어 요청
-        if Row >= GoalRow then
+        if not (Level and Level.IsEndless) and Row >= GoalRow then
             GameState.ClearRequested = true
         end
     end
@@ -442,4 +396,7 @@ function EndPlay(Self)
 
     BeginOverlapHandle = nil
     PlayerHitbox = nil
+    for _, Entry in pairs(CharacterPreviewActors) do Entry.Actor:Destroy() end
+    CharacterPreviewActors = {}
+    if _G.CrossyGameState == GameState then _G.CrossyGameState = nil end
 end
