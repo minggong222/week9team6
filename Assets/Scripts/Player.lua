@@ -1,4 +1,4 @@
-local MoveDistance = 1.0
+local MoveDistance = 3.0
 local YawOffset = 180.0
 local JumpDuration = 0.1
 local JumpHeight = 0.5
