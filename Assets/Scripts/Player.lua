@@ -40,7 +40,7 @@ function TickComponent(Self, DeltaSeconds)
     bWasWDown = bWDown
     bWasSDown = bSDown
     bWasADown = bADown
-    bWasDDown = bDDown
+    bWasDDown = bDDownw
     
     if MoveDirection:SizeSquared() > 0 then
         MoveDirection = MoveDirection:GetSafeNormal()
