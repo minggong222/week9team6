@@ -29,7 +29,7 @@ local PlayerHitbox = nil
 local BeginOverlapHandle = nil
 
 local CellSize = 1.0
-local GoalRow = 40  -- 실제 맵의 마지막 행에 맞게 수정
+local GoalRow = 150  -- 실제 맵의 마지막 행에 맞게 수정
 
 local function StartGame()
     GameState.Phase = GamePhase.Playing

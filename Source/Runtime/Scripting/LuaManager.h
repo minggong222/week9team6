@@ -2,7 +2,9 @@
 
 #include "Scripting/LuaInstance.h"
 #include "Containers/Array.h"
+#include "Containers/Set.h"
 #include "Core/Types.h"
+#include "IO/FileWatcher.h"
 
 class ULuaComponent;
 class FLuaRegistry;
@@ -44,6 +46,9 @@ public:
     bool RequestHotReload(FLuaInstance* Instance);
     void ProcessPendingHotReloads();
 
+    // PIE Tick에서 감시 대상을 갱신하고, 변경된 스크립트의 교체를 예약합니다.
+    void UpdateAutoHotReload();
+
     bool Remove(int32 Handle);
     bool Remove(FLuaInstance* Instance);
 
@@ -64,6 +69,10 @@ private:
     
     TArray<TUniquePtr<FLuaInstance>> Instances;
     TArray<FLuaInstance*> PendingHotReloads;
+
+    FFileWatcher ScriptFileWatcher;
+    TSet<FString> WatchedScriptPaths;
+
     // Destroy coroutine references before instances and their shared Lua state.
     TArray<TUniquePtr<FCoroutineTask>> Coroutines;
 };
