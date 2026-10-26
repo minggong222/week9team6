@@ -242,6 +242,36 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
     return Test
 end
 
+-- 실제 메시 경계로 초기 배치와 반복 스폰의 차량 간 여유 거리를 확인합니다.
+local Traffic = Setup(true, true, false)
+local function CheckCarSpacing()
+    local Lanes = {}
+    for _, Car in ipairs(Traffic.Cars) do
+        if Car.Script:Invoke("IsActive") then
+            local X = Car:GetActorLocation().X
+            Lanes[X] = Lanes[X] or {}
+            Lanes[X][#Lanes[X] + 1] = Car.Mesh:CalcBounds()
+        end
+    end
+    for _, Cars in pairs(Lanes) do
+        table.sort(Cars, function(A, B) return A.Min.Y < B.Min.Y end)
+        for Index = 2, #Cars do
+            assert(Cars[Index].Min.Y - Cars[Index - 1].Max.Y >= 1.0 - 0.0001,
+                "Cars overlap or violate the minimum gap")
+        end
+    end
+end
+for Seed = 1, 3 do
+    CheckCarSpacing()
+    for Frame = 1, 1800 do
+        Traffic:Tick(Frame % 120 == 0 and 0.2 or 1 / 60)
+        CheckCarSpacing()
+    end
+    Traffic:Restart()
+end
+Traffic:Finish()
+print("PASS traffic spacing: initial placement, repeated spawning, both directions, frame delays and three maps")
+
 for _, GameFirst in ipairs({ false, true }) do
     local T = Setup(true, true, GameFirst)
     local S, Level = T.Shared.CrossyGameState, T.Shared.CrossyLevel
