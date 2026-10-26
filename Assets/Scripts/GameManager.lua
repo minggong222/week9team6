@@ -137,12 +137,12 @@ local function UpdateHUD()
         Place(HUDTitle, "SCORE", HUDStyle.Hint, 0.13, 0.92)
         Place(ScoreText, string.format("%03d", GameState.Score or 0), HUDStyle.Score, 0.13, 0.81)
         Place(HUDDetail, "", HUDStyle.Hint, 0.5, 0.5)
-        Place(HUDHint, "", HUDStyle.Hint, 0.5, 0.5)
+        Place(HUDHint, "BACKSPACE : CHARACTERS", HUDStyle.Hint, 0.5, 0.06)
     elseif GameState.Phase == GamePhase.Dead or GameState.Phase == GamePhase.Clear then
         Place(HUDTitle, GameState.Phase == GamePhase.Dead and "GAME OVER" or "GAME CLEAR", 0.065, 0.5, 0.72)
         Place(ScoreText, string.format("%03d", GameState.Score or 0), HUDStyle.Score, 0.5, 0.55)
         Place(HUDDetail, "FINAL SCORE", HUDStyle.Hint, 0.5, 0.48)
-        Place(HUDHint, "PRESS R TO RETRY", HUDStyle.Title, 0.5, 0.34)
+        Place(HUDHint, "R : RETRY\nBACKSPACE : CHARACTERS", HUDStyle.Hint, 0.5, 0.34)
     else
         ScoreText:SetVisibility(false)
         if HUDTitle then HUDTitle:SetVisibility(false) end
@@ -264,9 +264,7 @@ local function GameClear()
     print("Game Clear!")
 end
 
-local function Restart()
-    GameState.RestartCount = (GameState.RestartCount or 0) + 1
-
+local function ResetRun()
     -- 플레이어 위치와 크기 복원
     GameState.Phase = GamePhase.Ready
     if PlayerScript then PlayerScript:Invoke("StopMovement") end
@@ -283,16 +281,35 @@ local function Restart()
     -- 무한 맵의 차량/기차/회수 행도 같은 시작 상태로 되돌립니다.
     local Level = _G.CrossyLevel
     if Level then Level.Reset(true) end
-    StartGame()
-
-    -- Player.lua에서 진행 중인 점프와 방향 초기화
+    GameState.Score, GameState.MaxRow = 0, 0
+    GameState.GameOverRequested, GameState.ClearRequested = false, false
     GameState.PlayerResetRequested = true
+end
 
+local function Restart()
+    GameState.RestartCount = (GameState.RestartCount or 0) + 1
+    ResetRun()
+    StartGame()
+    GameState.PlayerResetRequested = true
+end
+
+local function ReturnToCharacterSelection()
+    ResetRun()
+    GameState.Phase = GamePhase.Selecting
+    for _, Entry in pairs(CharacterPreviewActors) do Entry.Actor:GetRootComponent():SetVisibility(true, true) end
+    ApplyCharacterSelection()
+    if Camera then
+        Camera:SetIsOrthogonal(true)
+        Camera:SetOrthoWidth(12.0)
+        Camera:SetWorldLocation(GetSelectionCameraLocation(), false)
+        Camera:SetWorldRotation(GameplayCameraRotation, false)
+    end
+    UpdateHUD()
 end
 
 -- 플레이어와 자동차의 겹침을 감지한다.
 local function OnPlayerOverlap(OtherComponent)
-    if GameState.Phase ~= GamePhase.Playing or not OtherComponent then
+    if GameState.Phase ~= GamePhase.Playing or GameState.PlayerIsJumping or not OtherComponent then
         return
     end
 
@@ -370,6 +387,10 @@ function BeginPlay(Self)
 end
 
 function TickComponent(Self, DeltaSeconds)
+    if GameState.Phase ~= GamePhase.Selecting and Input.IsKeyPressed(EKeyCode.Backspace) then
+        ReturnToCharacterSelection()
+        return
+    end
     if GameState.Phase == GamePhase.Selecting then
         local Change = 0
         if Input.IsKeyPressed(EKeyCode.Left) or Input.IsKeyPressed(EKeyCode.A) then Change = -1
