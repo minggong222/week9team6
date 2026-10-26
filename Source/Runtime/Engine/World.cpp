@@ -158,6 +158,11 @@ void UWorld::Tick(float DeltaTime)
 
 	if (FLuaManager* Manager = GetLuaManager())
 	{
+		if (WorldType == EWorldType::PIE)
+		{
+			Manager->UpdateAutoHotReload();
+		}
+
 		Manager->ProcessPendingHotReloads();
 	}
 
