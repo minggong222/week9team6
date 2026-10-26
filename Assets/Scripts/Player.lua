@@ -1,4 +1,4 @@
-local MoveDistance = 2.0
+local MoveDistance = 3.0
 local MinY = -16
 local MaxY = 16
 local YawOffset = 180.0
