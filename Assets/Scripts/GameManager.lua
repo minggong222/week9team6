@@ -3,6 +3,7 @@ print("[GameManager] SCRIPT LOADED")
 
 -- 게임 진행 상태
 local GamePhase = {
+    Selecting = "SelectingCharacter",
     Ready = "Ready",
     Playing = "Playing",
     Dead = "Dead",
@@ -28,8 +29,142 @@ local Camera = nil
 local PlayerHitbox = nil
 local BeginOverlapHandle = nil
 
+local GameplayCameraLocation = nil
+local GameplayCameraRotation = nil
+
+local CharacterOptions = {
+    { Name = "Beaver", Path = "Models/OBJ format/animal-beaver.obj" },
+    { Name = "Bee", Path = "Models/OBJ format/animal-bee.obj" },
+    { Name = "Bunny", Path = "Models/OBJ format/animal-bunny.obj" },
+    { Name = "Cat", Path = "Models/OBJ format/animal-cat.obj" },
+    { Name = "Caterpillar", Path = "Models/OBJ format/animal-caterpillar.obj" },
+    { Name = "Chick", Path = "Models/OBJ format/animal-chick.obj" },
+    { Name = "Cow", Path = "Models/OBJ format/animal-cow.obj" },
+    { Name = "Crab", Path = "Models/OBJ format/animal-crab.obj" },
+    { Name = "Deer", Path = "Models/OBJ format/animal-deer.obj" },
+    { Name = "Dog", Path = "Models/OBJ format/animal-dog.obj" },
+    { Name = "Elephant", Path = "Models/OBJ format/animal-elephant.obj" },
+    { Name = "Fish", Path = "Models/OBJ format/animal-fish.obj" },
+    { Name = "Fox", Path = "Models/OBJ format/animal-fox.obj" },
+    { Name = "Giraffe", Path = "Models/OBJ format/animal-giraffe.obj" },
+    { Name = "Hog", Path = "Models/OBJ format/animal-hog.obj" },
+    { Name = "Koala", Path = "Models/OBJ format/animal-koala.obj" },
+    { Name = "Lion", Path = "Models/OBJ format/animal-lion.obj" },
+    { Name = "Monkey", Path = "Models/OBJ format/animal-monkey.obj" },
+    { Name = "Panda", Path = "Models/OBJ format/animal-panda.obj" },
+    { Name = "Parrot", Path = "Models/OBJ format/animal-parrot.obj" },
+    { Name = "Penguin", Path = "Models/OBJ format/animal-penguin.obj" },
+    { Name = "Pig", Path = "Models/OBJ format/animal-pig.obj" },
+    { Name = "Polar", Path = "Models/OBJ format/animal-polar.obj" },
+    { Name = "Tiger", Path = "Models/OBJ format/animal-tiger.obj" }
+}
+
+local SelectedCharacterIndex = 1
+local CharacterPreviewActors = {}
+
+local CharacterRowX = -200.0
+local CharacterSpacing = 5.0
+local CameraMoveSpeed = 8.0
+
 local CellSize = 1.0
 local GoalRow = 150  -- 실제 맵의 마지막 행에 맞게 수정
+
+local function GetCharacterRowY(Index)
+    return (Index - (#CharacterOptions + 1) / 2) * CharacterSpacing
+end
+
+local function GetSelectionCameraLocation()
+    return FVector.new(
+        CharacterRowX - 8.0,
+        GetCharacterRowY(SelectedCharacterIndex),
+        GameplayCameraLocation.Z
+    )
+end
+
+local function CreateCharacterPreviews()
+    local World = Actor:GetWorld()
+    local PreviewClass = UClass.Find("AStaticMeshActor")
+
+    if not World or not PreviewClass then
+        return
+    end
+
+    for Index, Option in ipairs(CharacterOptions) do
+        local Transform = FTransform.new()
+
+        Transform.Location = FVector.new(
+            CharacterRowX,
+            GetCharacterRowY(Index),
+            0.0
+        )
+
+        local PreviewActor = World:SpawnActor(
+            PreviewClass,
+            "CharacterPreview_" .. Index,
+            Transform
+        )
+
+        if PreviewActor then
+            PreviewActor:SetActorEnableCollision(false)
+
+            local PreviewMesh = UStaticMeshComponent.Cast(
+                PreviewActor:FindComponentByName("UStaticMeshComponent")
+            )
+
+            local MeshAsset = UAssetManager:GetAssetByPath(Option.Path)
+
+            if PreviewMesh and MeshAsset then
+                PreviewMesh:SetStaticMesh(MeshAsset)
+
+                local BaseScale =
+                    PreviewMesh:GetRelativeScale3D() * 1.35
+
+                PreviewMesh:SetRelativeScale3D(BaseScale)
+
+                CharacterPreviewActors[Index] = {
+                    Actor = PreviewActor,
+                    Mesh = PreviewMesh,
+                    BaseScale = BaseScale
+                }
+            else
+                PreviewActor:GetRootComponent():SetHiddenInGame(true, true)
+                print("[CharacterSelect] Preview load failed: " .. Option.Path)
+            end
+        end
+    end
+end
+
+local function ApplyCharacterSelection()
+    for Index, Entry in pairs(CharacterPreviewActors) do
+        local Scale = Entry.BaseScale
+
+        if Index == SelectedCharacterIndex then
+            Scale = Scale * 1.2
+        end
+
+        Entry.Mesh:SetRelativeScale3D(Scale)
+    end
+end
+
+local function MoveSelectionLeft()
+    SelectedCharacterIndex = SelectedCharacterIndex - 1
+
+    if SelectedCharacterIndex < 1 then
+        SelectedCharacterIndex = #CharacterOptions
+    end
+
+    ApplyCharacterSelection()
+end
+
+local function MoveSelectionRight()
+    SelectedCharacterIndex = SelectedCharacterIndex + 1
+
+    if SelectedCharacterIndex > #CharacterOptions then
+        SelectedCharacterIndex = 1
+    end
+
+    ApplyCharacterSelection()
+end
 
 local function StartGame()
     GameState.Phase = GamePhase.Playing
@@ -39,6 +174,37 @@ local function StartGame()
     GameState.ClearRequested = false
 
     print("Game Started")
+end
+
+local function EnterSelectedCharacter()
+    local Option = CharacterOptions[SelectedCharacterIndex]
+
+    if not PlayerMesh then
+        print("[CharacterSelect] Player mesh not found")
+        return
+    end
+
+    local MeshAsset = UAssetManager:GetAssetByPath(Option.Path)
+
+    if not MeshAsset then
+        print("[CharacterSelect] Character asset not found: " .. Option.Path)
+        return
+    end
+
+    PlayerMesh:SetStaticMesh(MeshAsset)
+
+    GameState.SelectedCharacter = Option.Name
+
+    for _, Entry in pairs(CharacterPreviewActors) do
+        Entry.Actor:GetRootComponent():SetHiddenInGame(true, true)
+    end
+
+    if Camera and GameplayCameraLocation and GameplayCameraRotation then
+        Camera:SetWorldLocation(GameplayCameraLocation, false)
+        Camera:SetWorldRotation(GameplayCameraRotation, false)
+    end
+
+    StartGame()
 end
 
 local function GameOver()
@@ -139,9 +305,15 @@ function BeginPlay(Self)
     ScoreText = UTextRenderComponent.Cast(Actor:FindComponentByName("ScoreText"))
     Camera = Actor:GetWorld():GetPlayerCamera()
 
+    if Camera then
+        GameplayCameraLocation = Camera:GetWorldLocation()
+        GameplayCameraRotation = Camera:GetWorldRotation()
+    end
+
     if ScoreText then
         ScoreText:SetText("Score: 0")
         ScoreText:SetTextSize(0.25)
+        ScoreText:SetVisibility(false)
     else
         print("[GameManager] ScoreText not found")
     end
@@ -150,10 +322,47 @@ function BeginPlay(Self)
         print("[GameManager] Failed to start BGM")
     end
 
-    StartGame()
+    GameState.Phase = GamePhase.Selecting
+    GameState.Score = 0
+    GameState.MaxRow = 0
+    GameState.GameOverRequested = false
+    GameState.ClearRequested = false
+
+    CreateCharacterPreviews()
+    ApplyCharacterSelection()
+
+    if Camera and GameplayCameraLocation and GameplayCameraRotation then
+        Camera:SetWorldLocation(GetSelectionCameraLocation(), false)
+        Camera:SetWorldRotation(GameplayCameraRotation, false)
+    end
 end
 
 function TickComponent(Self, DeltaSeconds)
+    if GameState.Phase == GamePhase.Selecting then
+        if Input.IsKeyPressed(EKeyCode.Left) or Input.IsKeyPressed(EKeyCode.A) then
+            MoveSelectionLeft()
+        elseif Input.IsKeyPressed(EKeyCode.Right) or Input.IsKeyPressed(EKeyCode.D) then
+            MoveSelectionRight()
+        end
+
+        if Input.IsKeyPressed(EKeyCode.Enter) or Input.IsKeyPressed(EKeyCode.Space) then
+            EnterSelectedCharacter()
+            return
+        end
+
+        if Camera and GameplayCameraLocation then
+            local TargetLocation = GetSelectionCameraLocation()
+            local CurrentLocation = Camera:GetWorldLocation()
+            local Alpha = math.min(1.0, DeltaSeconds * CameraMoveSpeed)
+
+            local NewLocation =
+                CurrentLocation + (TargetLocation - CurrentLocation) * Alpha
+
+            Camera:SetWorldLocation(NewLocation, false)
+        end
+
+        return
+    end
     -- 점수 텍스트를 카메라 앞에 고정
     if ScoreText and Camera then
         local Rotation = Camera:GetWorldRotation()
