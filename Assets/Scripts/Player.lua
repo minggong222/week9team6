@@ -1,4 +1,5 @@
 local MoveDistance = 3.0
+-- maptest에서는 CrossyMapTest의 맵 경계를 우선 사용합니다.
 local MinY = -33
 local MaxY = 33
 local YawOffset = 180.0
@@ -129,7 +130,10 @@ function TickComponent(Component, DeltaSeconds)
 
         if MoveDirection.Y ~= 0.0 then
             local TargetY = CurrentLocation.Y + MoveDirection.Y * MoveDistance
-            bWithinBounds = TargetY >= MinY and TargetY <= MaxY
+            local MapBounds = _G.CrossyMapTest
+            local AllowedMinY = MapBounds and MapBounds.MinY or MinY
+            local AllowedMaxY = MapBounds and MapBounds.MaxY or MaxY
+            bWithinBounds = TargetY >= AllowedMinY and TargetY <= AllowedMaxY
         end
 
         if bWithinBounds then

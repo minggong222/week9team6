@@ -1,0 +1,7 @@
+newmtl colormap
+Kd 1 1 1
+map_Kd Textures/colormap.png
+
+newmtl Grass
+Kd 1 1 1
+map_Kd ../RoadTiles/kenney-color-Grass.png

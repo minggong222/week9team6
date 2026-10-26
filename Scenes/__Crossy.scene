@@ -10152,95 +10152,6 @@
                             "Properties": {
                                 "Transform": {
                                     "Location": {
-                                        "X": -7.968584060668945,
-                                        "Y": 0.0,
-                                        "Z": 0.0
-                                    },
-                                    "Rotation": {
-                                        "Pitch": 0.0,
-                                        "Roll": 0.0,
-                                        "Yaw": 0.0
-                                    },
-                                    "Scale": {
-                                        "X": 1.0,
-                                        "Y": 1.0,
-                                        "Z": 1.0
-                                    }
-                                },
-                                "bAutoActivate": true,
-                                "bHiddenInGame": false,
-                                "bVisible": true
-                            }
-                        },
-                        {
-                            "Class": "UStaticMeshComponent",
-                            "Collision": {
-                                "Enabled": 1,
-                                "ObjectType": 1,
-                                "Pawn": 2,
-                                "Projectile": 2,
-                                "WorldDynamic": 2,
-                                "WorldStatic": 2
-                            },
-                            "Name": "UStaticMeshComponent",
-                            "OverrideMaterials": [],
-                            "Parent": "DefaultSceneRoot",
-                            "Properties": {
-                                "StaticMesh": "Cube",
-                                "Transform": {
-                                    "Location": {
-                                        "X": 0.0,
-                                        "Y": 0.0,
-                                        "Z": 0.0
-                                    },
-                                    "Rotation": {
-                                        "Pitch": 0.0,
-                                        "Roll": 0.0,
-                                        "Yaw": 0.0
-                                    },
-                                    "Scale": {
-                                        "X": 1.0,
-                                        "Y": 1.0,
-                                        "Z": 1.0
-                                    }
-                                },
-                                "bAutoActivate": true,
-                                "bBlockComponent": true,
-                                "bCastShadow": true,
-                                "bGenerateOverlapEvents": true,
-                                "bHiddenInGame": false,
-                                "bReceiveShadow": true,
-                                "bVisible": true
-                            }
-                        },
-                        {
-                            "Class": "ULuaComponent",
-                            "Name": "GameManager",
-                            "Parent": "",
-                            "Properties": {
-                                "ScriptPath": "Scripts/GameManager.lua",
-                                "bAutoActivate": true,
-                                "bHiddenInGame": false,
-                                "bVisible": true
-                            }
-                        }
-                    ],
-                    "Name": "GameManager",
-                    "Properties": {
-                        "bActorEnableCollision": true,
-                        "bAutoPossessPlayer": false
-                    }
-                },
-                {
-                    "Class": "AStaticMeshActor",
-                    "Components": [
-                        {
-                            "Class": "USceneComponent",
-                            "Name": "DefaultSceneRoot",
-                            "Parent": "",
-                            "Properties": {
-                                "Transform": {
-                                    "Location": {
                                         "X": -10.822032928466797,
                                         "Y": 0.0,
                                         "Z": 0.0
@@ -10318,6 +10229,95 @@
                     "Properties": {
                         "bActorEnableCollision": true,
                         "bAutoPossessPlayer": false
+                    }
+                },
+                {
+                    "Class": "ATextRenderActor",
+                    "Components": [
+                        {
+                            "Class": "USceneComponent",
+                            "Name": "DefaultSceneRoot",
+                            "Parent": "",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": -16.52509117126465,
+                                        "Y": 0.0,
+                                        "Z": 0.0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0.0,
+                                        "Roll": 0.0,
+                                        "Yaw": 0.0
+                                    },
+                                    "Scale": {
+                                        "X": 1.0,
+                                        "Y": 1.0,
+                                        "Z": 1.0
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bHiddenInGame": false,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UTextRenderComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "ScoreText",
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "Font": "Assets/Fonts/CookieRun.json",
+                                "Text": "Text",
+                                "TextSize": 1.0,
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0.0,
+                                        "Y": 0.0,
+                                        "Z": 0.0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0.0,
+                                        "Roll": 0.0,
+                                        "Yaw": 0.0
+                                    },
+                                    "Scale": {
+                                        "X": 1.0,
+                                        "Y": 1.0,
+                                        "Z": 1.0
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": true,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "ULuaComponent",
+                            "Name": "GameManager",
+                            "Parent": "",
+                            "Properties": {
+                                "ScriptPath": "Scripts/GameManager.lua",
+                                "bAutoActivate": true,
+                                "bHiddenInGame": false,
+                                "bVisible": true
+                            }
+                        }
+                    ],
+                    "Name": "GameManager",
+                    "Properties": {
+                        "bActorEnableCollision": true
                     }
                 }
             ],
