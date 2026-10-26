@@ -18,6 +18,9 @@ const grid = numberSetting('LaneSpacing'), behind = numberSetting('RowsBehind'),
 const halfWidth = numberSetting('MapPlayerHalfWidth'), boundaryWidth = numberSetting('MapBoundaryWidth');
 const roadChance = numberSetting('MapRoadChance'), treesPerRow = numberSetting('TreesPerRow');
 const railChance = numberSetting('MapRailChance');
+const trainTypeText = settings.match(/^local MapTrainTypes = \{([\s\S]*?)^\}/m)?.[1];
+const trainPaths = [...(trainTypeText ?? '').matchAll(/Path = "([^"]+)"/g)].map(m => m[1]);
+if (!trainPaths.length) throw new Error('Missing MapTrainTypes.');
 const weightText = settings.match(/^local MapTreeCountWeights = \{([^}]+)\}/m)?.[1];
 if (!weightText) throw new Error('Missing MapTreeCountWeights.');
 const treeWeights = weightText.replace(/--[^\r\n]*/g, '').split(',').filter(v => v.trim()).map(Number);
@@ -68,8 +71,11 @@ const grass = meshTemplate('kenney-grass-row');
 const road = meshTemplate('kenney-road-row');
 const rail = structuredClone(grass);
 rail.Properties.StaticMesh = 'Models/Crossy/Trains/crossy-rail-row.obj';
-const train = structuredClone(grass);
-train.Properties.StaticMesh = 'Models/Crossy/Trains/crossy-train-long.obj';
+const trains = trainPaths.map(path => {
+    const template = structuredClone(grass);
+    template.Properties.StaticMesh = path;
+    return template;
+});
 const treeStyles = [];
 for (const name of ['kenney-tree-019', 'kenney-tree-020']) {
     const template = meshTemplate(name), bounds = await boundsFor(template.Properties.StaticMesh);
@@ -80,6 +86,11 @@ for (const name of ['kenney-tree-019', 'kenney-tree-020']) {
 
 // Same deterministic preview as LevelManager's map-only mode.
 let seed = 20261026, safeColumn = 0;
+let trainTypeSeed = (20261026 + 65537) % 2147483647;
+const pickTrain = () => {
+    trainTypeSeed = trainTypeSeed * 48271 % 2147483647;
+    return trains[Math.floor(trainTypeSeed / 2147483647 * trains.length)];
+};
 const random = () => { seed = seed * 48271 % 2147483647; return seed / 2147483647; };
 const integer = (min, max) => min + Math.floor(random() * (max - min + 1));
 function rowType(index) {
@@ -106,6 +117,7 @@ for (let slot = 1; slot <= poolCount; slot++) {
     if (kind === 'rail') previewRailRows++;
     components.push(meshComponent(kind === 'rail' ? rail : (kind === 'road' ? road : grass), 'MapFloor_' + slot,
         'DefaultSceneRoot', transform(index * grid)));
+    const train = kind === 'rail' ? pickTrain() : trains[0];
     const trainComponent = meshComponent(train, 'MapTrain_' + slot, 'DefaultSceneRoot', transform(index * grid, -16));
     trainComponent.Properties.bVisible = kind === 'rail';
     components.push(trainComponent);

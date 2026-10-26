@@ -6863,7 +6863,7 @@
                             "OverrideMaterials": [],
                             "Parent": "DefaultSceneRoot",
                             "Properties": {
-                                "StaticMesh": "Models/Crossy/Trains/crossy-train-long.obj",
+                                "StaticMesh": "Models/Crossy/Trains/crossy-train-freight.obj",
                                 "Transform": {
                                     "Location": {
                                         "X": 15,
@@ -13615,7 +13615,7 @@
                             "OverrideMaterials": [],
                             "Parent": "DefaultSceneRoot",
                             "Properties": {
-                                "StaticMesh": "Models/Crossy/Trains/crossy-train-long.obj",
+                                "StaticMesh": "Models/Crossy/Trains/crossy-train-city.obj",
                                 "Transform": {
                                     "Location": {
                                         "X": 63,
@@ -17093,23 +17093,23 @@
                             "Properties": {
                                 "Transform": {
                                     "Location": {
-                                        "X": 87,
-                                        "Y": -3,
+                                        "X": 0,
+                                        "Y": 0,
                                         "Z": 0
                                     },
                                     "Rotation": {
                                         "Pitch": 0,
-                                        "Yaw": 180,
+                                        "Yaw": 0,
                                         "Roll": 0
                                     },
                                     "Scale": {
-                                        "X": 0.9732275431851054,
-                                        "Y": 0.9732275431851054,
-                                        "Z": 0.9732275431851054
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
                                     }
                                 },
                                 "bAutoActivate": true,
-                                "bVisible": true,
+                                "bVisible": false,
                                 "bHiddenInGame": false
                             }
                         },
@@ -17448,18 +17448,18 @@
                                 "Transform": {
                                     "Location": {
                                         "X": 90,
-                                        "Y": -15,
+                                        "Y": -18,
                                         "Z": 0
                                     },
                                     "Rotation": {
                                         "Pitch": 0,
-                                        "Yaw": 0,
+                                        "Yaw": 180,
                                         "Roll": 0
                                     },
                                     "Scale": {
-                                        "X": 0.9044809242265676,
-                                        "Y": 0.9044809242265676,
-                                        "Z": 0.9044809242265676
+                                        "X": 0.9458685046275466,
+                                        "Y": 0.9458685046275466,
+                                        "Z": 0.9458685046275466
                                     }
                                 },
                                 "bAutoActivate": true,
@@ -17516,18 +17516,18 @@
                                 "Transform": {
                                     "Location": {
                                         "X": 90,
-                                        "Y": -6,
+                                        "Y": -21,
                                         "Z": 0
                                     },
                                     "Rotation": {
                                         "Pitch": 0,
-                                        "Yaw": 270,
+                                        "Yaw": 0,
                                         "Roll": 0
                                     },
                                     "Scale": {
-                                        "X": 0.9262462087563454,
-                                        "Y": 0.9262462087563454,
-                                        "Z": 0.9262462087563454
+                                        "X": 0.9071058084755698,
+                                        "Y": 0.9071058084755698,
+                                        "Z": 0.9071058084755698
                                     }
                                 },
                                 "bAutoActivate": true,
@@ -17583,8 +17583,8 @@
                             "Properties": {
                                 "Transform": {
                                     "Location": {
-                                        "X": 0,
-                                        "Y": 0,
+                                        "X": 90,
+                                        "Y": -3,
                                         "Z": 0
                                     },
                                     "Rotation": {
@@ -17593,13 +17593,13 @@
                                         "Roll": 0
                                     },
                                     "Scale": {
-                                        "X": 1,
-                                        "Y": 1,
-                                        "Z": 1
+                                        "X": 0.9986933406436319,
+                                        "Y": 0.9986933406436319,
+                                        "Z": 0.9986933406436319
                                     }
                                 },
                                 "bAutoActivate": true,
-                                "bVisible": false,
+                                "bVisible": true,
                                 "bHiddenInGame": false
                             }
                         },

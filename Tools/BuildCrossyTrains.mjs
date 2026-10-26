@@ -25,6 +25,12 @@ const grass = await readMesh(root + 'Assets/Models/Crossy/RoadTiles/kenney-grass
 const rail = await readMesh(folder + 'railroad-straight.obj');
 const head = await readMesh(folder + 'train-electric-bullet-a.obj');
 const carriage = await readMesh(folder + 'train-electric-bullet-b.obj');
+const cityHead = await readMesh(folder + 'train-electric-city-a.obj');
+const cityCarriage = await readMesh(folder + 'train-electric-city-b.obj');
+const diesel = await readMesh(folder + 'train-diesel-a.obj');
+const box = await readMesh(folder + 'train-carriage-box.obj');
+const container = await readMesh(folder + 'train-carriage-container-blue.obj');
+const tank = await readMesh(folder + 'train-carriage-tank.obj');
 
 async function compose(name, pieces) {
     const vertices = [], uvs = [], normals = [], groups = new Map();
@@ -65,15 +71,23 @@ await compose('crossy-rail-row', [{ mesh: grass }, ...Array.from({ length: 23 },
     mesh: rail, scale: [0.75, 2.2, 2.2], yaw: 90, center: true, offset: [0, (i - 11) * 3, 0.01]
 }))]);
 
-// Preserve vehicle proportions: front + three full carriages + reversed front at the rear.
-const scale = 2 / (head.max[1] - head.min[1]);
-const meshes = [head, carriage, carriage, carriage, head], gap = 0.15;
-const lengths = meshes.map(m => (m.max[0] - m.min[0]) * scale);
-const length = lengths.reduce((a, b) => a + b, 0) + gap * (meshes.length - 1);
-let cursor = length / 2;
-await compose('crossy-train-long', meshes.map((mesh, i) => {
-    const y = cursor - lengths[i] / 2; cursor -= lengths[i] + gap;
-    return { mesh, scale: [scale, scale, scale], yaw: i === meshes.length - 1 ? -90 : 90,
-        center: true, offset: [0, y, 0.23] };
-}));
-console.log(JSON.stringify({ railRow: [3, 69], trainWidth: 2, trainLength: length, cars: meshes.length }));
+async function buildTrain(name, meshes, hasRearCab) {
+    // Scale the complete formation uniformly; keep every original carriage's proportions.
+    const scale = 2 / Math.max(...meshes.map(m => m.max[1] - m.min[1]));
+    const gap = 0.15, lengths = meshes.map(m => (m.max[0] - m.min[0]) * scale);
+    const length = lengths.reduce((a, b) => a + b, 0) + gap * (meshes.length - 1);
+    let cursor = length / 2;
+    await compose(name, meshes.map((mesh, i) => {
+        const y = cursor - lengths[i] / 2; cursor -= lengths[i] + gap;
+        // Kenney cab noses face OBJ +Z. Front faces engine +Y; rear faces -Y.
+        const yaw = hasRearCab && i === meshes.length - 1 ? 90 : -90;
+        return { mesh, scale: [scale, scale, scale], yaw, center: true, offset: [0, y, 0.23] };
+    }));
+    return { name, width: 2, length, cars: meshes.length };
+}
+const variants = [
+    await buildTrain('crossy-train-long', [head, carriage, carriage, carriage, head], true),
+    await buildTrain('crossy-train-city', [cityHead, cityCarriage, cityCarriage, cityCarriage, cityHead], true),
+    await buildTrain('crossy-train-freight', [diesel, box, container, tank, box], false)
+];
+console.log(JSON.stringify({ railRow: [3, 69], variants }));

@@ -18,11 +18,16 @@ local MapRailChance = 0.05
 local MapPositiveYChance = 0.50 -- 도로가 +Y 방향일 확률. 나머지는 -Y
 local MapMinLaneSpeed = 3.0 -- 도로별 차량 속도 범위 (World Units / 초)
 local MapMaxLaneSpeed = 8.0
-local MapTrainSpeed = 28.0 -- 레일 한 줄의 기차 속도 (World Units / 초)
+local MapTrainSpeed = 50.0 -- 레일 한 줄의 기차 속도 (World Units / 초)
 local MapTrainWaitMin = 3.0 -- 한 편성이 완전히 지나간 뒤 다음 출발까지의 대기 시간
 local MapTrainWaitMax = 6.0
+local MapTrainTypes = {
+    { Name = "bullet", Path = "Models/Crossy/Trains/crossy-train-long.obj" },
+    { Name = "city", Path = "Models/Crossy/Trains/crossy-train-city.obj" },
+    { Name = "freight", Path = "Models/Crossy/Trains/crossy-train-freight.obj" }
+}
 -- 0개, 1개, 2개, 3개, 4개, 5개의 상대 가중치. 합계는 100이 아니어도 됩니다.
-local MapTreeCountWeights = { 5, 10, 20, 30, 25, 10 }
+local MapTreeCountWeights = { 5, 15, 20, 30, 20, 10 }
 
 local ActiveLane = {
     { Index = 1, Speed = 1.0, Direction = false },
@@ -74,7 +79,13 @@ local MapHighestRow, MapLastRow, MapSafeColumn = 0, -11, 0
 local MapSeed, MapRandomState = 20261026, 20261026
 local MapTrafficRandomState = 1
 local MapGrassMesh, MapRoadMesh, MapRailMesh = nil, nil, nil
-local MapTrainHalfLength = 0
+local MapTrainTypeRandomState = 1
+
+local function PickMapTrainType()
+    -- 종류 선택은 지형/나무/교통 설정의 랜덤 순서에 영향을 주지 않습니다.
+    MapTrainTypeRandomState = (MapTrainTypeRandomState * 48271) % 2147483647
+    return MapTrainTypes[math.floor(MapTrainTypeRandomState / 2147483647 * #MapTrainTypes) + 1]
+end
 
 local function MapRandom()
     MapRandomState = (MapRandomState * 48271) % 2147483647
@@ -112,6 +123,7 @@ end
 local function ReleaseMapRow(Row)
     Row.Active = false
     Row.Direction, Row.Speed = nil, nil
+    Row.TrainType, Row.TrainHalfLength = nil, 0
     Row.TrainActive, Row.TrainWait = false, 0
     Row.Train:SetVisibility(false, true)
     Row.Floor:SetVisibility(false, true)
@@ -121,6 +133,7 @@ end
 local function PlaceMapRow(Row, Index, Kind)
     Row.Index, Row.Kind, Row.Active, Row.TreeCount = Index, Kind, true, 0
     Row.Direction, Row.Speed = nil, nil
+    Row.TrainType, Row.TrainHalfLength = nil, 0
     if Kind == "road" or Kind == "rail" then
         -- 같은 도로의 차량들이 공유할 값. 회수 후 새 도로로 배치할 때 다시 뽑습니다.
         Row.Direction = MapTrafficRandom() < MapPositiveYChance -- true: +Y, false: -Y
@@ -134,10 +147,15 @@ local function PlaceMapRow(Row, Index, Kind)
     Row.Train:SetVisibility(false, true)
     if Kind == "rail" then
         local Sign = Row.Direction and 1 or -1
+        Row.TrainType = PickMapTrainType()
+        Row.Train:SetStaticMesh(Row.TrainType.Mesh)
+        Row.Train:SetRelativeRotation(FRotator.new(0, 0, 0))
+        local Bounds = Row.Train:CalcBounds()
+        Row.TrainHalfLength = (Bounds.Max.Y - Bounds.Min.Y) / 2
         Row.TrainWait = 1.0 + MapTrafficRandom() * 3.0
         Row.Train:SetRelativeRotation(FRotator.new(0, Row.Direction and 0 or 180, 0))
         Row.Train:SetRelativeLocation(FVector.new(Index * LaneSpacing,
-            -Sign * (RoadHalfWidth + MapTrainHalfLength + LaneSpacing), 0))
+            -Sign * (RoadHalfWidth + Row.TrainHalfLength + LaneSpacing), 0))
     end
     Row.Floor:SetStaticMesh(Kind == "rail" and MapRailMesh or (Kind == "road" and MapRoadMesh or MapGrassMesh))
     Row.Floor:SetRelativeLocation(FVector.new(Index * LaneSpacing, 0.0, 0.0))
@@ -191,7 +209,8 @@ local function UpdateMapStats()
                 else Stats.RoadRows = Stats.RoadRows + 1 end
                 Lanes[Row.Index] = {
                     Index = Row.Index, X = MapOrigin.X + Row.Index * LaneSpacing,
-                    Direction = Row.Direction, Speed = Row.Speed
+                    Direction = Row.Direction, Speed = Row.Speed,
+                    TrainType = Row.TrainType and Row.TrainType.Name or nil
                 }
             else Stats.GrassRows = Stats.GrassRows + 1 end
         end
@@ -233,7 +252,8 @@ local function PrintMapLanes()
         if Lane then
             print("[MapTest]", Stats.RailLanes[Index] and "rail" or "road", Index,
                 "direction", Lane.Direction and "+Y" or "-Y",
-                "speed", math.floor(Lane.Speed * 100 + 0.5) / 100)
+                "speed", math.floor(Lane.Speed * 100 + 0.5) / 100,
+                "train", Lane.TrainType or "-")
         end
     end
 end
@@ -270,7 +290,7 @@ local function TickMapTrains(DeltaSeconds, PlayerPosition)
             end
             if Row.TrainActive then
                 local Sign = Row.Direction and 1 or -1
-                local Limit = RoadHalfWidth + MapTrainHalfLength + LaneSpacing
+                local Limit = RoadHalfWidth + Row.TrainHalfLength + LaneSpacing
                 local Location = Row.Train:GetRelativeLocation()
                 local NextY = math.max(-Limit, math.min(Limit, Location.Y + Sign * Row.Speed * Step))
                 local DeltaY = NextY - Location.Y
@@ -305,6 +325,8 @@ local function ResetMapTest(bRestart)
     MapRandomState = MapSeed
     MapTrafficRandomState = (MapSeed + 104729) % 2147483647
     if MapTrafficRandomState == 0 then MapTrafficRandomState = 1 end
+    MapTrainTypeRandomState = (MapSeed + 65537) % 2147483647
+    if MapTrainTypeRandomState == 0 then MapTrainTypeRandomState = 1 end
     MapHighestRow, MapLastRow, MapSafeColumn = 0, -RowsBehind - 1, 0
     _G.CrossyMapTest = { Seed = MapSeed, PoolRows = MapPoolCount, PoolTrees = MapPoolCount * TreesPerRow,
         ReusedRows = 0, Cars = 0 }
@@ -352,16 +374,16 @@ local function BeginMapTest()
     MapRoadMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/kenney-road-row.obj")
     MapRailMesh = UAssetManager:GetAssetByPath("Models/Crossy/Trains/crossy-rail-row.obj")
     assert(MapGrassMesh and MapRoadMesh and MapRailMesh, "MapTest: row meshes are missing")
+    for _, TrainType in ipairs(MapTrainTypes) do
+        TrainType.Mesh = UAssetManager:GetAssetByPath(TrainType.Path)
+        assert(TrainType.Mesh, "MapTest: missing train mesh " .. TrainType.Path)
+    end
     MapRows = {}
     for Slot = 1, MapPoolCount do
         local Floor = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapFloor_" .. Slot))
         assert(Floor, "MapTest: missing floor slot " .. Slot)
         local Train = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapTrain_" .. Slot))
         assert(Train, "MapTest: regenerate maptest.scene to add train slots")
-        if Slot == 1 then
-            local Bounds = Train:CalcBounds()
-            MapTrainHalfLength = (Bounds.Max.Y - Bounds.Min.Y) / 2
-        end
         local Row = { Floor = Floor, Train = Train, Trees = {}, Active = false }
         for TreeIndex = 1, TreesPerRow do
             local Tree = USceneComponent.Cast(Actor:FindComponentByName("MapTree_" .. Slot .. "_" .. TreeIndex))
