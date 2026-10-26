@@ -158,13 +158,13 @@ function TickComponent(Self, DeltaSeconds)
 
     if GameState.Phase == GamePhase.Playing and Player and StartPosition then
         local Position = Player:GetActorLocation()
-        local Row = math.max(0, math.floor((Position.x - StartPosition.x) / CellSize))
+        local Row = math.max(0, math.floor((Position.X - StartPosition.X) / CellSize))
 
         -- P키로 현재 위치와 진행 행 확인
         if Input.IsKeyPressed(EKeyCode.P) then
-            print("Start X: " .. StartPosition.x)
-            print("Current X: " .. Position.x)
-            print("Current Y: " .. Position.y)
+            print("Start X: " .. StartPosition.X)
+            print("Current X: " .. Position.X)
+            print("Current Y: " .. Position.Y)
             print("Row: " .. Row)
         end
 
