@@ -13,7 +13,47 @@ bool UFont::LoadFontAtlasJson(const FString& JsonPath)
 	json Root;
 	File >> Root;
 
+	// JSON 최상위가 객체인지 확인
+	if (!Root.is_object())
+	{
+		HTR_LOG(Error,
+			"Invalid font JSON '{}': root type is {}",
+			JsonPath, Root.type_name());
+		return false;
+	}
+
+	// atlas 필드가 존재하는지 확인
+	if (!Root.contains("atlas"))
+	{
+		HTR_LOG(Error,
+			"Invalid font JSON '{}': missing atlas field",
+			JsonPath);
+		return false;
+	}
+
 	const auto& AtlasJson = Root["atlas"];
+
+	// atlas가 객체인지 확인
+	if (!AtlasJson.is_object())
+	{
+		HTR_LOG(Error,
+			"Invalid font JSON '{}': atlas type is {}",
+			JsonPath, AtlasJson.type_name());
+		return false;
+	}
+
+	// width와 height 필드가 숫자인지 확인
+	if (!AtlasJson.contains("width") ||
+		!AtlasJson["width"].is_number() ||
+		!AtlasJson.contains("height") ||
+		!AtlasJson["height"].is_number())
+	{
+		HTR_LOG(Error,
+			"Invalid font JSON '{}': invalid width or height",
+			JsonPath);
+		return false;
+	}
+
 	Width = AtlasJson["width"].get<float>();
 	Height = AtlasJson["height"].get<float>();
 	DistanceRange = AtlasJson["distanceRange"].get<float>();

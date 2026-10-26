@@ -1,11 +1,18 @@
 local MoveDistance = 1.0
-
 local YawOffset = 180.0
+local JumpDuration = 0.1
+local JumpHeight = 0.5
 
 local bWasWDown = false
 local bWasSDown = false
 local bWasADown = false
 local bWasDDown = false
+
+local bIsJumping = false
+local JumpElapsed = 0.0
+local JumpStartLocation = FVector.new(0.0, 0.0, 0.0)
+local JumpDirection = FVector.new(0.0, 0.0, 0.0)
+local MeshBaseLocation = nil
 
 local function GetYawFromDirection(Direction)
     local X = Direction.X
@@ -56,6 +63,12 @@ function TickComponent(Component, DeltaSeconds)
         return
     end
 
+    local MeshComponent = FindStaticMeshComponent(Actor)
+
+    if MeshComponent ~= nil and MeshBaseLocation == nil then
+        MeshBaseLocation = MeshComponent:GetRelativeLocation()
+    end
+
     local bWDown = Input.IsKeyDown(EKeyCode.W)
     local bSDown = Input.IsKeyDown(EKeyCode.S)
     local bADown = Input.IsKeyDown(EKeyCode.A)
@@ -89,49 +102,75 @@ function TickComponent(Component, DeltaSeconds)
         PressCount = PressCount + 1
     end
 
-    if PressCount ~= 1 then
-        return
-    end
+    if not bIsJumping and PressCount == 1 then
 
-    local MoveDirection = FVector.new(0.0, 0.0, 0.0)
+        local MoveDirection = FVector.new(0.0, 0.0, 0.0)
 
-    if bWPressed then
-        MoveDirection = FVector.new(1.0, 0.0, 0.0)
+        if bWPressed then
+            MoveDirection = FVector.new(1.0, 0.0, 0.0)
+        elseif bSPressed then
+            MoveDirection = FVector.new(-1.0, 0.0, 0.0)
+        elseif bAPressed then
+            MoveDirection = FVector.new(0.0, -1.0, 0.0)
+        elseif bDPressed then
+            MoveDirection = FVector.new(0.0, 1.0, 0.0)
+        end
 
-    elseif bSPressed then
-        MoveDirection = FVector.new(-1.0, 0.0, 0.0)
+        JumpStartLocation = RootComponent:GetWorldLocation()
+        JumpDirection = MoveDirection
+        JumpElapsed = 0.0
+        bIsJumping = true
 
-    elseif bAPressed then
-        MoveDirection = FVector.new(0.0, -1.0, 0.0)
+        if MeshComponent ~= nil then
+            local Yaw = GetYawFromDirection(MoveDirection)
 
-    elseif bDPressed then
-        MoveDirection = FVector.new(0.0, 1.0, 0.0)
-    end
+            if Yaw ~= nil then
+                Yaw = Yaw + YawOffset
 
-    local MeshComponent = FindStaticMeshComponent(Actor)
+                if Yaw > 180.0 then
+                    Yaw = Yaw - 360.0
+                end
 
-    if MeshComponent == nil then
-        print("[PlayerControl] No UStaticMeshComponent on Actor")
-    else
-        local Yaw = GetYawFromDirection(MoveDirection)
-
-        if Yaw ~= nil then
-            Yaw = Yaw + YawOffset
-            if Yaw > 180.0 then
-                Yaw = Yaw - 360.0
+                MeshComponent:SetRelativeRotation(FRotator.new(0.0, Yaw, 0.0))
             end
-
-            MeshComponent:SetRelativeRotation(FRotator.new(0.0, Yaw, 0.0))
-
-            local ActualRotation =  MeshComponent:GetWorldRotation()
-
-            print("[PlayerControl] Target Yaw:", Yaw, "Actual Yaw:", ActualRotation.Yaw)
         end
     end
 
-    local CurrentLocation = RootComponent:GetWorldLocation()
 
-    local NewLocation =  CurrentLocation + MoveDirection * MoveDistance
+    -- 매 프레임 점프 애니메이션 갱신
+    if bIsJumping then
 
-    RootComponent:SetWorldLocation(NewLocation, false)
+        JumpElapsed = JumpElapsed + DeltaSeconds
+
+        local Alpha = JumpElapsed / JumpDuration
+
+        if Alpha > 1.0 then
+            Alpha = 1.0
+        end
+
+        -- 수평 이동을 부드럽게 진행
+        local NewRootLocation = JumpStartLocation + JumpDirection * (MoveDistance * Alpha)
+
+        RootComponent:SetWorldLocation(NewRootLocation, false)
+
+        -- 포물선 형태로 메쉬가 위아래로 이동
+        local HeightOffset = 4.0 * JumpHeight * Alpha * (1.0 - Alpha)
+
+        if MeshComponent ~= nil and MeshBaseLocation ~= nil then
+            MeshComponent:SetRelativeLocation(MeshBaseLocation + FVector.new(0.0, 0.0, HeightOffset))
+        end
+
+        -- 착지
+        if Alpha >= 1.0 then
+
+            RootComponent:SetWorldLocation(JumpStartLocation + JumpDirection * MoveDistance, false)
+
+            if MeshComponent ~= nil and MeshBaseLocation ~= nil then
+                MeshComponent:SetRelativeLocation(MeshBaseLocation)
+            end
+
+            bIsJumping = false
+            JumpElapsed = 0.0
+        end
+    end
 end
