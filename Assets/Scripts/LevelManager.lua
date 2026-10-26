@@ -208,13 +208,17 @@ end
 function TickComponent(Self, DeltaSeconds)
     local GameState = _G.CrossyGameState
 
-    if not GameState or GameState.Phase ~= "Playing" then
-        -- 게임 종료 시에는 현재 차량을 유지하고 이동과 생성만 멈춥니다.
+    local bPlaying = GameState and GameState.Phase == "Playing"
+    if not bPlaying then
         bWasPlaying = false
-        return
+
+        -- 게임 오버 중에도 교통은 유지하고, 준비 및 클리어 상태에서는 멈춥니다.
+        if not GameState or GameState.Phase ~= "Dead" then
+            return
+        end
     end
 
-    if not bWasPlaying then
+    if bPlaying and not bWasPlaying then
         for _, Entry in ipairs(Pool) do
             Entry.Script:Invoke("Deactivate")
         end
