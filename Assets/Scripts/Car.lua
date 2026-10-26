@@ -5,10 +5,13 @@ local Speed = 5.0
 local Distance = 0.0
 local bActive = false
 local Car = nil
+local LevelManager = nil
+local bLogNextTick = false
 
-function SetCar(InCar)
+function SetCar(InCar, InLevelManager)
     -- Size는 추후 Collision Box 연결에 사용할 차량 설정으로 보관합니다.
     Car = InCar
+    LevelManager = InLevelManager
 end
 
 function SetSpeed(InSpeed)
@@ -38,13 +41,24 @@ function IsActive()
 end
 
 function Deactivate()
+    if bActive then
+        print("[Car] Deactivate:", Actor:GetName(), "Distance:", Distance,
+            "HasLevelManager:", LevelManager ~= nil)
+    end
+
     bActive = false
     Actor:SetActorEnableCollision(false)
-    Actor:GetRootComponent():SetVisibility(false, true)
-    Actor:GetRootComponent():SetWorldLocation(FVector.new(0.0, 0.0, -1000.0), false)
+
+    if LevelManager then
+        LevelManager:Invoke("ReturnCar", Actor)
+    end
 end
 
 function Activate(Location, InDirection, InSpeed, TravelDistance)
+    print("[Car] Activate:", Actor:GetName(), "TargetLocation:", Location.X, Location.Y, Location.Z,
+        "Speed:", InSpeed, "TravelDistance:", TravelDistance, "HasLevelManager:", LevelManager ~= nil)
+    bLogNextTick = true
+
     Direction = InDirection:GetSafeNormal()
     TotalDistance = math.max(0.0, TravelDistance)
     SetSpeed(InSpeed)
@@ -97,6 +111,14 @@ end
 
 function TickComponent(Self, DeltaSeconds)
     local GameState = _G.CrossyGameState
+    -- 활성화 직후 첫 Tick만 출력하여 호출 여부와 조기 반환 조건을 확인합니다.
+    if bLogNextTick then
+        bLogNextTick = false
+        print("[Car] 첫 Tick:", Actor:GetName(), "Active:", bActive,
+            "Phase:", GameState and GameState.Phase, "DeltaSeconds:", DeltaSeconds,
+            "Speed:", Speed, "Direction:", Direction.X, Direction.Y, Direction.Z)
+    end
+
     if not bActive or not GameState or GameState.Phase ~= "Playing" then
         return
     end

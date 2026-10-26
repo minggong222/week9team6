@@ -2,7 +2,8 @@
 local PoolCount = 100
 local LaneSpacing = 3.0
 local RoadHalfWidth = 34.0
-local SpawnInterval = 5.0
+local MinSpawnInterval = 3.0
+local MaxSpawnInterval = 5.0
 local MinSpeed = 3.0
 local MaxSpeed = 8.0
 
@@ -39,8 +40,31 @@ local CarList = {
 }
 
 local Pool = {}
-local SpawnElapsed = 0.0
+-- 배치를 기다리는 비활성 차량 액터입니다.
+local AvailableCars = {}
+local PoolByActor = {}
+local LevelManager = nil
 local bWasPlaying = false
+local DebugLogElapsed = 0.0
+
+local function GetSpawnInterval()
+    return MinSpawnInterval + math.random() * (MaxSpawnInterval - MinSpawnInterval)
+end
+
+function ReturnCar(CarActor)
+    local Entry = PoolByActor[CarActor:GetUUID()]
+    if not Entry then
+        print("[LevelManager] ReturnCar: 풀에 없는 액터", CarActor:GetName())
+        return
+    end
+
+    if Entry.bAvailable then
+        return
+    end
+
+    Entry.bAvailable = true
+    AvailableCars[#AvailableCars + 1] = CarActor
+end
 
 local function CreateCar(Index, Car)
     local World = Actor:GetWorld()
@@ -69,41 +93,67 @@ local function CreateCar(Index, Car)
         return nil
     end
 
-    LuaComponent:Invoke("SetCar", Car)
+    local Entry = { Actor = CarActor, Script = LuaComponent, bAvailable = false }
+    Pool[#Pool + 1] = Entry
+    PoolByActor[CarActor:GetUUID()] = Entry
+
+    LuaComponent:Invoke("SetCar", Car, LevelManager)
     LuaComponent:Invoke("Deactivate")
-    Pool[#Pool + 1] = { Actor = CarActor, Script = LuaComponent }
 end
 
 function SpawnCar(Location, Direction, InSpeed, TravelDistance)
-    for _, Entry in ipairs(Pool) do
-        if not Entry.Script:Invoke("IsActive") then
-            Entry.Script:Invoke("Activate", Location, Direction, InSpeed, TravelDistance)
-            return Entry
-        end
+    if #AvailableCars == 0 then
+        print("[LevelManager] SpawnCar: 배치 가능한 차량 없음, Pool:", #Pool)
+        return nil
     end
 
-    -- 풀이 가득 차면 추가 생성 없이 이번 배치를 건너뜁니다.
-    return nil
+    local Index = math.random(1, #AvailableCars)
+    local CarActor = AvailableCars[Index]
+    AvailableCars[Index] = AvailableCars[#AvailableCars]
+    AvailableCars[#AvailableCars] = nil
+
+    local Entry = PoolByActor[CarActor:GetUUID()]
+    Entry.bAvailable = false
+    Entry.Script:Invoke("Activate", Location, Direction, InSpeed, TravelDistance)
+    local ActualLocation = CarActor:GetActorLocation()
+    print("[LevelManager] SpawnCar:", CarActor:GetName(),
+        "Active:", Entry.Script:Invoke("IsActive"), "Speed:", InSpeed,
+        "Location:", ActualLocation.X, ActualLocation.Y, ActualLocation.Z,
+        "HasBegunPlay:", Entry.Script:HasBegunPlay(),
+        "TickEnabled:", Entry.Script:IsComponentTickEnabled())
+    return Entry
 end
 
-local function SpawnTraffic()
+local function SpawnTraffic(DeltaSeconds)
     local Origin = FVector.new(6.0, 0.0, 0.0)
 
     for _, Lane in ipairs(ActiveLane) do
-        local Sign = Lane.Direction and 1.0 or -1.0
-        local Location = Origin + FVector.new(Lane.Index * LaneSpacing, -Sign * RoadHalfWidth, 0.0)
-        local Car = SpawnCar(Location, FVector.new(0.0, Sign, 0.0), Lane.Speed, RoadHalfWidth * 2.0)
+        -- NextSpawnTime은 다음 생성까지 남은 게임 시간(초)입니다.
+        Lane.NextSpawnTime = Lane.NextSpawnTime - DeltaSeconds
+        if Lane.NextSpawnTime <= 0.0 then
+            print("[LevelManager] 차선 배치 시도:", Lane.Index, "Speed:", Lane.Speed,
+                "Direction:", Lane.Direction, "Available:", #AvailableCars)
+            local Sign = Lane.Direction and 1.0 or -1.0
+            local Location = Origin + FVector.new(Lane.Index * LaneSpacing, -Sign * RoadHalfWidth, 0.0)
+            local Car = SpawnCar(Location, FVector.new(0.0, Sign, 0.0), Lane.Speed, RoadHalfWidth * 2.0)
 
-        if (Car) then
-            Car.Script:Invoke("SetDirection", Lane.Direction)
+            if (Car) then
+                Car.Script:Invoke("SetDirection", Lane.Direction)
+            end
+
+            Lane.NextSpawnTime = GetSpawnInterval()
         end
     end
 end
 
 function BeginPlay(Self)
+    LevelManager = Self
+    print("[LevelManager] BeginPlay:", Actor:GetName())
+
     for _, Lane in ipairs(ActiveLane) do
         Lane.Speed = MinSpeed + math.random() * (MaxSpeed - MinSpeed)
         Lane.Direction = math.random(0, 1) == 1
+        Lane.NextSpawnTime = GetSpawnInterval()
     end
 
     local WeightSum = 0.0
@@ -144,35 +194,54 @@ function BeginPlay(Self)
             CreateCar(PoolIndex, Car)
         end
     end
+
+    print("[LevelManager] 풀 초기화 완료, Pool:", #Pool, "Available:", #AvailableCars,
+        "LaneCount:", #ActiveLane)
 end
 
 function TickComponent(Self, DeltaSeconds)
     local GameState = _G.CrossyGameState
+
+    -- 매 프레임 출력하지 않고 2초마다 배치 조건과 타이머 진행을 확인합니다.
+    DebugLogElapsed = DebugLogElapsed - DeltaSeconds
+    if DebugLogElapsed <= 0.0 then
+        DebugLogElapsed = 2.0
+        local Lane = ActiveLane[1]
+        print("[LevelManager] Tick, Phase:", GameState and GameState.Phase,
+            "DeltaSeconds:", DeltaSeconds, "Pool:", #Pool, "Available:", #AvailableCars,
+            "FirstLaneNextSpawnTime:", Lane and Lane.NextSpawnTime)
+    end
+
     if not GameState or GameState.Phase ~= "Playing" then
         if bWasPlaying then
             for _, Entry in ipairs(Pool) do
                 Entry.Script:Invoke("Deactivate")
             end
 
-            SpawnElapsed = 0.0
+            for _, Lane in ipairs(ActiveLane) do
+                Lane.NextSpawnTime = GetSpawnInterval()
+            end
+
             bWasPlaying = false
         end
         return
     end
 
     bWasPlaying = true
-    SpawnElapsed = SpawnElapsed - DeltaSeconds
-    if SpawnElapsed <= 0.0 then
-        SpawnElapsed = SpawnInterval
-        SpawnTraffic()
-    end
+    SpawnTraffic(DeltaSeconds)
 end
 
 function EndPlay(Self)
+    -- 종료 중인 차량은 더 이상 반환받지 않습니다.
+    PoolByActor = {}
+    AvailableCars = {}
+
     for _, Entry in ipairs(Pool) do
+        Entry.Script:Invoke("SetCar", nil, nil)
         Entry.Actor:Destroy()
     end
 
     Pool = {}
-    SpawnElapsed = 0.0
+    LevelManager = nil
+    bWasPlaying = false
 end
