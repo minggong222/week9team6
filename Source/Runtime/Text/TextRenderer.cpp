@@ -35,6 +35,30 @@ namespace
 		}
 		return Out;
 	}
+
+	// 줄별 너비를 계산해 각 줄을 독립적으로 가운데 정렬한다.
+	TArray<float> MeasureLineWidths(const TArray<uint32>& CodePoints, float TextSize, const UFont& Atlas)
+	{
+		TArray<float> LineWidths;
+		LineWidths.Add(0.0f);
+
+		for (uint32 CP : CodePoints)
+		{
+			if (CP == '\r')
+				continue;
+
+			if (CP == '\n')
+			{
+				LineWidths.Add(0.0f);
+				continue;
+			}
+
+			if (const FGlyphInfo* Glyph = Atlas.GlyphMap.Find(CP))
+				LineWidths.Last() += Glyph->Advance * TextSize;
+		}
+
+		return LineWidths;
+	}
 }
 
 // 텍스트 Shader·상수 버퍼와 문자용 정점·인덱스 버퍼를 준비한다.
@@ -61,36 +85,37 @@ void FTextRenderer::Init(uint32 InMaxCharacters)
 void FTextRenderer::BuildTextMesh(const FString& Text, float TextSize, const UFont& Atlas)
 {
 	TArray<uint32> CodePoints = DecodeUTF8(Text);
+	TArray<float> LineWidths = MeasureLineWidths(CodePoints, TextSize, Atlas);
 
-	float PenY = 0.0f;
+	const float LineHeight = TextSize * 1.2f;
 
-	// 전체 텍스트 너비를 미리 계산해서 중앙 정렬 (UUID 라벨은 보통 중앙 정렬이 자연스러움)
-	float TotalWidth = 0.0f;
+	int32 LineIndex = 0;
+	float PenY = -LineWidths[LineIndex] * 0.5f;
+	float PenZ = 0.0f;
 
 	for (uint32 CP : CodePoints)
 	{
-		if (const FGlyphInfo* Glyph = Atlas.GlyphMap.Find(CP))
-		{
-			TotalWidth += Glyph->Advance * TextSize;
-		}
-	}
-	float StartY = -TotalWidth * 0.5f;
-	PenY = StartY;
+		if (CP == '\r')
+			continue;
 
-	for (uint32 CP : CodePoints)          // 메시 생성 루프
-	{
-		const FGlyphInfo* Glyph = Atlas.GlyphMap.Find(CP);
-		if (!Glyph)
+		if (CP == '\n')
 		{
+			++LineIndex;
+			PenY = -LineWidths[LineIndex] * 0.5f;
+			PenZ -= LineHeight;
 			continue;
 		}
+
+		const FGlyphInfo* Glyph = Atlas.GlyphMap.Find(CP);
+		if (!Glyph)
+			continue;
 
 		if (Glyph->bHasBounds)
 		{
 			float Left = PenY + Glyph->PlaneLeft * TextSize;
-			float Bottom = Glyph->PlaneBottom * TextSize;
+			float Bottom = PenZ + Glyph->PlaneBottom * TextSize;
 			float Right = PenY + Glyph->PlaneRight * TextSize;
-			float Top = Glyph->PlaneTop * TextSize;
+			float Top = PenZ + Glyph->PlaneTop * TextSize;
 
 			float ULeft = Glyph->AtlasLeft / Atlas.Width;
 			float VBottom = 1.0f - (Glyph->AtlasBottom / Atlas.Height);
@@ -99,10 +124,10 @@ void FTextRenderer::BuildTextMesh(const FString& Text, float TextSize, const UFo
 
 			uint32 BaseIndex = static_cast<uint32>(Vertices.Num());
 
-			Vertices.Add({ FVector(0.0f,Left, Bottom), FVector2(ULeft, VBottom) });
-			Vertices.Add({ FVector(0.0f,Left, Top), FVector2(ULeft, VTop) });
-			Vertices.Add({ FVector(0.0f, Right,  Top), FVector2(URight, VTop) });
-			Vertices.Add({ FVector(0.0f, Right, Bottom), FVector2(URight,VBottom) });
+			Vertices.Add({ FVector(0.0f, Left, Bottom), FVector2(ULeft, VBottom) });
+			Vertices.Add({ FVector(0.0f, Left, Top), FVector2(ULeft, VTop) });
+			Vertices.Add({ FVector(0.0f, Right, Top), FVector2(URight, VTop) });
+			Vertices.Add({ FVector(0.0f, Right, Bottom), FVector2(URight, VBottom) });
 
 			Indices.Add(BaseIndex + 0);
 			Indices.Add(BaseIndex + 1);
@@ -119,47 +144,48 @@ void FTextRenderer::BuildTextMesh(const FString& Text, float TextSize, const UFo
 bool FTextRenderer::ComputeTextBounds(const FString& Text, float TextSize, const UFont& Atlas, float& OutMinY, float& OutMaxY, float& OutMinZ, float& OutMaxZ)
 {
 	TArray<uint32> CodePoints = DecodeUTF8(Text);
+	TArray<float> LineWidths = MeasureLineWidths(CodePoints, TextSize, Atlas);
 
-	float PenY = 0.0f;
+	const float LineHeight = TextSize * 1.2f;
 
-	// 전체 텍스트 너비를 미리 계산해서 중앙 정렬 (UUID 라벨은 보통 중앙 정렬이 자연스러움)
-	float TotalWidth = 0.0f;
-	for (uint32 CP : CodePoints)
-	{
-		if (const FGlyphInfo* Glyph = Atlas.GlyphMap.Find(CP))
-		{
-			TotalWidth += Glyph->Advance * TextSize;
-		}
-	}
-	float StartY = -TotalWidth * 0.5f;
-	PenY = StartY;
+	int32 LineIndex = 0;
+	float PenY = -LineWidths[LineIndex] * 0.5f;
+	float PenZ = 0.0f;
 
 	float Left = FLT_MAX;
 	float Bottom = FLT_MAX;
 	float Right = -FLT_MAX;
 	float Top = -FLT_MAX;
 
-	for (uint32 CP : CodePoints)          // 메시 생성 루프
+	for (uint32 CP : CodePoints)
 	{
-		const FGlyphInfo* Glyph = Atlas.GlyphMap.Find(CP);
-		if (!Glyph)
+		if (CP == '\r')
+			continue;
+
+		if (CP == '\n')
 		{
+			++LineIndex;
+			PenY = -LineWidths[LineIndex] * 0.5f;
+			PenZ -= LineHeight;
 			continue;
 		}
+
+		const FGlyphInfo* Glyph = Atlas.GlyphMap.Find(CP);
+		if (!Glyph)
+			continue;
 
 		if (Glyph->bHasBounds)
 		{
 			Left = std::min(Left, PenY + Glyph->PlaneLeft * TextSize);
-			Bottom = std::min(Bottom, Glyph->PlaneBottom * TextSize);
+			Bottom = std::min(Bottom, PenZ + Glyph->PlaneBottom * TextSize);
 			Right = std::max(Right, PenY + Glyph->PlaneRight * TextSize);
-			Top = std::max(Top, Glyph->PlaneTop * TextSize);
+			Top = std::max(Top, PenZ + Glyph->PlaneTop * TextSize);
 		}
 
 		PenY += Glyph->Advance * TextSize;
 	}
 
-
-	if (Left > Right)   // 한 번도 갱신 안 됨 = 그릴 글자 없음
+	if (Left > Right)
 		return false;
 
 	OutMinY = Left;
