@@ -157,7 +157,12 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
         if GameScript then GameScript:Invoke("TickComponent", GameScript, DT) end
         for _, Car in ipairs(Cars) do Car.Script:Invoke("TickComponent", Car.Script, DT) end
     end
-    function Test:Restart() Keys.R = true; self:Tick(0); Keys.R = nil end
+    function Test:Restart()
+        Keys.R = true; self:Tick(0); Keys.R = nil
+        -- GameManager가 요청한 점프/방향 초기화는 다음 Player Tick에서 완료된다.
+        self:Tick(0)
+        assert(not Shared.CrossyGameState.PlayerResetRequested, "Player reset request was not consumed")
+    end
     function Test:Finish()
         LevelScript:Invoke("EndPlay", LevelScript)
         if GameScript then GameScript:Invoke("EndPlay", GameScript) end
@@ -264,6 +269,7 @@ Select:Finish()
 print("PASS selection: 24 normalized previews, wrap, camera restore, confirm/score HUD, selected character retained on R, arrows and held-key cancellation")
 
 -- Regression: every selectable index must complete confirmation and remain playable after R.
+for _, ConfirmKey in ipairs({ "Enter", "Space" }) do
 for CharacterIndex = 1, 24 do
     local T = Setup(true, true, CharacterIndex % 2 == 0, true)
     local S = T.Shared.CrossyGameState
@@ -271,7 +277,7 @@ for CharacterIndex = 1, 24 do
         T.Keys.Right = true; T.GameScript:Invoke("TickComponent", T.GameScript, 0); T.Keys.Right = nil
     end
     local Expected = S.PreviewCharacter
-    T.Keys.Enter = true; T:Tick(0); T.Keys.Enter = nil
+    T.Keys[ConfirmKey] = true; T:Tick(0); T.Keys[ConfirmKey] = nil
     assert(S.Phase == "Playing" and S.SelectedCharacter == Expected and S.SelectedCharacterIndex == CharacterIndex,
         "Character " .. CharacterIndex .. " could not leave selection")
     assert(T.Mesh.Asset == "Models/OBJ format/animal-" .. Expected:lower() .. ".obj")
@@ -282,4 +288,5 @@ for CharacterIndex = 1, 24 do
     assert(S.Phase == "Playing" and S.SelectedCharacter == Expected and T.Root.Position.X == 0)
     T:Finish()
 end
-print("PASS all 24 indices: selection -> confirm -> movement/score -> restart; both manager initialization orders")
+end
+print("PASS all 24 indices with Enter and Space: selection -> confirm -> movement/score -> restart; both manager initialization orders")

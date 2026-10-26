@@ -63,6 +63,8 @@ local function ResetJump(MeshComponent)
     if MeshComponent and MeshBaseLocation then
         MeshComponent:SetRelativeLocation(MeshBaseLocation)
     end
+end
+
 -- 사망/재시작 시 진행 중인 점프까지 즉시 취소합니다.
 function StopMovement()
     bIsJumping, JumpElapsed = false, 0.0
