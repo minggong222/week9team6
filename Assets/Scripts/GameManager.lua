@@ -24,10 +24,12 @@ local PlayerMesh = nil
 local PlayerMeshStartScale = nil
 local PlayerMeshStartLocation, PlayerMeshStartRotation, PlayerScript = nil, nil, nil
 local ScoreText = nil
-local ScoreLabel = nil
-local SelectionTitle, SelectionName, SelectionCount, SelectionHint = nil, nil, nil, nil
-local ResultTitle, ResultScore, ResultHint = nil, nil, nil
+local HUDTitle, HUDDetail, HUDHint = nil, nil, nil
 local Camera = nil
+
+-- 화면 높이에 대한 글자 크기. 실행 중 전체 배율은 CrossyGameState.HUDScale로 조절한다.
+local HUDStyle = { Scale = 1.0, Score = 0.105, Title = 0.032, Name = 0.052, Hint = 0.023 }
+local GameplayCamera = { Pitch = 40.0, Yaw = -35.0, Width = 36.0, Distance = 32.0, LookAhead = 5.0 }
 
 local PlayerHitbox = nil
 local BeginOverlapHandle = nil
@@ -86,96 +88,77 @@ local function GetCharacterRowY(Index)
 end
 
 local function GetSelectionCameraLocation()
-    return FVector.new(CharacterRowX - 8, GetCharacterRowY(SelectedCharacterIndex), GameplayCameraLocation.Z)
+    return FVector.new(CharacterRowX - 8, GetCharacterRowY(SelectedCharacterIndex), 8.0)
 end
 
--- 기존 ScoreText는 재사용하고, 추가 UI는 게임 매니저에 생성한다.
-local function CreateUIText(Name, Text, Size)
-    local Component = UTextRenderComponent.Cast(Actor:FindComponentByName(Name))
-
-    if not Component then
-        Component = UTextRenderComponent.Cast(Actor:AddComponent(UTextRenderComponent.StaticClass(), Name))
+local function CreateHUDText(Name)
+    local Text = UTextRenderComponent.Cast(Actor:FindComponentByName(Name))
+        or UTextRenderComponent.Cast(Actor:AddComponent(UTextRenderComponent.StaticClass(), Name))
+    if Text then
+        Text:SetRelativeScale3D(FVector.new(1, 1, 1))
+        Text:SetCollisionEnabled(ECollisionEnabled.NoCollision)
+        Text:SetCastShadow(false)
+        Text:SetVisibility(false)
     end
-
-    if not Component then
-        print("[GameManager] UI component not found: " .. Name)
-        return nil
-    end
-
-    Component:SetText(Text)
-    Component:SetTextSize(Size)
-    Component:SetVisibility(false)
-    return Component
+    return Text
 end
 
-local function SetUITextVisible(Component, bVisible)
-    if Component then
-        Component:SetVisibility(bVisible)
-    end
-end
-
-local function UpdateSelectionUIText()
-    local Option = CharacterOptions[SelectedCharacterIndex]
-
-    if SelectionName then
-        SelectionName:SetText("<  " .. Option.Name:upper() .. "  >")
-    end
-
-    if SelectionCount then
-        SelectionCount:SetText(string.format("%02d / %02d", SelectedCharacterIndex, #CharacterOptions))
-    end
-end
-
--- 선택 / 플레이 / 결과 화면의 텍스트를 각각 표시한다.
-local function ShowUIForPhase(Phase)
-    local bSelecting = Phase == GamePhase.Selecting
-    local bPlaying = Phase == GamePhase.Playing
-    local bResult = Phase == GamePhase.Dead or Phase == GamePhase.Clear
-
-    SetUITextVisible(SelectionTitle, bSelecting)
-    SetUITextVisible(SelectionName, bSelecting)
-    SetUITextVisible(SelectionCount, bSelecting)
-    SetUITextVisible(SelectionHint, bSelecting)
-
-    SetUITextVisible(ScoreLabel, bPlaying)
-    SetUITextVisible(ScoreText, bPlaying)
-
-    SetUITextVisible(ResultTitle, bResult)
-    SetUITextVisible(ResultScore, bResult)
-    SetUITextVisible(ResultHint, bResult)
-end
-
--- 3D 텍스트를 카메라 앞에 배치해서 화면 UI처럼 보이게 한다.
-local function UpdateUIPosition()
-    if not Camera then
-        return
-    end
-
+-- 좌표는 화면 비율(왼쪽/아래 0, 오른쪽/위 1), 크기는 화면 높이 비율이다.
+-- 직교/원근 투영과 창 종횡비가 바뀌어도 같은 화면 비율을 유지한다.
+local function UpdateHUD()
+    if not ScoreText or not Camera then return end
+    local Distance = 2.0
+    local Aspect = math.max(Camera:GetAspectRatio(), 0.1)
+    local Height = Camera:GetIsOrthogonal() and Camera:GetOrthoWidth() / Aspect
+        or 2 * Distance * math.tan(math.rad(Camera:GetFieldOfView()) / 2)
+    local Width = Height * Aspect
     local Rotation = Camera:GetWorldRotation()
-    local Quaternion = Rotation:Quaternion()
-    local Up = Quaternion:GetUpVector()
-    local BaseLocation = Camera:GetWorldLocation() + Quaternion:GetForwardVector() * 4.0
+    local Q = Rotation:Quaternion()
+    local Center = Camera:GetWorldLocation() + Q:GetForwardVector() * Distance
+    local Scale = math.max(0.5, math.min(1.5, GameState.HUDScale or HUDStyle.Scale))
 
-    local function Place(Component, VerticalOffset)
-        if Component then
-            Component:SetWorldLocation(BaseLocation + Up * VerticalOffset, false)
-            Component:SetWorldRotation(Rotation, false)
-        end
+    local function Place(Component, Text, Size, X, Y)
+        if not Component then return end
+        if Component:GetText() ~= Text then Component:SetText(Text) end
+        Component:SetTextSize(Height * Size * Scale)
+        Component:SetWorldLocation(Center + Q:GetRightVector() * ((X - 0.5) * Width)
+            + Q:GetUpVector() * ((Y - 0.5) * Height), false)
+        Component:SetWorldRotation(Rotation, false)
+        Component:SetVisibility(Text ~= "")
     end
 
     if GameState.Phase == GamePhase.Selecting then
-        Place(SelectionTitle, 1.20)
-        Place(SelectionName, -0.48)
-        Place(SelectionCount, -0.89)
-        Place(SelectionHint, -1.20)
+        local Option = CharacterOptions[SelectedCharacterIndex]
+        Place(HUDTitle, "CHOOSE YOUR CHARACTER", HUDStyle.Title, 0.5, 0.88)
+        Place(ScoreText, "<  " .. Option.Name:upper() .. "  >", HUDStyle.Name, 0.5, 0.25)
+        Place(HUDDetail, string.format("%02d / %02d", SelectedCharacterIndex, #CharacterOptions), HUDStyle.Hint, 0.5, 0.18)
+        Place(HUDHint, "LEFT / RIGHT : SELECT     ENTER : PLAY", HUDStyle.Hint, 0.5, 0.09)
     elseif GameState.Phase == GamePhase.Playing then
-        Place(ScoreLabel, 1.26)
-        Place(ScoreText, 0.80)
+        Place(HUDTitle, "SCORE", HUDStyle.Hint, 0.13, 0.92)
+        Place(ScoreText, string.format("%03d", GameState.Score or 0), HUDStyle.Score, 0.13, 0.81)
+        Place(HUDDetail, "", HUDStyle.Hint, 0.5, 0.5)
+        Place(HUDHint, "", HUDStyle.Hint, 0.5, 0.5)
     elseif GameState.Phase == GamePhase.Dead or GameState.Phase == GamePhase.Clear then
-        Place(ResultTitle, 0.50)
-        Place(ResultScore, -0.06)
-        Place(ResultHint, -0.55)
+        Place(HUDTitle, GameState.Phase == GamePhase.Dead and "GAME OVER" or "GAME CLEAR", 0.065, 0.5, 0.72)
+        Place(ScoreText, string.format("%03d", GameState.Score or 0), HUDStyle.Score, 0.5, 0.55)
+        Place(HUDDetail, "FINAL SCORE", HUDStyle.Hint, 0.5, 0.48)
+        Place(HUDHint, "PRESS R TO RETRY", HUDStyle.Title, 0.5, 0.34)
+    else
+        ScoreText:SetVisibility(false)
+        if HUDTitle then HUDTitle:SetVisibility(false) end
+        if HUDDetail then HUDDetail:SetVisibility(false) end
+        if HUDHint then HUDHint:SetVisibility(false) end
     end
+end
+
+local function ApplyGameplayCamera()
+    if not Camera then return end
+    local Rotation = FRotator.new(GameplayCamera.Pitch, GameplayCamera.Yaw, 0)
+    Camera:SetRelativeRotation(Rotation)
+    Camera:SetRelativeLocation(FVector.new(GameplayCamera.LookAhead, 0, 0)
+        - Rotation:Quaternion():GetForwardVector() * GameplayCamera.Distance)
+    Camera:SetIsOrthogonal(true)
+    Camera:SetOrthoWidth(GameplayCamera.Width)
 end
 
 local function ApplyCharacterSelection()
@@ -183,7 +166,9 @@ local function ApplyCharacterSelection()
         Entry.Mesh:SetRelativeScale3D(Entry.BaseScale * (Index == SelectedCharacterIndex and 1.2 or 1.0))
     end
     GameState.PreviewCharacter = CharacterOptions[SelectedCharacterIndex].Name
-    UpdateSelectionUIText()
+    if GameState.Phase == GamePhase.Selecting then
+        UpdateHUD()
+    end
 end
 
 local function CreateCharacterPreviews()
@@ -218,11 +203,7 @@ local function StartGame()
     GameState.GameOverRequested = false
     GameState.ClearRequested = false
 
-    if ScoreText then
-        ScoreText:SetText("000")
-    end
-    ShowUIForPhase(GamePhase.Playing)
-
+    UpdateHUD()
     print("Game Started")
 end
 
@@ -241,10 +222,7 @@ local function EnterSelectedCharacter()
     GameState.SelectedCharacter = Option.Name
     GameState.SelectedCharacterIndex = SelectedCharacterIndex
     for _, Entry in pairs(CharacterPreviewActors) do Entry.Actor:GetRootComponent():SetVisibility(false, true) end
-    if Camera and GameplayCameraLocation then
-        Camera:SetWorldLocation(GameplayCameraLocation, false)
-        Camera:SetWorldRotation(GameplayCameraRotation, false)
-    end
+    ApplyGameplayCamera()
     StartGame()
     print("[CharacterSelect] Confirmed " .. Option.Name .. " -> Playing")
 end
@@ -268,14 +246,7 @@ local function GameOver()
 
     Audio.PlaySFX("Audio/Collision.wav")
 
-    if ResultTitle then
-        ResultTitle:SetText("GAME OVER")
-    end
-    if ResultScore then
-        ResultScore:SetText("SCORE  " .. GameState.Score)
-    end
-    ShowUIForPhase(GamePhase.Dead)
-
+    UpdateHUD()
     print("Game Over!")
 end
 
@@ -289,14 +260,7 @@ local function GameClear()
 
     GameState.Phase = GamePhase.Clear
 
-    if ResultTitle then
-        ResultTitle:SetText("GAME CLEAR")
-    end
-    if ResultScore then
-        ResultScore:SetText("SCORE  " .. GameState.Score)
-    end
-    ShowUIForPhase(GamePhase.Clear)
-
+    UpdateHUD()
     print("Game Clear!")
 end
 
@@ -372,26 +336,20 @@ function BeginPlay(Self)
         end
     end
 
-    ScoreText = UTextRenderComponent.Cast(Actor:FindComponentByName("ScoreText"))
+    ScoreText = CreateHUDText("ScoreText")
+    HUDTitle, HUDDetail, HUDHint = CreateHUDText("HUDTitle"), CreateHUDText("HUDDetail"), CreateHUDText("HUDHint")
+    -- ATextRenderActor 생성자가 만든 기본 텍스트가 씬의 ScoreText와 중복된다.
+    local DefaultText = UTextRenderComponent.Cast(Actor:FindComponentByName("TextRenderComponent"))
+    if DefaultText then DefaultText:SetVisibility(false) end
     Camera = Actor:GetWorld():GetPlayerCamera()
     if Camera then GameplayCameraLocation, GameplayCameraRotation = Camera:GetWorldLocation(), Camera:GetWorldRotation() end
 
-    if not ScoreText then
-        ScoreText = CreateUIText("ScoreText", "000", 0.42)
-    else
-        ScoreText:SetText("000")
-        ScoreText:SetTextSize(0.42)
+    if ScoreText then
+        ScoreText:SetText("")
         ScoreText:SetVisibility(false)
+    else
+        print("[GameManager] ScoreText not found in scene")
     end
-
-    ScoreLabel = CreateUIText("ScoreLabel", "SCORE", 0.19)
-    SelectionTitle = CreateUIText("SelectionTitle", "CHOOSE YOUR CHARACTER", 0.31)
-    SelectionName = CreateUIText("SelectionName", "", 0.47)
-    SelectionCount = CreateUIText("SelectionCount", "", 0.22)
-    SelectionHint = CreateUIText("SelectionHint", "LEFT / RIGHT : SELECT\nENTER : PLAY", 0.18)
-    ResultTitle = CreateUIText("ResultTitle", "", 0.56)
-    ResultScore = CreateUIText("ResultScore", "", 0.32)
-    ResultHint = CreateUIText("ResultHint", "PRESS R TO RETRY", 0.21)
 
     if not Audio.PlayBGM("Audio/CrossyBGM.wav") then
         print("[GameManager] Failed to start BGM")
@@ -403,11 +361,12 @@ function BeginPlay(Self)
     GameState.GameOverRequested, GameState.ClearRequested = false, false
     CreateCharacterPreviews()
     if Camera and GameplayCameraLocation then
+        Camera:SetIsOrthogonal(true)
+        Camera:SetOrthoWidth(12.0)
         Camera:SetWorldLocation(GetSelectionCameraLocation(), false)
         Camera:SetWorldRotation(GameplayCameraRotation, false)
     end
-    ShowUIForPhase(GamePhase.Selecting)
-    UpdateUIPosition()
+    UpdateHUD()
 end
 
 function TickComponent(Self, DeltaSeconds)
@@ -424,10 +383,9 @@ function TickComponent(Self, DeltaSeconds)
             local Current, Target = Camera:GetWorldLocation(), GetSelectionCameraLocation()
             Camera:SetWorldLocation(Current + (Target - Current) * math.min(1, DeltaSeconds * CameraMoveSpeed), false)
         end
-        UpdateUIPosition()
+        UpdateHUD()
         return
     end
-    UpdateUIPosition()
 
     -- K키로 게임 오버 테스트
     if GameState.Phase == GamePhase.Playing and Input.IsKeyPressed(EKeyCode.K) then
@@ -460,16 +418,14 @@ function TickComponent(Self, DeltaSeconds)
         end
 
         -- 가장 멀리 전진한 행을 점수로 사용
-        if Row > GameState.MaxRow then
-            GameState.MaxRow = Row
-            GameState.Score = Row
-
-            if ScoreText then
-                ScoreText:SetText(string.format("%03d", GameState.Score))
-            end
-
-            print("Score: " .. GameState.Score)
+        -- 최대 전진 행으로 점수를 관리한다. 무한 맵이 제공하는 행도 반영한다.
+        local LevelRow = Level and Level.IsEndless and Level.HighestRow or 0
+        local NewScore = math.max(GameState.Score or 0, GameState.MaxRow or 0, Row, LevelRow or 0)
+        if NewScore > (GameState.Score or 0) then
+            print("Score: " .. NewScore)
         end
+        GameState.MaxRow = NewScore
+        GameState.Score = NewScore
 
         -- 마지막 행에 도달하면 클리어 요청
         if not (Level and Level.IsEndless) and Row >= GoalRow then
@@ -482,6 +438,9 @@ function TickComponent(Self, DeltaSeconds)
         GameState.ClearRequested = false
         GameClear()
     end
+
+    -- 외부 LevelManager가 점수를 변경하더라도 표시를 매 프레임 동기화한다.
+    UpdateHUD()
 end
 
 function EndPlay(Self)
