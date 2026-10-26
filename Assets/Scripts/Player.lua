@@ -137,6 +137,7 @@ function TickComponent(Component, DeltaSeconds)
             JumpDirection = MoveDirection
             JumpElapsed = 0.0
             bIsJumping = true
+            Audio.PlaySFX("Audio/Move.wav")
 
             if MeshComponent ~= nil then
                 local Yaw = GetYawFromDirection(MoveDirection)

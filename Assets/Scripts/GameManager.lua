@@ -89,8 +89,11 @@ local function OnPlayerOverlap(OtherComponent)
         return
     end
 
-    if OtherComponent:GetName() == "CarHitbox" then
+    if OtherComponent:GetName() == "CarHitbox"
+        and not GameState.GameOverRequested then
+
         GameState.GameOverRequested = true
+        Audio.PlaySFX("Audio/Collision.wav")
     end
 end
 
