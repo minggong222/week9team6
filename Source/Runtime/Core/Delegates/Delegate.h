@@ -68,7 +68,9 @@ public:
 
 	void Broadcast(Args... args)
 	{
-		for (const FHandlerEntry& Entry : Handlers)
+		// 콜백 안에서 등록을 변경해도 순회 중인 목록이 무효화되지 않도록 복사합니다.
+		const auto Snapshot = Handlers;
+		for (const FHandlerEntry& Entry : Snapshot)
 		{
 			Entry.Callback(args...);
 		}
