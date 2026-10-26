@@ -78,6 +78,8 @@ end
 -- 진행 중인 점프를 취소하고 메시 위치를 복원한다.
 local function ResetJump(MeshComponent)
     bIsJumping, bIsReturning = false, false
+    local State = _G.CrossyGameState
+    if State then State.PlayerIsJumping = false end
     JumpElapsed, ReturnElapsed, CurrentJumpHeight = 0.0, 0.0, 0.0
     JumpDirection = FVector.new(0.0, 0.0, 0.0)
 
@@ -209,6 +211,7 @@ function TickComponent(Component, DeltaSeconds)
             JumpDirection = MoveDirection
             JumpElapsed = 0.0
             bIsJumping = true
+            State.PlayerIsJumping = true
             Audio.PlaySFX("Audio/Move.wav")
 
             if MeshComponent ~= nil then
