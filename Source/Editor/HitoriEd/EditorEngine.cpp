@@ -263,6 +263,7 @@ bool UEditorEngine::Init()
 	EditorControlsPanel->SetGizmo(Gizmo.get());
 	EditorControlsPanel->SetViewportsPanel(ViewportsPanel);
 
+	SettingsPanel->SetEditorWorld(EditorWorld);
 	SettingsPanel->SetWorld(EditorWorld);
 	SettingsPanel->SetViewportsPanel(ViewportsPanel);
 	ViewportsPanel->SetLayoutMode(ViewportLayoutMode, SingleViewportIndex);

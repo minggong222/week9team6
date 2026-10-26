@@ -8,6 +8,7 @@ class APawn : public AActor
 {
 	DECLARE_CLASS(APawn, AActor)
 	REFLECT_START(ClassName)
+		PROPERTY(bAutoPossessPlayer)
 	REFLECT_END()
 public:
 	APawn();
@@ -17,6 +18,10 @@ public:
 	void PossessedBy(APlayerController* NewController) { Controller = NewController; }
 	void UnPossessed() { Controller = nullptr; }
 	APlayerController* GetController() const { return Controller; }
+	bool GetAutoPossessPlayer() const { return bAutoPossessPlayer; }
+
+	void SetAutoPossessPlayer(bool bValue) { bAutoPossessPlayer = bValue; }
 private:
 	APlayerController* Controller = nullptr;
+	bool bAutoPossessPlayer = false;
 };

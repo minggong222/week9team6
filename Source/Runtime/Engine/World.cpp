@@ -987,20 +987,39 @@ void UWorld::ProcessPendingStarts()
 void UWorld::BeginPlay()
 {
 	if (WorldType != EWorldType::PIE && WorldType != EWorldType::Game || bBegunPlay || bIsEndingPlay || bIsClearingWorld) return;
+	PlayerPawn = nullptr;
+
+	int32 AutoPossessPawnCount = 0;
+
+	for (AActor* Actor : PersistentLevel->GetActors())
+	{
+		APawn* Pawn = Cast<APawn>(Actor);
+
+		if (!Pawn || !Pawn->GetAutoPossessPlayer())
+			continue;
+
+		// 처음 발견한 선택 Pawn을 사용한다.
+		if (!PlayerPawn)
+			PlayerPawn = Pawn;
+
+		++AutoPossessPawnCount;
+	}
+
+	if (AutoPossessPawnCount > 1)
+	{
+		HTR_LOG(Warning, "Multiple Pawns are marked for player possession. Using the first one.");
+	}
+
 	if (!PlayerPawn)
 	{
-		for (AActor* Actor : PersistentLevel->GetActors())
-		{
-			if (APawn* Pawn = Cast<APawn>(Actor)) { PlayerPawn = Pawn; break; }
-		}
+		HTR_LOG(Warning, "No Player Pawn is selected. No Pawn will receive player input.");
 	}
-	if (!PlayerPawn)
-	{
-		FTransform Transform = MainCamera ? MainCamera->GetActorTransform() : FTransform::Identity;
-		PlayerPawn = SpawnActor<ADefaultPawn>(NAME_None, &Transform);
-	}
-	if (!PlayerController) PlayerController = SpawnActor<APlayerController>();
-	if (PlayerController && PlayerPawn) PlayerController->Possess(PlayerPawn);
+
+	if (!PlayerController)
+		PlayerController = SpawnActor<APlayerController>();
+
+	if (PlayerController)
+		PlayerController->Possess(PlayerPawn);
 
 	// 기존 액터 목록을 고정한 후 시작한다. BeginPlay 중 생성된 액터는 대기열로 간다.
 
