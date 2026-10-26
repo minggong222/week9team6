@@ -14,6 +14,16 @@ function VectorMethods:GetSafeNormal()
     return Vector(self.X / Length, self.Y / Length, self.Z / Length)
 end
 local AssetBounds = {}
+local function Rotation(Pitch, Yaw, Roll)
+    local R = { Pitch = Pitch, Yaw = Yaw, Roll = Roll }
+    function R:Quaternion()
+        local P, Y = math.rad(self.Pitch), math.rad(self.Yaw)
+        return { GetForwardVector = function() return Vector(math.cos(P) * math.cos(Y), math.cos(P) * math.sin(Y), -math.sin(P)) end,
+            GetRightVector = function() return Vector(-math.sin(Y), math.cos(Y), 0) end,
+            GetUpVector = function() return Vector(math.sin(P) * math.cos(Y), math.sin(P) * math.sin(Y), math.cos(P)) end }
+    end
+    return R
+end
 local function ReadBounds(Path)
     if AssetBounds[Path] then return AssetBounds[Path] end
     local Min, Max = Vector(math.huge, math.huge, math.huge), Vector(-math.huge, -math.huge, -math.huge)
@@ -65,6 +75,18 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
         function C:SetCollisionObjectType(V) self.ObjectType = V end
         function C:SetCollisionResponseToAllChannels(V) self.DefaultResponse, self.Responses = V, {} end
         function C:SetCollisionResponseToChannel(K, V) self.Responses[K] = V end
+        function C:SetLightColor(V) self.LightColor = V end
+        function C:SetIntensity(V) self.Intensity = V end
+        function C:SetAttenuationRadius(V) self.Radius = V end
+        function C:SetCastShadows(V) self.CastShadows = V end
+        function C:GetName() return self.Name or "" end
+        function C:SetCastShadow(V) self.CastShadow = V end
+        function C:GetAspectRatio() return 16 / 9 end
+        function C:GetIsOrthogonal() return self.Orthogonal or false end
+        function C:SetIsOrthogonal(V) self.Orthogonal = V end
+        function C:GetOrthoWidth() return self.OrthoWidth or 12 end
+        function C:SetOrthoWidth(V) self.OrthoWidth = V end
+        function C:GetFieldOfView() return 60 end
         function C:CalcBounds()
             if self.Extent then
                 local P, S = self:GetWorldLocation(), self:GetWorldScale3D()
@@ -122,17 +144,18 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
     function World:GetPlayerPawn() return Player end
     local Camera = Component(false)
     Camera.Position = Vector(-8, 0, 10)
-    Camera.Rotation.Quaternion = function() return { GetForwardVector = function() return Vector(1, 0, 0) end,
-        GetUpVector = function() return Vector(0, 0, 1) end } end
+    Camera.Rotation = Rotation(40, 0, 0)
     function World:GetPlayerCamera() return Camera end
     local Base = setmetatable({ _G = Shared, print = function() end }, { __index = _G })
-    Base.FVector, Base.FRotator = { new = Vector }, { new = function(P, Y, R) return { Pitch = P, Yaw = Y, Roll = R } end }
+    Base.FVector, Base.FRotator = { new = Vector }, { new = Rotation }
     Base.FTransform, Base.UClass = { new = function() return {} end }, { Find = function(N) return N end }
     Base.USceneComponent = { Cast = function(C) return C and not C.LuaKind and C or nil end }
     Base.UStaticMeshComponent = { Cast = function(C) return C and C.MeshKind and C or nil end }
     Base.ULuaComponent = { Cast = function(C) return C and C.LuaKind and C or nil end, StaticClass = function() return true end }
     Base.UPrimitiveComponent = { Cast = function() return nil end }
     Base.UBoxComponent = { Cast = function(C) return C and C.BoxKind and C or nil end }
+    Base.UPointLightComponent = { Cast = function(C) return C and C.LightKind and C or nil end }
+    Base.FColor = { new = function(R, G, B, A) return { R = R, G = G, B = B, A = A } end }
     Base.ECollisionEnabled = { NoCollision = "NoCollision", QueryOnly = "QueryOnly" }
     Base.ECollisionChannel = { Pawn = "Pawn", WorldStatic = "WorldStatic" }
     Base.ECollisionResponse = { Ignore = "Ignore", Block = "Block" }
@@ -185,18 +208,36 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
             for Tree = 1, 5 do Components["MapTree_" .. Index .. "_" .. Tree] = Component(false) end
         end
         for _, Name in ipairs({ "MapBackdrop", "MapBoundaryLeft", "MapBoundaryRight" }) do Components[Name] = Component(false) end
+        -- An old editor preview that is outside the current signal layout must be hidden at startup.
+        local Name = "RailSignal_1_99"
+        local OldMesh, OldLight = Component(true), Component(false)
+        OldMesh.Name, OldMesh.Visible = Name, true
+        OldLight.Name, OldLight.LightKind, OldLight.Intensity, OldLight.Visible = Name .. "_Light", true, 6, true
+        Components[Name], Components[Name .. "_Light"] = OldMesh, OldLight
     end
     local LevelActor = { GetWorld = function() return World end, GetActorLocation = function() return Vector() end,
         FindComponentByName = function(_, Name) return Components[Name] end }
+    local LevelRoot = Component(false)
+    function LevelActor:GetRootComponent() return LevelRoot end
+    function LevelActor:GetComponents()
+        local List = {}; for _, C in pairs(Components) do List[#List + 1] = C end
+        return List
+    end
     function LevelActor:SetActorEnableCollision(V) World.LevelCollision = V end
     function LevelActor:AddComponent(Class, Name)
-        assert(Class == "UBoxComponent")
-        local C = Component(false); C.BoxKind = true; Components[Name] = C
-        World.TreeShapes[#World.TreeShapes + 1] = C
+        assert(Class == "UBoxComponent" or Class == "UStaticMeshComponent" or Class == "UPointLightComponent")
+        local C = Component(Class == "UStaticMeshComponent")
+        C.BoxKind, C.LightKind = Class == "UBoxComponent", Class == "UPointLightComponent"
+        C.Name = Name
+        Components[Name] = C
+        if C.BoxKind then World.TreeShapes[#World.TreeShapes + 1] = C end
         return C
     end
-    local HUD = { TextKind = true, SetText = function(Self, T) Self.Text = T end, SetTextSize = function() end,
-        SetVisibility = function(Self, V) Self.Visible = V end, SetWorldLocation = function() end, SetWorldRotation = function() end }
+    local HUD = Component(false)
+    HUD.TextKind = true
+    function HUD:SetText(T) self.Text = T end
+    function HUD:GetText() return self.Text end
+    function HUD:SetTextSize(V) self.TextSize = V end
     local UI = { ScoreText = HUD }
     local GameActor = { GetWorld = function() return World end, FindComponentByName = function(_, N) return UI[N] end }
     function GameActor:AddComponent(Class, Name)
@@ -233,6 +274,12 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
         for _, Car in ipairs(Cars) do assert(Car.Destroyed) end
         for _, Preview in ipairs(Previews) do assert(Preview.Destroyed) end
         for _, Shape in ipairs(World.TreeShapes) do assert(Shape.Enabled == "NoCollision") end
+        for Name, C in pairs(Components) do
+            if Name:find("^RailSignal_") then
+                assert(C.Visible == false, "Rail signal remained visible after EndPlay")
+                if C.LightKind then assert(C.Intensity == 0) end
+            end
+        end
         assert(not Shared.CrossyLevel and not Shared.CrossyGameState)
     end
     if WithGameManager and not KeepSelecting then
@@ -244,6 +291,13 @@ end
 
 -- 실제 메시 경계로 초기 배치와 반복 스폰의 차량 간 여유 거리를 확인합니다.
 local Traffic = Setup(true, true, false)
+local VehicleLengths = {}
+for _, Car in ipairs(Traffic.Cars) do
+    local B = ReadBounds(Car.Mesh.Asset)
+    VehicleLengths[Car.Mesh.Asset:match("([^/]+)%.obj$")] = (B.Max.X - B.Min.X) * Car.Mesh.Scale.X
+end
+assert(VehicleLengths.firetruck > VehicleLengths.sedan * 1.25 and VehicleLengths["garbage-truck"] > VehicleLengths.sedan * 1.25,
+    "Long trucks are absent or lost their original proportions")
 local function CheckCarSpacing()
     local Lanes = {}
     for _, Car in ipairs(Traffic.Cars) do
@@ -272,6 +326,53 @@ end
 Traffic:Finish()
 print("PASS traffic spacing: initial placement, repeated spawning, both directions, frame delays and three maps")
 
+local Warning = Setup(true, true, false, true)
+local WarningLevel = Warning.Shared.CrossyLevel
+local RailIndex = next(WarningLevel.RailLanes); assert(RailIndex)
+local RailSlot = RailIndex + 11
+local function Lane() return WarningLevel.RailLanes[RailIndex] end
+local Signal = Warning.Components["RailSignal_" .. RailSlot .. "_1"]
+local Light = Warning.Components["RailSignal_" .. RailSlot .. "_1_Light"]
+assert(Signal and Signal.Visible and Light.Intensity == 0 and not Light.Visible and not Light.CastShadows)
+assert(Light.LightColor.R == 255 and Light.LightColor.G == 24)
+for I = 1, 5 do
+    local M = Warning.Components["RailSignal_" .. RailSlot .. "_" .. I]
+    assert(M and M.Position.Y == (I - 3) * 12 + 1.5 and math.abs(M.Position.X - (RailIndex * 3 - 1.4)) < 0.0001)
+end
+assert(not Warning.Components.RailSignal_1_99.Visible and Warning.Components.RailSignal_1_99_Light.Intensity == 0)
+local InitialWait = Lane().SecondsUntilSpawn
+Warning.LevelScript:Invoke("TickComponent", Warning.LevelScript, 1)
+assert(Lane().SecondsUntilSpawn == InitialWait and Light.Intensity == 0, "Selection advanced the train warning clock")
+Warning.Keys.Enter = true; Warning:Tick(0); Warning.Keys.Enter = nil
+assert(InitialWait >= 2, "First train skipped the full warning interval")
+Warning.LevelScript:Invoke("TickComponent", Warning.LevelScript, InitialWait - 2 + 0.01)
+assert(Lane().Warning and not Lane().TrainActive and Lane().SignalOn and Light.Intensity > 0)
+assert(Signal.Asset:find("signal%-on.obj"))
+Warning.LevelScript:Invoke("TickComponent", Warning.LevelScript, 0.25)
+assert(Lane().Warning and not Lane().TrainActive and not Lane().SignalOn and Light.Intensity == 0)
+assert(Signal.Asset:find("signal%-off.obj"))
+Warning.LevelScript:Invoke("TickComponent", Warning.LevelScript, 0.25)
+assert(Lane().SignalOn and Light.Intensity > 0)
+Warning.LevelScript:Invoke("TickComponent", Warning.LevelScript, Lane().SecondsUntilSpawn + 0.01)
+assert(Lane().TrainActive and Lane().Warning and Lane().SecondsUntilSpawn == 0)
+Warning.LevelScript:Invoke("TickComponent", Warning.LevelScript, 10)
+assert(not Lane().TrainActive and not Lane().Warning and Light.Intensity == 0 and Signal.Visible)
+assert(Lane().SecondsUntilSpawn >= 3 and Lane().SecondsUntilSpawn <= 6)
+Warning.LevelScript:Invoke("TickComponent", Warning.LevelScript, Lane().SecondsUntilSpawn - 2 - 0.05)
+assert(not Lane().Warning and Light.Intensity == 0)
+Warning.LevelScript:Invoke("TickComponent", Warning.LevelScript, 0.06)
+assert(Lane().Warning and Light.Intensity > 0, "Repeated train did not warn before spawning")
+Warning.Root.Position.X = (RailIndex + 11) * 3
+Warning.LevelScript:Invoke("TickComponent", Warning.LevelScript, 0)
+for Name, C in pairs(Warning.Components) do
+    if Name:find("^RailSignal_%d+_%d+$") and C.Visible then
+        local Index = math.floor((C.Position.X + 1.4) / 3 + 0.5)
+        assert(WarningLevel.RailLanes[Index], "Recycled signal remained on a non-rail row")
+    end
+end
+Warning:Restart(); Warning:Finish()
+print("PASS long trucks and rail signals: spacing, 2s warning, 0.25s blinking, red lights, full passage, repeated warning, selection freeze and recycled-slot cleanup")
+
 for _, GameFirst in ipairs({ false, true }) do
     local T = Setup(true, true, GameFirst)
     local S, Level = T.Shared.CrossyGameState, T.Shared.CrossyLevel
@@ -294,7 +395,7 @@ for _, GameFirst in ipairs({ false, true }) do
     assert(Models.bullet and Models.city and Models.freight and #T.Cars == 100)
     T.Root.Position.X = (500 - 6) * 3; T:Tick(0); assert(S.Phase == "Playing")
     T.Root.Position.X = T.Root.Position.X - 0.1; T:Tick(0)
-    assert(S.Phase == "Dead" and T.UI.ResultTitle.Text == "GAME OVER" and T.Sounds["Audio/Collision.wav"] == 1)
+    assert(S.Phase == "Dead" and T.UI.HUDTitle.Text == "GAME OVER" and T.Sounds["Audio/Collision.wav"] == 1)
     assert(math.abs(T.Mesh.Scale.Z - T.StartScaleZ * 0.25) < 0.0001)
     T:Restart(); assert(S.Phase == "Playing" and S.Score == 0 and Level.HighestRow == 0 and T.Root.Position.X == 0)
     assert(math.abs(T.Mesh.Scale.Z - T.StartScaleZ) < 0.0001 and #T.Cars == 100)
@@ -309,7 +410,7 @@ for _, GameFirst in ipairs({ false, true }) do
     for _, C in ipairs(T.Cars) do if C.Script:Invoke("IsActive") then Car = C; break end end
     assert(Car); T.Root.Position = Car:GetActorLocation(); T.World.CollisionsEnabled = true
     Car.Script:Invoke("TickComponent", Car.Script, 0)
-    assert(S.Phase == "Dead" and T.UI.ResultTitle.Text == "GAME OVER")
+    assert(S.Phase == "Dead" and T.UI.HUDTitle.Text == "GAME OVER")
     T.World.CollisionsEnabled = false; T:Restart()
     -- Kill in the middle of a jump; no remaining interpolation may move the pawn.
     T.Keys.W = true; T.PlayerScript:Invoke("TickComponent", T.PlayerScript, 0.04)
@@ -332,7 +433,7 @@ local Select = Setup(true, true, false, true)
 local State = Select.Shared.CrossyGameState
 local CharacterCount = #Select.Previews
 local InitialPreviewY = -(CharacterCount - 1) * 5 / 2
-assert(State.Phase == "SelectingCharacter" and CharacterCount >= 24 and not Select.HUD.Visible)
+assert(State.Phase == "SelectingCharacter" and CharacterCount >= 24 and Select.HUD.Visible and Select.HUD.Text:find("BEAVER"))
 assert(Select.Camera.Position.X == -208 and State.PreviewCharacter == "Beaver")
 local CarPositions = {}
 for I, Car in ipairs(Select.Cars) do CarPositions[I] = Car:GetActorLocation() end
@@ -349,7 +450,8 @@ for _, Preview in ipairs(Select.Previews) do
 end
 Select.Keys.Space = true; Select:Tick(0); Select.Keys.Space = nil
 assert(State.Phase == "Playing" and State.SelectedCharacter == LastCharacter and Select.HUD.Visible)
-assert(Select.Mesh.Asset == "Models/OBJ format/animal-" .. LastCharacter:lower() .. ".obj" and Select.Camera.Position.X == -8 and Select.Camera.Position.Y == 0)
+assert(Select.Mesh.Asset == "Models/OBJ format/animal-" .. LastCharacter:lower() .. ".obj" and Select.Camera.Orthogonal
+    and Select.Camera.OrthoWidth == 36 and Select.Camera.Rotation.Yaw == -35)
 for _, Preview in ipairs(Select.Previews) do assert(Preview.Root.Visible == false) end
 local B, ScaleZ = Select.Mesh:CalcBounds(), Select.Mesh.Scale.Z
 assert(math.abs(math.max(B.Max.X - B.Min.X, B.Max.Y - B.Min.Y) - 2) < 0.0001 and math.abs(B.Min.Z) < 0.0001)

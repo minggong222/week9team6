@@ -1,0 +1,12 @@
+newmtl colormap
+Kd 1 1 1
+map_Kd Textures/colormap.png
+
+newmtl RedOn
+Kd 1 0.035 0.015
+
+newmtl RedOff
+Kd 0.07 0.012 0.012
+
+newmtl DarkLens
+Kd 0.035 0.035 0.04

@@ -13,7 +13,7 @@ catch (e) { if (e.code !== 'ENOENT') throw e; }
 // Read the editor preview settings from the same Lua constants used at runtime.
 const settings = await readFile(root + 'Assets/Scripts/LevelManager.lua', 'utf8');
 function numberSetting(name) {
-    const match = settings.match(new RegExp('^local ' + name + ' = ([0-9.]+)', 'm'));
+    const match = settings.match(new RegExp('^local ' + name + ' = (-?[0-9.]+)', 'm'));
     if (!match) throw new Error('Missing numeric map setting: ' + name);
     return Number(match[1]);
 }
@@ -22,6 +22,7 @@ const initialSeed = numberSetting('InitialSeed');
 const halfWidth = numberSetting('MapPlayerHalfWidth'), boundaryWidth = numberSetting('MapBoundaryWidth');
 const roadChance = numberSetting('MapRoadChance'), treesPerRow = numberSetting('TreesPerRow');
 const railChance = numberSetting('MapRailChance');
+const signalSpacing = numberSetting('MapRailSignalSpacing'), signalOffsetX = numberSetting('MapRailSignalOffsetX');
 const trainTypeText = settings.match(/^local MapTrainTypes = \{([\s\S]*?)^\}/m)?.[1];
 const trainPaths = [...(trainTypeText ?? '').matchAll(/Path = "([^"]+)"/g)].map(m => m[1]);
 if (!trainPaths.length) throw new Error('Missing MapTrainTypes.');
@@ -29,8 +30,8 @@ const weightText = settings.match(/^local MapTreeCountWeights = \{([^}]+)\}/m)?.
 if (!weightText) throw new Error('Missing MapTreeCountWeights.');
 const treeWeights = weightText.replace(/--[^\r\n]*/g, '').split(',').filter(v => v.trim()).map(Number);
 const totalTreeWeight = treeWeights.reduce((sum, weight) => sum + weight, 0);
-if (!(roadChance >= 0 && railChance >= 0 && roadChance + railChance <= 1) || !(halfWidth >= grid && halfWidth <= 33) || !(boundaryWidth > 0))
-    throw new Error('Invalid map width or road probability.');
+if (!(roadChance >= 0 && railChance >= 0 && roadChance + railChance <= 1) || !(halfWidth >= grid && halfWidth <= 33) || !(boundaryWidth > 0) || !(signalSpacing > 0))
+    throw new Error('Invalid map width, road probability or signal spacing.');
 if (treeWeights.length > treesPerRow + 1 || !treeWeights.every(v => Number.isFinite(v) && v >= 0) || !(totalTreeWeight > 0))
     throw new Error('Invalid tree count weights.');
 const poolCount = behind + ahead + 1;
@@ -75,6 +76,8 @@ const grass = meshTemplate('kenney-grass-row');
 const road = meshTemplate('kenney-road-row');
 const rail = structuredClone(grass);
 rail.Properties.StaticMesh = 'Models/Crossy/Trains/crossy-rail-row.obj';
+const signalTemplate = structuredClone(grass);
+signalTemplate.Properties.StaticMesh = 'Models/Crossy/Signals/crossy-rail-signal-off.obj';
 const trains = trainPaths.map(path => {
     const template = structuredClone(grass);
     template.Properties.StaticMesh = path;
@@ -129,6 +132,18 @@ for (let slot = 1; slot <= poolCount; slot++) {
     const trainComponent = meshComponent(train, 'MapTrain_' + slot, 'DefaultSceneRoot', transform(index * grid, -16));
     trainComponent.Properties.bVisible = kind === 'rail';
     components.push(trainComponent);
+    if (kind === 'rail') {
+        const halfSignals = Math.floor(halfWidth / signalSpacing);
+        for (let i = 1; i <= halfSignals * 2 + 1; i++) {
+            const name = 'RailSignal_' + slot + '_' + i;
+            components.push(meshComponent(signalTemplate, name, 'DefaultSceneRoot',
+                transform(index * grid + signalOffsetX, (i - halfSignals - 1) * signalSpacing + grid / 2, 0, 270)));
+            components.push({ Class: 'UPointLightComponent', Name: name + '_Light', Parent: name,
+                Properties: { Transform: transform(0, -0.24, 2.23), Intensity: 0,
+                    AttenuationRadius: 2.5, LightColor: 4278982911, bCastShadows: false,
+                    bVisible: false, bHiddenInGame: false, bAutoActivate: true } });
+        }
+    }
     const placements = [];
     if (kind === 'grass' && index >= 3) {
         const halfColumns = Math.floor(halfWidth / grid), routeLimit = Math.max(0, halfColumns - 2);

@@ -17913,6 +17913,726 @@
                                 "bVisible": true,
                                 "bHiddenInGame": false
                             }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_16_1",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 13.6,
+                                        "Y": -22.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_16_1_Light",
+                            "Parent": "RailSignal_16_1",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_16_2",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 13.6,
+                                        "Y": -10.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_16_2_Light",
+                            "Parent": "RailSignal_16_2",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_16_3",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 13.6,
+                                        "Y": 1.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_16_3_Light",
+                            "Parent": "RailSignal_16_3",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_16_4",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 13.6,
+                                        "Y": 13.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_16_4_Light",
+                            "Parent": "RailSignal_16_4",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_16_5",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 13.6,
+                                        "Y": 25.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_16_5_Light",
+                            "Parent": "RailSignal_16_5",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_32_1",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 61.6,
+                                        "Y": -22.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_32_1_Light",
+                            "Parent": "RailSignal_32_1",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_32_2",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 61.6,
+                                        "Y": -10.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_32_2_Light",
+                            "Parent": "RailSignal_32_2",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_32_3",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 61.6,
+                                        "Y": 1.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_32_3_Light",
+                            "Parent": "RailSignal_32_3",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_32_4",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 61.6,
+                                        "Y": 13.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_32_4_Light",
+                            "Parent": "RailSignal_32_4",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "Collision": {
+                                "Enabled": 1,
+                                "ObjectType": 1,
+                                "Pawn": 2,
+                                "Projectile": 2,
+                                "WorldDynamic": 2,
+                                "WorldStatic": 2
+                            },
+                            "Name": "RailSignal_32_5",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "StaticMesh": "Models/Crossy/Signals/crossy-rail-signal-off.obj",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 61.6,
+                                        "Y": 25.5,
+                                        "Z": 0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 270,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": false,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UPointLightComponent",
+                            "Name": "RailSignal_32_5_Light",
+                            "Parent": "RailSignal_32_5",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0,
+                                        "Y": -0.24,
+                                        "Z": 2.23
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0,
+                                        "Yaw": 0,
+                                        "Roll": 0
+                                    },
+                                    "Scale": {
+                                        "X": 1,
+                                        "Y": 1,
+                                        "Z": 1
+                                    }
+                                },
+                                "Intensity": 0,
+                                "AttenuationRadius": 2.5,
+                                "LightColor": 4278982911,
+                                "bCastShadows": false,
+                                "bVisible": false,
+                                "bHiddenInGame": false,
+                                "bAutoActivate": true
+                            }
                         }
                     ]
                 }

@@ -30,13 +30,20 @@ local MaxSpeed = 20.0
 local CarList = {
     { Path = "Models/Crossy/Cars/taxi.obj", Weight = 1.0 },
     { Path = "Models/Crossy/Cars/sedan.obj", Weight = 1.0 },
-    { Path = "Models/Crossy/Cars/truck.obj", Weight = 1.0 }
+    { Path = "Models/Crossy/Cars/truck.obj", Weight = 1.0 },
+    { Path = "Models/Crossy/Cars/firetruck.obj", Weight = 1.0 },
+    { Path = "Models/Crossy/Cars/garbage-truck.obj", Weight = 1.0 }
 }
 
 -- 3. 기차 설정: 레일마다 3종 중 하나를 선택하고, 통과 후 다시 출발합니다.
 local MapTrainSpeed = 50.0
 local MapTrainWaitMin = 3.0
 local MapTrainWaitMax = 6.0
+local MapTrainWarningTime = 2.0 -- 열차 출발 전 경고 시간
+local MapTrainBlinkInterval = 0.25 -- 빨간불 켜짐/꺼짐 간격
+local MapRailSignalSpacing = 12.0 -- 레일을 따라 설치할 경고등 간격
+local MapRailSignalOffsetX = -1.4 -- 레일 앞쪽 가장자리
+local MapRailSignalIntensity = 6.0
 local MapTrainTypes = {
     { Name = "bullet", Path = "Models/Crossy/Trains/crossy-train-long.obj" },
     { Name = "city", Path = "Models/Crossy/Trains/crossy-train-city.obj" },
@@ -52,6 +59,7 @@ local HasMapPool, TrafficEnabled = false, false
 local HighestRow, LastRow, SafeColumn = 0, 0, 0
 local Seed, TerrainRandomState, TrafficRandomState, TrainRandomState = InitialSeed, InitialSeed, 1, 1
 local GrassMesh, RoadMesh, RailMesh = nil, nil, nil
+local SignalOffMesh, SignalOnMesh = nil, nil
 local LevelInfo = nil
 local ReusedRows, CarLimit = 0, RoadHalfWidth
 
@@ -213,10 +221,54 @@ local function UpdateRoadTraffic(DeltaSeconds)
     end
 end
 
--- 맵 회수: 해당 행의 차량 반환 -> 기차 숨김 -> 나무/바닥 숨김 -> 슬롯 해제.
+local function SetRailSignals(Row, Visible, On)
+    Row.SignalOn = Visible and On
+    for _, Signal in ipairs(Row.Signals or {}) do
+        Signal.Mesh:SetVisibility(Visible)
+        if Signal.On ~= Row.SignalOn then
+            Signal.Mesh:SetStaticMesh(Row.SignalOn and SignalOnMesh or SignalOffMesh)
+            Signal.On = Row.SignalOn
+        end
+        Signal.Light:SetVisibility(Row.SignalOn)
+        Signal.Light:SetIntensity(Row.SignalOn and MapRailSignalIntensity or 0)
+    end
+end
+
+local function PlaceRailSignals(Row)
+    Row.Signals = Row.Signals or {}
+    local HalfCount = math.floor(MapPlayerHalfWidth / MapRailSignalSpacing)
+    for Index = 1, HalfCount * 2 + 1 do
+        local Signal = Row.Signals[Index]
+        if not Signal then
+            local Name = "RailSignal_" .. Row.Slot .. "_" .. Index
+            local Mesh = UStaticMeshComponent.Cast(Actor:FindComponentByName(Name))
+                or UStaticMeshComponent.Cast(Actor:AddComponent(UClass.Find("UStaticMeshComponent"), Name))
+            local Light = UPointLightComponent.Cast(Actor:FindComponentByName(Name .. "_Light"))
+                or UPointLightComponent.Cast(Actor:AddComponent(UClass.Find("UPointLightComponent"), Name .. "_Light"))
+            assert(Mesh and Light, "Could not create rail signal")
+            Mesh:SetupAttachment(Actor:GetRootComponent())
+            Mesh:SetStaticMesh(SignalOffMesh)
+            Mesh:SetRelativeRotation(FRotator.new(0, 270, 0))
+            Light:SetupAttachment(Mesh)
+            Light:SetRelativeLocation(FVector.new(0, -0.24, 2.23))
+            Light:SetLightColor(FColor.new(255, 24, 12, 255))
+            Light:SetAttenuationRadius(2.5)
+            Light:SetCastShadows(false)
+            Signal = { Mesh = Mesh, Light = Light, On = false }
+            Row.Signals[Index] = Signal
+        end
+        Signal.Mesh:SetRelativeLocation(FVector.new(Row.Index * LaneSpacing + MapRailSignalOffsetX,
+            (Index - HalfCount - 1) * MapRailSignalSpacing + LaneSpacing / 2, 0))
+    end
+    SetRailSignals(Row, true, false)
+end
+
+-- 맵 회수: 해당 행의 차량 반환 -> 기차/경고등 숨김 -> 나무/바닥 숨김 -> 슬롯 해제.
 local function RecycleMapRow(Row)
     for Index = #Row.Cars, 1, -1 do Row.Cars[Index].Script:Invoke("Deactivate") end
     Row.Active, Row.TrainActive = false, false
+    Row.TrainWarning, Row.WarningElapsed = false, 0
+    SetRailSignals(Row, false, false)
     for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision) end
     if Row.Floor then
         Row.Floor:SetVisibility(false, true)
@@ -235,11 +287,13 @@ local function SpawnTrain(Row)
     local Bounds = Row.Train:CalcBounds()
     Row.TrainHalfLength = (Bounds.Max.Y - Bounds.Min.Y) / 2
     Row.Speed, Row.TrainActive = MapTrainSpeed, false
-    Row.TrainWait = 1 + TrafficRandom() * 3
+    Row.TrainWait = math.max(MapTrainWarningTime, 1 + TrafficRandom() * 3)
+    Row.WarningElapsed, Row.TrainWarning = 0, false
     local Sign = Row.Direction and 1 or -1
     Row.Train:SetRelativeRotation(FRotator.new(0, Row.Direction and 0 or 180, 0))
     Row.Train:SetRelativeLocation(FVector.new(Row.Index * LaneSpacing,
         -Sign * (RoadHalfWidth + Row.TrainHalfLength + LaneSpacing), 0))
+    PlaceRailSignals(Row)
 end
 
 -- 맵 생성: 종류 결정 -> 바닥 교체 -> 도로 차량/레일 기차/잔디 나무 배치.
@@ -324,10 +378,13 @@ local function UpdateTrains(DeltaSeconds)
             local Step = DeltaSeconds
             if not Row.TrainActive then
                 Row.TrainWait = Row.TrainWait - DeltaSeconds
+                Row.WarningElapsed = math.max(0, MapTrainWarningTime - Row.TrainWait)
                 if Row.TrainWait <= 0 then
                     Step, Row.TrainActive = -Row.TrainWait, true
                     Row.Train:SetVisibility(true, true)
                 end
+            else
+                Row.WarningElapsed = Row.WarningElapsed + DeltaSeconds
             end
             if Row.TrainActive then
                 local Sign = Row.Direction and 1 or -1
@@ -349,8 +406,18 @@ local function UpdateTrains(DeltaSeconds)
                     Row.Train:SetVisibility(false, true)
                     Position.Y = -Sign * Limit
                     Row.Train:SetRelativeLocation(Position)
-                    Row.TrainWait = MapTrainWaitMin + TrafficRandom() * (MapTrainWaitMax - MapTrainWaitMin)
+                    Row.TrainWait = math.max(MapTrainWarningTime,
+                        MapTrainWaitMin + TrafficRandom() * (MapTrainWaitMax - MapTrainWaitMin))
+                    Row.WarningElapsed = 0
                 else ActiveCount = ActiveCount + 1 end
+            end
+            Row.TrainWarning = Row.TrainActive or Row.TrainWait <= MapTrainWarningTime
+            local On = Row.TrainWarning and math.floor(Row.WarningElapsed / MapTrainBlinkInterval) % 2 == 0
+            SetRailSignals(Row, true, On)
+            local Lane = LevelInfo.RailLanes[Row.Index]
+            if Lane then
+                Lane.TrainActive, Lane.Warning, Lane.SignalOn = Row.TrainActive, Row.TrainWarning, Row.SignalOn
+                Lane.SecondsUntilSpawn = Row.TrainActive and 0 or math.max(0, Row.TrainWait)
             end
         end
     end
@@ -371,7 +438,9 @@ local function PublishLevelState()
                 local IsRail = Row.Kind == "rail"
                 local Lanes = IsRail and LevelInfo.RailLanes or LevelInfo.RoadLanes
                 Lanes[Row.Index] = { Index = Row.Index, X = Origin.X + Row.Index * LaneSpacing,
-                    Direction = Row.Direction, Speed = Row.Speed, TrainType = Row.TrainType and Row.TrainType.Name or nil }
+                    Direction = Row.Direction, Speed = Row.Speed, TrainType = Row.TrainType and Row.TrainType.Name or nil,
+                    TrainActive = Row.TrainActive, Warning = Row.TrainWarning, SignalOn = Row.SignalOn,
+                    SecondsUntilSpawn = Row.TrainActive and 0 or Row.TrainWait }
                 if IsRail then LevelInfo.RailRows = LevelInfo.RailRows + 1 else LevelInfo.RoadRows = LevelInfo.RoadRows + 1 end
             end
         end
@@ -429,9 +498,20 @@ local function CaptureMapPool()
         for _ = 1, #StaticRoadRows do Rows[#Rows + 1] = { Cars = {}, Active = false } end
         return
     end
+    -- 저장된 미리보기와 현재 확률/간격 설정이 달라도 이전 경고등이 남지 않게 합니다.
+    for _, Component in ipairs(Actor:GetComponents()) do
+        if Component:GetName():find("^RailSignal_") then
+            Component:SetVisibility(false)
+            local Light = UPointLightComponent.Cast(Component)
+            if Light then Light:SetIntensity(0) end
+        end
+    end
     GrassMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/kenney-grass-row.obj")
     RoadMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/kenney-road-row.obj")
     RailMesh = UAssetManager:GetAssetByPath("Models/Crossy/Trains/crossy-rail-row.obj")
+    SignalOffMesh = UAssetManager:GetAssetByPath("Models/Crossy/Signals/crossy-rail-signal-off.obj")
+    SignalOnMesh = UAssetManager:GetAssetByPath("Models/Crossy/Signals/crossy-rail-signal-on.obj")
+    assert(SignalOffMesh and SignalOnMesh, "Rail signal meshes are missing; restart the editor to import assets")
     assert(GrassMesh and RoadMesh and RailMesh, "Map row meshes are missing")
     for _, Type in ipairs(MapTrainTypes) do
         Type.Mesh = UAssetManager:GetAssetByPath(Type.Path)
@@ -441,7 +521,7 @@ local function CaptureMapPool()
         local Floor = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapFloor_" .. Slot))
         local Train = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapTrain_" .. Slot))
         assert(Floor and Train, "Map pool is incomplete; regenerate the scene")
-        local Row = { Floor = Floor, Train = Train, Trees = {}, TreeHitboxes = {}, Cars = {}, Active = false }
+        local Row = { Slot = Slot, Floor = Floor, Train = Train, Trees = {}, TreeHitboxes = {}, Cars = {}, Active = false }
         for Index = 1, TreesPerRow do
             local Tree = USceneComponent.Cast(Actor:FindComponentByName("MapTree_" .. Slot .. "_" .. Index))
             assert(Tree, "Missing tree slot")
@@ -478,6 +558,8 @@ function BeginPlay(Self)
     assert(DeathRowsBehind > 0 and DeathRowsBehind <= RowsBehind, "Death boundary must be inside the retained map")
     assert(MapRoadChance >= 0 and MapRailChance >= 0 and MapRoadChance + MapRailChance <= 1, "Invalid map probabilities")
     assert(MapTrainSpeed > 0 and MapTrainWaitMin >= 0 and MapTrainWaitMax >= MapTrainWaitMin, "Invalid train settings")
+    assert(MapTrainWarningTime > 0 and MapTrainBlinkInterval > 0 and MapRailSignalSpacing > 0
+        and MapRailSignalIntensity >= 0, "Invalid rail signal settings")
     assert(MapMinLaneSpeed > 0 and MapMaxLaneSpeed >= MapMinLaneSpeed, "Invalid road speed range")
     assert(MapPositiveYChance >= 0 and MapPositiveYChance <= 1, "Invalid direction probability")
     assert(MapPlayerHalfWidth >= LaneSpacing and MapPlayerHalfWidth <= 33 and MapBoundaryWidth > 0, "Invalid map width")
@@ -558,6 +640,7 @@ end
 
 function EndPlay(Self)
     for _, Row in ipairs(Rows) do
+        SetRailSignals(Row, false, false)
         for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision) end
     end
     PoolByActor, AvailableCars = {}, {}
