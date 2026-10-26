@@ -2,6 +2,7 @@
 
 #include <format>
 #include "Editor/EditorUI/EditorPanel.h"
+#include "Editor/EditorUI/ActorNameEdit.h"
 
 #include "Engine/World.h"
 
@@ -60,6 +61,7 @@ private:
 	ImFont* CustomFont = nullptr;
 
 	AActor* TargetActor = nullptr;
+	FActorNameEdit ActorNameEdit;
 	UActorComponent* TargetComponent = nullptr;
 	DetailsSelectionCallback Callback;
 	std::function<void(const FString&)> ScriptCreatedCallback;

@@ -22,6 +22,7 @@ class AActor : public UObject
 public:
 	AActor();
 	virtual ~AActor();
+	void SetName(const FName& InName) override;
 
 	virtual void BeginPlay(); // xx World->AddPrimitive 책임이동 필요
 	void DispatchBeginPlay();

@@ -718,6 +718,7 @@ bool UWorld::DestroyActor(AActor* Actor)
 		if (Level->Actors[i] == Actor)
 		{
 			Level->Actors.RemoveAt(i, 1);
+			Level->MarkActorListDirty();
 			break;
 		}
 	}
