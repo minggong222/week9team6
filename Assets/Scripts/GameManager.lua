@@ -83,6 +83,8 @@ local function GameClear()
 end
 
 local function Restart()
+    GameState.RestartCount = (GameState.RestartCount or 0) + 1
+
     -- 플레이어를 시작 위치로 복귀
     if Player and StartPosition then
         Player:GetRootComponent():SetWorldLocation(StartPosition, false)
@@ -179,9 +181,8 @@ function TickComponent(Self, DeltaSeconds)
         GameOver()
     end
 
-    -- 사망 또는 클리어 후 R키로 재시작
-    if (GameState.Phase == GamePhase.Dead or GameState.Phase == GamePhase.Clear)
-        and Input.IsKeyPressed(EKeyCode.R) then
+    -- 게임 진행 상태와 관계없이 R키로 재시작합니다.
+    if Input.IsKeyPressed(EKeyCode.R) then
         Restart()
     end
 

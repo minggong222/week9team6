@@ -2,10 +2,10 @@
 local PoolCount = 100
 local LaneSpacing = 3.0
 local RoadHalfWidth = 34.0
-local MinSpawnInterval = 1.5
-local MaxSpawnInterval = 5.0
-local MinSpeed = 2.0
-local MaxSpeed = 9.0
+local MinSpawnInterval = 0.25
+local MaxSpawnInterval = 2.5
+local MinSpeed = 8.0
+local MaxSpeed = 20.0
 
 local ActiveLane = {
     { Index = 1, Speed = 1.0, Direction = false },
@@ -45,6 +45,7 @@ local AvailableCars = {}
 local PoolByActor = {}
 local LevelManager = nil
 local bWasPlaying = false
+local LastRestartCount = 0
 
 local function GetSpawnInterval()
     return MinSpawnInterval + math.random() * (MaxSpawnInterval - MinSpawnInterval)
@@ -155,6 +156,8 @@ end
 
 function BeginPlay(Self)
     LevelManager = Self
+    local GameState = _G.CrossyGameState
+    LastRestartCount = GameState and GameState.RestartCount or 0
 
     for _, Lane in ipairs(ActiveLane) do
         Lane.Speed = MinSpeed + math.random() * (MaxSpeed - MinSpeed)
@@ -218,7 +221,8 @@ function TickComponent(Self, DeltaSeconds)
         end
     end
 
-    if bPlaying and not bWasPlaying then
+    local RestartCount = GameState.RestartCount or 0
+    if bPlaying and (not bWasPlaying or LastRestartCount ~= RestartCount) then
         for _, Entry in ipairs(Pool) do
             Entry.Script:Invoke("Deactivate")
         end
@@ -230,6 +234,7 @@ function TickComponent(Self, DeltaSeconds)
         -- 재시작 시에도 빈 도로에서 기다리지 않도록 다시 배치합니다.
         SpawnInitialTraffic()
         bWasPlaying = true
+        LastRestartCount = RestartCount
     end
 
     SpawnTraffic(DeltaSeconds)
