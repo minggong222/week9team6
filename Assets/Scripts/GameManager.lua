@@ -56,7 +56,8 @@ local CharacterOptions = {
     { Name = "Penguin", Path = "Models/OBJ format/animal-penguin.obj" },
     { Name = "Pig", Path = "Models/OBJ format/animal-pig.obj" },
     { Name = "Polar", Path = "Models/OBJ format/animal-polar.obj" },
-    { Name = "Tiger", Path = "Models/OBJ format/animal-tiger.obj" }
+    { Name = "Tiger", Path = "Models/OBJ format/animal-tiger.obj" },
+    { Name = "Hitori", Path = "Models/OBJ format/animal-hitori.obj" },
 }
 
 local SelectedCharacterIndex = 1
