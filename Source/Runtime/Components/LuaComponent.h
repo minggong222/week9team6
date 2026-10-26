@@ -2,6 +2,7 @@
 
 #include "ActorComponent.h"
 #include "Core/EngineString.h"
+#include "Containers/StringView.h"
 
 class FLuaManager;
 class FLuaInstance;
@@ -44,6 +45,9 @@ public:
     bool GetLoaded() const;
 
 private:
+    template<typename... Args>
+    bool InvokeLua(FStringView Name, Args... Arguments);
+
     // Assets 기준 상대 경로입니다. 예: Scripts/Test.lua
     FString ScriptPath;
 

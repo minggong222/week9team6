@@ -6,7 +6,7 @@ function BeginPlay(Self)
     Moving = false
     StartCoroutine(function()
         while true do
-            Wait(3)
+            Wait(1)
             Moving = true
             Wait(1)
             Moving = false

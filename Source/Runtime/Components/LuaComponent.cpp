@@ -114,6 +114,15 @@ void ULuaComponent::OnInstanceLoaded(FLuaInstance& Instance)
 	Instance.SetGlobalVariable("Actor", GetOwner());
 }
 
+template<typename... Args>
+bool ULuaComponent::InvokeLua(FStringView Name, Args... Arguments)
+{
+	if (!GetLoaded())
+		return false;
+
+	return Instance->Invoke(Name, Arguments...);
+}
+
 void ULuaComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
@@ -122,52 +131,29 @@ void ULuaComponent::InitializeComponent()
 	InitializeLua();
 	LoadLua();
 
-	if (GetLoaded())
-	{
-		Instance->Invoke("InitializeComponent", this);
-	}
+	InvokeLua("InitializeComponent", this);
 }
 
 void ULuaComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (!Instance)
-	{
-		return;
-	}
-
-	if (!GetLoaded())
-	{
-		return;
-	}
-
-	Instance->Invoke("BeginPlay", this);
+	InvokeLua("BeginPlay", this);
 }
 
 void ULuaComponent::TickComponent(float DeltaSeconds)
 {
 	Super::TickComponent(DeltaSeconds);
-
-	if (!GetLoaded())
-	{
-		return;
-	}
-
-	Instance->Invoke("TickComponent", this, DeltaSeconds);
+	InvokeLua("TickComponent", this, DeltaSeconds);
 }
 
 void ULuaComponent::EndPlay()
 {
 	Super::EndPlay();
 
-	if (!GetLoaded())
-	{
-		return;
-	}
+	InvokeLua("EndPlay", this);
 
-	Instance->Invoke("EndPlay", this);
-	InstanceManager->StopCoroutines(Instance);
+	if (InstanceManager && Instance)
+		InstanceManager->StopCoroutines(Instance);
 }
 
 bool ULuaComponent::GetInitialized() const
