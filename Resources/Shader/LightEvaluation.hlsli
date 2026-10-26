@@ -45,11 +45,6 @@ static const float2 PoissonDisk[POISSON_COUNT] =
     float2(-0.354359f, 0.686538f)
 };
 
-float InterleavedGradientNoise(float2 pixelPos)
-{
-    return frac(52.9829189f * frac(dot(pixelPos, float2(0.06711056f, 0.00583715f))));
-}
-
 float CalculateDistanceAttenuation(float DistanceSquared, float RadiusSquared)
 {
     if (RadiusSquared <= 0.0f || DistanceSquared >= RadiusSquared || DistanceSquared < EPSILON_1E_8)
@@ -95,14 +90,11 @@ float2 CalculateShadowDepthSlope(float3 N, float3 Coord, float CoordW, row_major
         ? float2(dot(Jz, XBasis), dot(Jz, YBasis)) / Determinant : 0.0f;
 }
 
-float PCF(uint SampleCount, FShadowCoordinates Coordinates, float3 PixelPosition, float3 P, float2 FilterRadius, float Bias, Texture2DArray Atlas, uint AtlasIndex, SamplerComparisonState ShadowSampler)
+float PCF(uint SampleCount, FShadowCoordinates Coordinates, float2 FilterRadius, float Bias, Texture2DArray Atlas, uint AtlasIndex, SamplerComparisonState ShadowSampler)
 {
     float Result = 1.0;
 
     SampleCount = min(SampleCount, POISSON_COUNT);
-
-    float S, C;
-    sincos(InterleavedGradientNoise(PixelPosition.xy) * TWO_PI_PRECISE, S, C);
 
     int ValidSample = 0;
     float Sum = 0.0;
@@ -110,8 +102,8 @@ float PCF(uint SampleCount, FShadowCoordinates Coordinates, float3 PixelPosition
     [loop]
     for (uint i = 0; i < SampleCount; i++)
     {
-        float2 Rotated = float2(C * PoissonDisk[i].x - S * PoissonDisk[i].y, S * PoissonDisk[i].x + C * PoissonDisk[i].y);
-        float2 Offset = Rotated * FilterRadius;
+        // 화면 좌표에 따라 회전시키지 않아 카메라가 움직여도 샘플 패턴을 유지한다.
+        float2 Offset = PoissonDisk[i] * FilterRadius;
         float2 UV = Coordinates.CenterUV + Offset;
 
         if (any(UV < Coordinates.MinUV) || any(UV > Coordinates.MaxUV))
@@ -209,7 +201,7 @@ float CalculateShadowDepthBias(FShadowCoordinates Coordinates, FLightShadowRende
     return ConstantBias + SlopeBias;
 }
 
-bool FindAverageBlockerDepth(float3 PixelPosition, FShadowCoordinates Coordinates, float2 SearchRadiusUV, float DepthBias, FLightShadowRenderData Shadow, bool bPerspective, Texture2DArray Atlas, SamplerState PointSampler, out float AverageBlockerDepth)
+bool FindAverageBlockerDepth(FShadowCoordinates Coordinates, float2 SearchRadiusUV, float DepthBias, FLightShadowRenderData Shadow, bool bPerspective, Texture2DArray Atlas, SamplerState PointSampler, out float AverageBlockerDepth)
 {
     AverageBlockerDepth = 0.0;
 
@@ -224,15 +216,12 @@ bool FindAverageBlockerDepth(float3 PixelPosition, FShadowCoordinates Coordinate
         BlockerCount++;
     }
 
-    float S, C;
-    sincos(InterleavedGradientNoise(PixelPosition.xy) * TWO_PI_PRECISE, S, C);
-
     // PCF와 같은 이유로 펼치지 않는다.
     [loop]
     for (uint i = 0; i < POISSON_COUNT; i++)
     {
-        float2 Rotated = float2(C * PoissonDisk[i].x - S * PoissonDisk[i].y, S * PoissonDisk[i].x + C * PoissonDisk[i].y);
-        float2 Offset = Rotated * SearchRadiusUV;
+        // Blocker 탐색도 PCF와 같은 고정 패턴을 사용한다.
+        float2 Offset = PoissonDisk[i] * SearchRadiusUV;
         float2 UV = Coordinates.CenterUV + Offset;
 
         if (any(UV < Coordinates.MinUV) || any(UV > Coordinates.MaxUV))
@@ -293,7 +282,7 @@ float CalculateDirectionalShadowPCSS(float3 PixelPosition, float3 P, float3 N, F
 
     // Blocker를 탐색한다.
     float AverageBlockerDepth;
-    if (!FindAverageBlockerDepth(PixelPosition, Coordinates, SearchRadiusUV, DepthBias, Shadow, false, Atlas, PointSampler, AverageBlockerDepth))
+    if (!FindAverageBlockerDepth(Coordinates, SearchRadiusUV, DepthBias, Shadow, false, Atlas, PointSampler, AverageBlockerDepth))
     {
         return 1.0f;
     }
@@ -305,7 +294,7 @@ float CalculateDirectionalShadowPCSS(float3 PixelPosition, float3 P, float3 N, F
     float FilterRadiusWorld = Light.SourceSize * RecieverDist;
     float2 FilterRadiusUV = FilterRadiusWorld * WorldToLocalUV * LocalToAtlasUV;
 
-    return PCF(POISSON_COUNT, Coordinates, PixelPosition, P, FilterRadiusUV, DepthBias, Atlas, Shadow.AtlasIndex, ShadowSampler);
+    return PCF(POISSON_COUNT, Coordinates, FilterRadiusUV, DepthBias, Atlas, Shadow.AtlasIndex, ShadowSampler);
 }
 
 float CalculatePointShadowPCSS(float3 PixelPosition, float3 P, float3 N, FLightRenderParameters Light, FLightShadowRenderData Shadow, Texture2DArray Atlas, uint AtlasWidth, uint AtlasHeight, SamplerState PointSampler, SamplerComparisonState ShadowSampler)
@@ -334,7 +323,7 @@ float CalculatePointShadowPCSS(float3 PixelPosition, float3 P, float3 N, FLightR
 
     // Blocker를 탐색한다.
     float AverageBlockerDepth;
-    if (!FindAverageBlockerDepth(PixelPosition, Coordinates, SearchRadiusUV, DepthBias, Shadow, true, Atlas, PointSampler, AverageBlockerDepth))
+    if (!FindAverageBlockerDepth(Coordinates, SearchRadiusUV, DepthBias, Shadow, true, Atlas, PointSampler, AverageBlockerDepth))
     {
         return 1.0f;
     }
@@ -346,7 +335,7 @@ float CalculatePointShadowPCSS(float3 PixelPosition, float3 P, float3 N, FLightR
     float FilterRadiusLocalUV = FilterRadiusWorld / (2.0f * ReceiverDepth);
     float2 FilterRadiusUV = FilterRadiusLocalUV * LocalToAtlasUV;
 
-    return PCF(POISSON_COUNT, Coordinates, PixelPosition, P, FilterRadiusUV, DepthBias, Atlas, Shadow.AtlasIndex, ShadowSampler);
+    return PCF(POISSON_COUNT, Coordinates, FilterRadiusUV, DepthBias, Atlas, Shadow.AtlasIndex, ShadowSampler);
 }
 
 float CalculateSpotShadowPCSS(float3 PixelPosition, float3 P, float3 N, FLightRenderParameters Light, FLightShadowRenderData Shadow, Texture2DArray Atlas, uint AtlasWidth, uint AtlasHeight, SamplerState PointSampler, SamplerComparisonState ShadowSampler)
@@ -376,7 +365,7 @@ float CalculateSpotShadowPCSS(float3 PixelPosition, float3 P, float3 N, FLightRe
 
     // Blocker를 탐색한다.
     float AverageBlockerDepth;
-    if (!FindAverageBlockerDepth(PixelPosition, Coordinates, SearchRadiusUV, DepthBias, Shadow, true, Atlas, PointSampler, AverageBlockerDepth))
+    if (!FindAverageBlockerDepth(Coordinates, SearchRadiusUV, DepthBias, Shadow, true, Atlas, PointSampler, AverageBlockerDepth))
     {
         return 1.0f;
     }
@@ -388,7 +377,7 @@ float CalculateSpotShadowPCSS(float3 PixelPosition, float3 P, float3 N, FLightRe
     float FilterRadiusLocalUV = FilterRadiusWorld / (2.0f * ReceiverDepth * TanHalfFov);
     float2 FilterRadiusUV = FilterRadiusLocalUV * LocalToAtlasUV;
 
-    return PCF(POISSON_COUNT, Coordinates, PixelPosition, P, FilterRadiusUV, DepthBias, Atlas, Shadow.AtlasIndex, ShadowSampler);
+    return PCF(POISSON_COUNT, Coordinates, FilterRadiusUV, DepthBias, Atlas, Shadow.AtlasIndex, ShadowSampler);
 }
 
 // LightType은 호출하는 곳에서 상수(LIGHT_TYPE_*)로 넘긴다. Light.Type(버퍼 값)으로 분기하면 컴파일러가
@@ -449,7 +438,7 @@ float CalculateShadow(float3 PixelPosition, float3 P, float3 N, FLightRenderPara
     float2 TexelSize = 1.0f / float2(AtlasWidth, AtlasHeight);
     float RadiusTexels = (float) PcfMode;
 
-    return PCF(SampleCount, Coordinates, PixelPosition, P, TexelSize * RadiusTexels, DepthBias, Atlas, Shadow.AtlasIndex, ShadowSampler);
+    return PCF(SampleCount, Coordinates, TexelSize * RadiusTexels, DepthBias, Atlas, Shadow.AtlasIndex, ShadowSampler);
 }
 
 
