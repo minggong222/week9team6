@@ -209,21 +209,20 @@ function TickComponent(Self, DeltaSeconds)
     local GameState = _G.CrossyGameState
 
     if not GameState or GameState.Phase ~= "Playing" then
-        if bWasPlaying then
-            for _, Entry in ipairs(Pool) do
-                Entry.Script:Invoke("Deactivate")
-            end
-
-            for _, Lane in ipairs(ActiveLane) do
-                Lane.NextSpawnTime = GetSpawnInterval()
-            end
-
-            bWasPlaying = false
-        end
+        -- 게임 종료 시에는 현재 차량을 유지하고 이동과 생성만 멈춥니다.
+        bWasPlaying = false
         return
     end
 
     if not bWasPlaying then
+        for _, Entry in ipairs(Pool) do
+            Entry.Script:Invoke("Deactivate")
+        end
+
+        for _, Lane in ipairs(ActiveLane) do
+            Lane.NextSpawnTime = GetSpawnInterval()
+        end
+
         -- 재시작 시에도 빈 도로에서 기다리지 않도록 다시 배치합니다.
         SpawnInitialTraffic()
         bWasPlaying = true
