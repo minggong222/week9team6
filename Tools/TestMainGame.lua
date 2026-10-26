@@ -38,6 +38,7 @@ local function Setup(WithMap, WithGameManager, GameManagerFirst, KeepSelecting)
         local C = { MeshKind = IsMesh, Parent = Parent, Position = Vector(), Scale = Vector(1, 1, 1), Rotation = { Yaw = 0 } }
         function C:SetVisibility(Value) self.Visible = Value end
         function C:SetStaticMesh(Value) self.Asset = Value end
+        function C:GetStaticMesh() return self.Asset end
         function C:SetRelativeLocation(Value) self.Position = Vector(Value) end
         function C:GetRelativeLocation() return Vector(self.Position) end
         function C:SetRelativeRotation(Value) self.Rotation = Value end
@@ -261,3 +262,24 @@ Select.Keys.Up = true; Select.PlayerScript:Invoke("TickComponent", Select.Player
 assert(Select.Root.Position.X == 6)
 Select:Finish()
 print("PASS selection: 24 normalized previews, wrap, camera restore, confirm/score HUD, selected character retained on R, arrows and held-key cancellation")
+
+-- Regression: every selectable index must complete confirmation and remain playable after R.
+for CharacterIndex = 1, 24 do
+    local T = Setup(true, true, CharacterIndex % 2 == 0, true)
+    local S = T.Shared.CrossyGameState
+    for _ = 2, CharacterIndex do
+        T.Keys.Right = true; T.GameScript:Invoke("TickComponent", T.GameScript, 0); T.Keys.Right = nil
+    end
+    local Expected = S.PreviewCharacter
+    T.Keys.Enter = true; T:Tick(0); T.Keys.Enter = nil
+    assert(S.Phase == "Playing" and S.SelectedCharacter == Expected and S.SelectedCharacterIndex == CharacterIndex,
+        "Character " .. CharacterIndex .. " could not leave selection")
+    assert(T.Mesh.Asset == "Models/OBJ format/animal-" .. Expected:lower() .. ".obj")
+    T.Keys.Up = true; T.PlayerScript:Invoke("TickComponent", T.PlayerScript, 0.1); T.Keys.Up = nil
+    T:Tick(0)
+    assert(T.Root.Position.X == 3 and S.Score == 1, "Character " .. CharacterIndex .. " could not move/score")
+    T:Restart()
+    assert(S.Phase == "Playing" and S.SelectedCharacter == Expected and T.Root.Position.X == 0)
+    T:Finish()
+end
+print("PASS all 24 indices: selection -> confirm -> movement/score -> restart; both manager initialization orders")

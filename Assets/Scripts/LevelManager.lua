@@ -17,13 +17,13 @@ local PoolCount = 100
 local RoadHalfWidth = 34.0
 local CarWidth = 2.0
 local MaxInitialCarsPerRow = 4
-local MinSpawnInterval = 1.5
-local MaxSpawnInterval = 5.0
+local MinSpawnInterval = 0.25
+local MaxSpawnInterval = 2.5
 local MapPositiveYChance = 0.50
-local MapMinLaneSpeed = 3.0
-local MapMaxLaneSpeed = 8.0
-local MinSpeed = 2.0 -- 기존 고정 맵 씬에서 사용하는 속도 범위
-local MaxSpeed = 9.0
+local MapMinLaneSpeed = 8.0
+local MapMaxLaneSpeed = 20.0
+local MinSpeed = 8.0 -- 기존 고정 맵 씬도 원격 밸런스를 적용합니다.
+local MaxSpeed = 20.0
 local CarList = {
     { Path = "Models/Crossy/Cars/taxi.obj", Weight = 1.0 },
     { Path = "Models/Crossy/Cars/sedan.obj", Weight = 1.0 },

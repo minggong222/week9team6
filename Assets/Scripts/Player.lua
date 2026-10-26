@@ -64,7 +64,7 @@ function StopMovement()
     bWasDDown = Input.IsKeyDown(EKeyCode.D) or Input.IsKeyDown(EKeyCode.Right)
 end
 
--- 캐릭터 메시를 교체한 뒤 새로운 중심/바닥 위치를 점프의 기준으로 사용합니다.
+-- 캐릭터 선택 완료 후 새 메시의 바닥 위치를 점프 기준으로 갱신합니다.
 function RefreshMeshBaseLocation()
     bIsJumping, JumpElapsed = false, 0.0
     local Mesh = FindStaticMeshComponent(Actor)

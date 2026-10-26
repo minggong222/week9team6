@@ -23,8 +23,8 @@
 | MapRoadChance / MapRailChance | 도로 60% / 레일 5% / 나머지 잔디 |
 | MapTreeCountWeights | 나무 0~5개: 5 / 15 / 20 / 30 / 20 / 10 |
 | MapPlayerHalfWidth | 좌우 이동 ±24 |
-| MapMinLaneSpeed / MapMaxLaneSpeed | 도로별 차량 속도 3~8 |
-| MinSpawnInterval / MaxSpawnInterval | 차량 생성 간격 1.5~5초 |
+| MapMinLaneSpeed / MapMaxLaneSpeed | 도로별 차량 속도 8~20 |
+| MinSpawnInterval / MaxSpawnInterval | 차량 생성 간격 0.25~2.5초 |
 | MapTrainSpeed | 기차 속도 50 |
 | MapTrainWaitMin / MapTrainWaitMax | 편성 통과 후 대기 3~6초 |
 | MapTrainTypes | 고속열차·도시형·화물열차, 같은 확률 |

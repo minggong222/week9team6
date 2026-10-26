@@ -134,7 +134,9 @@ end
 
 local function EnterSelectedCharacter()
     local Option = CharacterOptions[SelectedCharacterIndex]
-    local Asset = UAssetManager:GetAssetByPath(Option.Path)
+    -- 강조 표시한 프리뷰와 같은 메시를 확정해 선택 화면/실제 캐릭터를 일치시킵니다.
+    local Preview = CharacterPreviewActors[SelectedCharacterIndex]
+    local Asset = Preview and Preview.Mesh:GetStaticMesh() or UAssetManager:GetAssetByPath(Option.Path)
     if not PlayerMesh or not Asset then print("[CharacterSelect] Cannot select " .. Option.Name); return end
     if PlayerScript then PlayerScript:Invoke("StopMovement") end
     PlayerMesh:SetStaticMesh(Asset)
@@ -143,12 +145,14 @@ local function EnterSelectedCharacter()
     PlayerMeshStartRotation = PlayerMesh:GetRelativeRotation()
     if PlayerScript then PlayerScript:Invoke("RefreshMeshBaseLocation") end
     GameState.SelectedCharacter = Option.Name
+    GameState.SelectedCharacterIndex = SelectedCharacterIndex
     for _, Entry in pairs(CharacterPreviewActors) do Entry.Actor:GetRootComponent():SetVisibility(false, true) end
     if Camera and GameplayCameraLocation then
         Camera:SetWorldLocation(GameplayCameraLocation, false)
         Camera:SetWorldRotation(GameplayCameraRotation, false)
     end
     StartGame()
+    print("[CharacterSelect] Confirmed " .. Option.Name .. " -> Playing")
 end
 
 local function GameOver()
