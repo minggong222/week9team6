@@ -18,21 +18,22 @@ _G.CrossyGameState = _G.CrossyGameState or {
 
 local GameState = _G.CrossyGameState
 
-local Player = nil
-local StartPosition = nil
-local PlayerMesh = nil
-local PlayerMeshStartScale = nil
-local PlayerMeshStartLocation, PlayerMeshStartRotation, PlayerScript = nil, nil, nil
-local ScoreText = nil
-local HUDTitle, HUDDetail, HUDHint = nil, nil, nil
-local Camera = nil
+-- 실행 상태는 HotReload가 보존하는 스크립트 환경의 전역 변수로 둡니다.
+Player = nil
+StartPosition = nil
+PlayerMesh = nil
+PlayerMeshStartScale = nil
+PlayerMeshStartLocation, PlayerMeshStartRotation, PlayerScript = nil, nil, nil
+ScoreText = nil
+HUDTitle, HUDDetail, HUDHint = nil, nil, nil
+Camera = nil
 
 -- 화면 높이에 대한 글자 크기. 실행 중 전체 배율은 CrossyGameState.HUDScale로 조절한다.
 local HUDStyle = { Scale = 1.0, Score = 0.105, Title = 0.032, Name = 0.052, Hint = 0.023 }
 local GameplayCamera = { Pitch = 40.0, Yaw = -35.0, Width = 36.0, Distance = 32.0, LookAhead = 5.0 }
 
-local PlayerHitbox = nil
-local BeginOverlapHandle = nil
+PlayerHitbox = nil
+BeginOverlapHandle = nil
 
 -- origin/main의 캐릭터 선택 목록. 프리뷰와 실제 플레이 메시를 같은 비율로 맞춥니다.
 local CharacterOptions = {
@@ -62,11 +63,11 @@ local CharacterOptions = {
     { Name = "Tiger", Path = "Models/OBJ format/animal-tiger.obj" },
     { Name = "Hitori", Path = "Models/OBJ format/animal-hitori.obj" },
 }
-local SelectedCharacterIndex = 1
-local CharacterPreviewActors = {}
+SelectedCharacterIndex = 1
+CharacterPreviewActors = {}
 local CharacterRowX, CharacterSpacing, CharacterSize = -200.0, 5.0, 2.0
 local CameraMoveSpeed = 8.0
-local GameplayCameraLocation, GameplayCameraRotation = nil, nil
+GameplayCameraLocation, GameplayCameraRotation = nil, nil
 
 local function FitCharacterMesh(Mesh, Owner)
     Mesh:SetRelativeLocation(FVector.new(0, 0, 0))
@@ -137,12 +138,12 @@ local function UpdateHUD()
         Place(HUDTitle, "SCORE", HUDStyle.Hint, 0.13, 0.92)
         Place(ScoreText, string.format("%03d", GameState.Score or 0), HUDStyle.Score, 0.13, 0.81)
         Place(HUDDetail, "", HUDStyle.Hint, 0.5, 0.5)
-        Place(HUDHint, "", HUDStyle.Hint, 0.5, 0.5)
+        Place(HUDHint, "BACKSPACE : CHARACTERS", HUDStyle.Hint, 0.5, 0.06)
     elseif GameState.Phase == GamePhase.Dead or GameState.Phase == GamePhase.Clear then
         Place(HUDTitle, GameState.Phase == GamePhase.Dead and "GAME OVER" or "GAME CLEAR", 0.065, 0.5, 0.72)
         Place(ScoreText, string.format("%03d", GameState.Score or 0), HUDStyle.Score, 0.5, 0.55)
         Place(HUDDetail, "FINAL SCORE", HUDStyle.Hint, 0.5, 0.48)
-        Place(HUDHint, "PRESS R TO RETRY", HUDStyle.Title, 0.5, 0.34)
+        Place(HUDHint, "R : RETRY\nBACKSPACE : CHARACTERS", HUDStyle.Hint, 0.5, 0.34)
     else
         ScoreText:SetVisibility(false)
         if HUDTitle then HUDTitle:SetVisibility(false) end
@@ -227,7 +228,7 @@ local function EnterSelectedCharacter()
     print("[CharacterSelect] Confirmed " .. Option.Name .. " -> Playing")
 end
 
-local function GameOver()
+function GameOver()
     if GameState.Phase ~= GamePhase.Playing then
         return
     end
@@ -250,9 +251,6 @@ local function GameOver()
     print("Game Over!")
 end
 
--- 장애물에서도 UI를 포함한 동일한 게임 오버 처리를 사용합니다.
-GameState.GameOver = GameOver
-
 local function GameClear()
     if GameState.Phase ~= GamePhase.Playing then
         return
@@ -264,9 +262,7 @@ local function GameClear()
     print("Game Clear!")
 end
 
-local function Restart()
-    GameState.RestartCount = (GameState.RestartCount or 0) + 1
-
+local function ResetRun()
     -- 플레이어 위치와 크기 복원
     GameState.Phase = GamePhase.Ready
     if PlayerScript then PlayerScript:Invoke("StopMovement") end
@@ -283,16 +279,35 @@ local function Restart()
     -- 무한 맵의 차량/기차/회수 행도 같은 시작 상태로 되돌립니다.
     local Level = _G.CrossyLevel
     if Level then Level.Reset(true) end
-    StartGame()
-
-    -- Player.lua에서 진행 중인 점프와 방향 초기화
+    GameState.Score, GameState.MaxRow = 0, 0
+    GameState.GameOverRequested, GameState.ClearRequested = false, false
     GameState.PlayerResetRequested = true
+end
 
+local function Restart()
+    GameState.RestartCount = (GameState.RestartCount or 0) + 1
+    ResetRun()
+    StartGame()
+    GameState.PlayerResetRequested = true
+end
+
+local function ReturnToCharacterSelection()
+    ResetRun()
+    GameState.Phase = GamePhase.Selecting
+    for _, Entry in pairs(CharacterPreviewActors) do Entry.Actor:GetRootComponent():SetVisibility(true, true) end
+    ApplyCharacterSelection()
+    if Camera then
+        Camera:SetIsOrthogonal(true)
+        Camera:SetOrthoWidth(12.0)
+        Camera:SetWorldLocation(GetSelectionCameraLocation(), false)
+        Camera:SetWorldRotation(GameplayCameraRotation, false)
+    end
+    UpdateHUD()
 end
 
 -- 플레이어와 자동차의 겹침을 감지한다.
-local function OnPlayerOverlap(OtherComponent)
-    if GameState.Phase ~= GamePhase.Playing or not OtherComponent then
+function OnPlayerOverlap(OtherComponent)
+    if GameState.Phase ~= GamePhase.Playing or GameState.PlayerIsJumping or not OtherComponent then
         return
     end
 
@@ -304,6 +319,9 @@ local function OnPlayerOverlap(OtherComponent)
 end
 
 function BeginPlay(Self)
+    -- 외부에 보관되는 콜백도 리로드된 최신 함수를 호출하도록 연결합니다.
+    GameState.GameOver = function() Self:Invoke("GameOver") end
+
     GameState.ManagedByGameManager, GameState.EnableTraffic = true, true
     Player = Actor:GetWorld():GetPlayerPawn()
 
@@ -328,7 +346,9 @@ function BeginPlay(Self)
 
         if PlayerHitbox then
             PlayerHitbox:SetCollisionResponseToAllChannels(ECollisionResponse.Overlap)
-            BeginOverlapHandle = PlayerHitbox.OnComponentBeginOverlap:Add(OnPlayerOverlap)
+            BeginOverlapHandle = PlayerHitbox.OnComponentBeginOverlap:Add(function(OtherComponent)
+                Self:Invoke("OnPlayerOverlap", OtherComponent)
+            end)
 
             print("[GameManager] Collision ready")
         else
@@ -370,6 +390,10 @@ function BeginPlay(Self)
 end
 
 function TickComponent(Self, DeltaSeconds)
+    if GameState.Phase ~= GamePhase.Selecting and Input.IsKeyPressed(EKeyCode.Backspace) then
+        ReturnToCharacterSelection()
+        return
+    end
     if GameState.Phase == GamePhase.Selecting then
         local Change = 0
         if Input.IsKeyPressed(EKeyCode.Left) or Input.IsKeyPressed(EKeyCode.A) then Change = -1

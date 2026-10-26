@@ -5,6 +5,8 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/Level.h"
 #include "Camera/CameraActor.h"
+#include "Components/TextRenderComponent.h"
+#include "UObject/UObjectIterator.h"
 
 #include "Launch/LaunchEngineLoop.h"
 #include "Input/InputSystem.h"
@@ -79,6 +81,8 @@ bool UGameEngine::Init()
 	GameContext->GameViewport->Init(*GameContext, this);
 
 	GameContext->World()->BeginPlay();
+	TextRenderer = MakeUnique<FTextRenderer>();
+	TextRenderer->Init();
 
 	SkyboxRenderer = MakeUnique<FSkyboxRenderer>();
 
@@ -107,6 +111,7 @@ void UGameEngine::PreExit()
 {
 	Super::PreExit();
 	SkyboxRenderer.reset();
+	TextRenderer.reset();
 	if (!GameContext)
 		return;
 	UWorld* GameWorld = GameContext->World();
@@ -236,6 +241,7 @@ void UGameEngine::RenderGameFrame()
 
 	FSceneViewTargets& Targets = GameViewport.GetViewTargets();
 	FScenePassCallbacks Callbacks{};
+	Callbacks.SceneText = [this, World, &SceneView] { RenderSceneText(World, SceneView); };
 
 	FRenderGraphBuilder Graph;
 
@@ -259,5 +265,18 @@ void UGameEngine::RenderGameFrame()
 		return;
 
 	RenderCommand::GetContext()->CopyResource(Backbuffer->GetRawPtr(), SceneColor->GetRawPtr());
+}
+
+void UGameEngine::RenderSceneText(UWorld* World, const FSceneView& SceneView)
+{
+	if (!TextRenderer) return;
+	for (TObjectIterator<UTextRenderComponent> Text; Text; ++Text)
+	{
+		if (!Text || !Text->IsRegistered() || !Text->GetFont() || !Text->IsShown(SceneView.bGameView) ||
+			!Text->GetOwner() || Text->GetOwner()->GetWorld() != World)
+			continue;
+		TextRenderer->OnRender(Text->GetText(), Text->GetWorldMatrix(), Text->GetTextSize(),
+			*Text->GetFont(), SceneView.ViewProjectionMatrix);
+	}
 }
 

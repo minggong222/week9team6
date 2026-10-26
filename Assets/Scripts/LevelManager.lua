@@ -18,7 +18,6 @@ local PoolCount = 100
 local RoadHalfWidth = 34.0
 local CarWidth = 2.0
 local MinCarGap = 0.8 -- 차량 사이에 유지할 최소 여유 거리 (World Units)
-local MaxCarLength = 0.0 -- 풀의 메시 크기와 배율로 계산한 최대 차량 길이
 local MaxInitialCarsPerRow = 4
 local MinSpawnInterval = 0.25
 local MaxSpawnInterval = 2.5
@@ -36,7 +35,7 @@ local CarList = {
 }
 
 -- 3. 기차 설정: 레일마다 3종 중 하나를 선택하고, 통과 후 다시 출발합니다.
-local MapTrainSpeed = 50.0
+MapTrainSpeed = 50.0 -- 런타임에 변경한 속도는 HotReload 후에도 유지합니다.
 local MapTrainWaitMin = 3.0
 local MapTrainWaitMax = 6.0
 local MapTrainWarningTime = 2.0 -- 열차 출발 전 경고 시간
@@ -53,16 +52,20 @@ local MapTrainTypes = {
 
 -- 기존 고정 맵 씬의 차량 배치는 유지합니다. 새 메인 씬은 생성된 도로 행을 사용합니다.
 local StaticRoadRows = { 1, 2, 6, 7, 8, 11, 12, 16, 17, 18, 21, 22, 26, 27, 31, 32, 33 }
-local LevelManager, Player, PlayerScript, PlayerMesh = nil, nil, nil, nil
-local Origin, StartPosition, StartMeshLocation, StartMeshRotation, StartMeshScale = nil, nil, nil, nil, nil
-local Rows, CarPool, AvailableCars, PoolByActor = {}, {}, {}, {}
-local HasMapPool, TrafficEnabled = false, false
-local HighestRow, LastRow, SafeColumn = 0, 0, 0
-local Seed, TerrainRandomState, TrafficRandomState, TrainRandomState = InitialSeed, InitialSeed, 1, 1
-local GrassMesh, RoadMesh, RailMesh = nil, nil, nil
-local SignalOffMesh, SignalOnMesh = nil, nil
-local LevelInfo = nil
-local ReusedRows, CarLimit = 0, RoadHalfWidth
+
+-- HotReload는 스크립트 환경의 전역 변수만 이관합니다. 실행 상태는 local로 두지 않습니다.
+-- 아래 변수들은 이 스크립트의 환경에 속하며, 다른 스크립트의 전역 변수와 공유되지 않습니다.
+LevelManager, Player, PlayerScript, PlayerMesh = nil, nil, nil, nil
+Origin, StartPosition, StartMeshLocation, StartMeshRotation, StartMeshScale = nil, nil, nil, nil, nil
+Rows, CarPool, AvailableCars, PoolByActor = {}, {}, {}, {}
+HasMapPool, TrafficEnabled = false, false
+HighestRow, LastRow, SafeColumn = 0, 0, 0
+Seed, TerrainRandomState, TrafficRandomState, TrainRandomState = InitialSeed, InitialSeed, 1, 1
+GrassMesh, RoadMesh, RailMesh = nil, nil, nil
+DirtWallMesh, TunnelMesh = nil, nil
+LevelInfo = nil
+ReusedRows, CarLimit = 0, RoadHalfWidth
+MaxCarLength = 0.0 -- 풀의 메시 크기와 배율로 계산한 최대 차량 길이
 
 -- 랜덤 상태를 분리해 기차 종류나 차량 배치가 지형/나무 배치를 바꾸지 않습니다.
 local function TerrainRandom()
@@ -274,6 +277,7 @@ local function RecycleMapRow(Row)
     if Row.Floor then
         Row.Floor:SetVisibility(false, true)
         Row.Train:SetVisibility(false, true)
+        for _, Wall in ipairs(Row.Walls) do Wall:SetVisibility(false, true) end
         for _, Tree in ipairs(Row.Trees) do Tree:SetVisibility(false, true) end
     end
     Row.TrainType, Row.Direction, Row.Speed = nil, nil, nil
@@ -312,6 +316,15 @@ local function GenerateMapRow(Row, Index, Kind)
     Row.Floor:SetStaticMesh(Kind == "rail" and RailMesh or (Kind == "road" and RoadMesh or GrassMesh))
     Row.Floor:SetRelativeLocation(FVector.new(Index * LaneSpacing, 0, 0))
     Row.Floor:SetVisibility(true, true)
+    -- 바닥의 끝(마지막 이동 칸의 바깥쪽)부터 벽을 세웁니다. 터널은 행마다 독립적입니다.
+    for Side, Wall in ipairs(Row.Walls) do
+        local Sign = Side == 1 and -1 or 1
+        Wall:SetStaticMesh(Kind == "grass" and DirtWallMesh or TunnelMesh)
+        Wall:SetRelativeLocation(FVector.new(Index * LaneSpacing, Sign * (MapPlayerHalfWidth + LaneSpacing / 2), 0))
+        Wall:SetRelativeRotation(FRotator.new(0, Sign == 1 and 0 or 180, 0))
+        Wall:SetVisibility(true, true)
+    end
+
     Row.Train:SetVisibility(false, true)
     for _, Hitbox in ipairs(Row.TreeHitboxes) do Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision) end
     for _, Tree in ipairs(Row.Trees) do Tree:SetVisibility(false, true) end
@@ -476,7 +489,7 @@ function SetTrainSpeed(Speed, RowIndex)
     PublishLevelState()
 end
 
-local function ResetLevel(NewSeed)
+function ResetLevel(NewSeed)
     for _, Entry in ipairs(CarPool) do Entry.Script:Invoke("Deactivate") end
     for _, Row in ipairs(Rows) do RecycleMapRow(Row) end
     if NewSeed then Seed = Seed + 1 end
@@ -488,7 +501,7 @@ local function ResetLevel(NewSeed)
     PublishLevelState()
 end
 
-local function EnableTraffic()
+function EnableTraffic()
     if TrafficEnabled then return end
     CreateCarPool()
     TrafficEnabled = true
@@ -515,6 +528,10 @@ local function CaptureMapPool()
     SignalOnMesh = UAssetManager:GetAssetByPath("Models/Crossy/Signals/crossy-rail-signal-on.obj")
     assert(SignalOffMesh and SignalOnMesh, "Rail signal meshes are missing; restart the editor to import assets")
     assert(GrassMesh and RoadMesh and RailMesh, "Map row meshes are missing")
+    DirtWallMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/crossy-dirt-wall.obj")
+    TunnelMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/crossy-tunnel.obj")
+    assert(DirtWallMesh and TunnelMesh, "Map wall meshes are missing")
+
     for _, Type in ipairs(MapTrainTypes) do
         Type.Mesh = UAssetManager:GetAssetByPath(Type.Path)
         assert(Type.Mesh, "Missing train: " .. Type.Path)
@@ -523,7 +540,17 @@ local function CaptureMapPool()
         local Floor = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapFloor_" .. Slot))
         local Train = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapTrain_" .. Slot))
         assert(Floor and Train, "Map pool is incomplete; regenerate the scene")
-        local Row = { Slot = Slot, Floor = Floor, Train = Train, Trees = {}, TreeHitboxes = {}, Cars = {}, Active = false }
+        local Row = { Floor = Floor, Train = Train, Trees = {}, TreeHitboxes = {}, Cars = {}, Active = false }
+        Row.Walls = {}
+        for Side = 1, 2 do
+            local Name = "MapWall_" .. Slot .. "_" .. Side
+            local Wall = UStaticMeshComponent.Cast(Actor:FindComponentByName(Name))
+                or UStaticMeshComponent.Cast(Actor:AddComponent(UClass.Find("UStaticMeshComponent"), Name))
+            assert(Wall, "Could not create map wall")
+            Wall:SetupAttachment(Actor:GetRootComponent())
+            Row.Walls[Side] = Wall
+        end
+
         for Index = 1, TreesPerRow do
             local Tree = USceneComponent.Cast(Actor:FindComponentByName("MapTree_" .. Slot .. "_" .. Index))
             assert(Tree, "Missing tree slot")
@@ -586,8 +613,13 @@ function BeginPlay(Self)
     _G.CrossyGameState = _G.CrossyGameState or { Phase = "Playing", Score = 0, MaxRow = 0 }
     LevelInfo = { IsEndless = HasMapPool, CellSize = LaneSpacing, StartX = StartPosition.X,
         MinY = Origin.Y - (HasMapPool and MapPlayerHalfWidth or 33), MaxY = Origin.Y + (HasMapPool and MapPlayerHalfWidth or 33),
-        PoolRows = #Rows, PoolTrees = 0, ActiveTrains = 0, Reset = ResetLevel, EnableTraffic = EnableTraffic,
-        SetTrainSpeed = SetTrainSpeed }
+        PoolRows = #Rows, PoolTrees = 0, ActiveTrains = 0 }
+
+    -- 외부에 남는 콜백은 컴포넌트를 통해 HotReload된 최신 함수를 호출합니다.
+    LevelInfo.Reset = function(NewSeed) Self:Invoke("ResetLevel", NewSeed) end
+    LevelInfo.EnableTraffic = function() Self:Invoke("EnableTraffic") end
+    LevelInfo.SetTrainSpeed = function(Speed, RowIndex) Self:Invoke("SetTrainSpeed", Speed, RowIndex) end
+
     _G.CrossyLevel = LevelInfo
     -- 이전 maptest용 Player.lua와의 호환 별칭. 게임 상태는 이 테이블에 넣지 않습니다.
     if HasMapPool then _G.CrossyMapTest = LevelInfo end

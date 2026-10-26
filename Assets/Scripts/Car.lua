@@ -1,11 +1,12 @@
-local Direction = FVector.new(0.0, 1.0, 0.0)
-local StartLocation = FVector.new(0.0, 0.0, 0.0)
-local TotalDistance = 20.0
-local Speed = 5.0
-local Distance = 0.0
-local bActive = false
-local Car = nil
-local LevelManager = nil
+-- HotReload가 이관할 수 있도록 차량별 실행 상태를 스크립트 환경의 전역 변수로 둡니다.
+Direction = FVector.new(0.0, 1.0, 0.0)
+StartLocation = FVector.new(0.0, 0.0, 0.0)
+TotalDistance = 20.0
+Speed = 5.0
+Distance = 0.0
+bActive = false
+Car = nil
+LevelManager = nil
 
 function SetCar(InCar, InLevelManager)
     -- Size는 추후 Collision Box 연결에 사용할 차량 설정으로 보관합니다.
@@ -61,13 +62,22 @@ function Activate(Location, InDirection, InSpeed, TravelDistance)
 end
 
 local function CheckPlayerCollision(Delta)
+    local GameState = _G.CrossyGameState
+    -- 이동 중의 메시 외곽이 먼저 닿아도 죽이지 않고, 착지한 몸통 위치에서 판정한다.
+    if GameState and GameState.PlayerIsJumping then return end
     local Player = Actor:GetWorld():GetPlayerPawn()
     if not Player then
         return
     end
 
     local HasCarBounds, CarBounds = Actor:TryGetActorBounds()
-    local HasPlayerBounds, PlayerBounds = Player:TryGetActorBounds()
+    local Hitbox = UBoxComponent.Cast(Player:FindComponentByName("PlayerTreeHitbox"))
+    local HasPlayerBounds, PlayerBounds
+    if Hitbox then
+        HasPlayerBounds, PlayerBounds = true, Hitbox:CalcBounds()
+    else
+        HasPlayerBounds, PlayerBounds = Player:TryGetActorBounds()
+    end
     if not HasCarBounds or not HasPlayerBounds then
         return
     end
@@ -94,7 +104,6 @@ local function CheckPlayerCollision(Delta)
         end
     end
 
-    local GameState = _G.CrossyGameState
     if GameState and GameState.GameOver then
         GameState.GameOver()
     end
