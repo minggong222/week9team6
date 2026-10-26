@@ -40,8 +40,9 @@ void FLevelEditorToolbar::Draw()
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 8, 6 });
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 4, 4 });
+	// 게임의 방향키/Enter/Space가 툴바의 Pause/Stop 버튼까지 실행하지 않도록 한다.
 	const bool bOpen = ImGui::BeginViewportSideBar("##LevelEditorToolbar", ImGui::GetMainViewport(),
-		ImGuiDir_Up, Height, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings);
+		ImGuiDir_Up, Height, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav);
 
 	if (bOpen)
 	{
