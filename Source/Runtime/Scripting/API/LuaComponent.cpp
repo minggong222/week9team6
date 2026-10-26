@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "Render/Material.h"
+#include "Components/BoxComponent.h"
 
 extern void LuaRegisterComponentBase(sol::state& State);
 extern void LuaRegisterComponentCommon(sol::state& State);
@@ -30,6 +31,14 @@ void LuaRegisterComponentBase(sol::state& State)
         "Ignore", ECollisionResponse::Ignore,
         "Overlap", ECollisionResponse::Overlap,
         "Block", ECollisionResponse::Block);
+    State.new_enum("ECollisionEnabled",
+        "NoCollision", ECollisionEnabled::NoCollision,
+        "QueryOnly", ECollisionEnabled::QueryOnly);
+    State.new_enum("ECollisionChannel",
+        "WorldStatic", ECollisionChannel::WorldStatic,
+        "WorldDynamic", ECollisionChannel::WorldDynamic,
+        "Pawn", ECollisionChannel::Pawn,
+        "Projectile", ECollisionChannel::Projectile);
 
     State.new_usertype<FBox>("FBox", sol::constructors<FBox()>(),
         "Min", &FBox::Min, "Max", &FBox::Max);
@@ -133,6 +142,16 @@ void LuaRegisterComponentBase(sol::state& State)
             bool Success = Component.LineTraceComponent(Ray, Hit);
             return std::make_tuple(Success, Hit);
         },
-        "SetCollisionResponseToAllChannels", & UPrimitiveComponent::SetCollisionResponseToAllChannels
+        "SetCollisionEnabled", &UPrimitiveComponent::SetCollisionEnabled,
+        "SetCollisionObjectType", &UPrimitiveComponent::SetCollisionObjectType,
+        "SetCollisionResponseToChannel", &UPrimitiveComponent::SetCollisionResponseToChannel,
+        "SetCollisionResponseToAllChannels", &UPrimitiveComponent::SetCollisionResponseToAllChannels
     );
+    State.new_usertype<UShapeComponent>("UShapeComponent", sol::no_constructor,
+        sol::base_classes, sol::bases<UPrimitiveComponent, USceneComponent, UActorComponent, UObject>(),
+        "Cast", &Cast<UShapeComponent>);
+    State.new_usertype<UBoxComponent>("UBoxComponent", sol::no_constructor,
+        sol::base_classes, sol::bases<UShapeComponent, UPrimitiveComponent, USceneComponent, UActorComponent, UObject>(),
+        "Cast", &Cast<UBoxComponent>,
+        "SetBoxExtent", &UBoxComponent::SetBoxExtent);
 }

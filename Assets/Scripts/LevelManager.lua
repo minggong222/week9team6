@@ -10,6 +10,7 @@ local MapRoadChance = 0.60
 local MapRailChance = 0.05 -- 나머지 35%는 잔디. 시작 0~2행은 안전한 잔디입니다.
 local MapTreeCountWeights = { 5, 15, 20, 30, 20, 10 } -- 나무 0~5개의 상대 가중치
 local TreesPerRow = 5
+local MapTreeHitboxExtent = FVector.new(0.45, 0.45, 1.0) -- 나무 밑동의 반너비/반높이
 local InitialSeed = 20261026
 
 -- 2. 도로/차량 설정: 같은 도로의 차량은 방향과 속도를 공유합니다.
@@ -200,6 +201,7 @@ end
 local function RecycleMapRow(Row)
     for Index = #Row.Cars, 1, -1 do Row.Cars[Index].Script:Invoke("Deactivate") end
     Row.Active, Row.TrainActive = false, false
+    for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision) end
     if Row.Floor then
         Row.Floor:SetVisibility(false, true)
         Row.Train:SetVisibility(false, true)
@@ -240,6 +242,7 @@ local function GenerateMapRow(Row, Index, Kind)
     Row.Floor:SetRelativeLocation(FVector.new(Index * LaneSpacing, 0, 0))
     Row.Floor:SetVisibility(true, true)
     Row.Train:SetVisibility(false, true)
+    for _, Hitbox in ipairs(Row.TreeHitboxes) do Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision) end
     for _, Tree in ipairs(Row.Trees) do Tree:SetVisibility(false, true) end
     if Kind == "rail" then SpawnTrain(Row); return end
     if Kind == "road" then PopulateRoad(Row); return end
@@ -264,6 +267,7 @@ local function GenerateMapRow(Row, Index, Kind)
         local Scale = 0.9 + TerrainRandom() * 0.1
         Tree:SetRelativeScale3D(FVector.new(Scale, Scale, Scale))
         Tree:SetVisibility(true, true)
+        Row.TreeHitboxes[Index]:SetCollisionEnabled(ECollisionEnabled.QueryOnly)
     end
 end
 
@@ -421,11 +425,23 @@ local function CaptureMapPool()
         local Floor = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapFloor_" .. Slot))
         local Train = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapTrain_" .. Slot))
         assert(Floor and Train, "Map pool is incomplete; regenerate the scene")
-        local Row = { Floor = Floor, Train = Train, Trees = {}, Cars = {}, Active = false }
+        local Row = { Floor = Floor, Train = Train, Trees = {}, TreeHitboxes = {}, Cars = {}, Active = false }
         for Index = 1, TreesPerRow do
             local Tree = USceneComponent.Cast(Actor:FindComponentByName("MapTree_" .. Slot .. "_" .. Index))
             assert(Tree, "Missing tree slot")
             Row.Trees[Index] = Tree
+            local Name = "MapTreeHitbox_" .. Slot .. "_" .. Index
+            local Hitbox = UBoxComponent.Cast(Actor:FindComponentByName(Name))
+                or UBoxComponent.Cast(Actor:AddComponent(UClass.Find("UBoxComponent"), Name))
+            assert(Hitbox, "Could not create tree hitbox")
+            Hitbox:SetupAttachment(Tree)
+            Hitbox:SetBoxExtent(MapTreeHitboxExtent)
+            Hitbox:SetRelativeLocation(FVector.new(0, 0, MapTreeHitboxExtent.Z))
+            Hitbox:SetCollisionObjectType(ECollisionChannel.WorldStatic)
+            Hitbox:SetCollisionResponseToAllChannels(ECollisionResponse.Ignore)
+            Hitbox:SetCollisionResponseToChannel(ECollisionChannel.Pawn, ECollisionResponse.Block)
+            Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision)
+            Row.TreeHitboxes[Index] = Hitbox
         end
         Rows[Slot] = Row
     end
@@ -457,6 +473,7 @@ function BeginPlay(Self)
     assert(Player, "Select a Player Pawn")
     StartPosition = Player:GetActorLocation()
     HasMapPool = Actor:FindComponentByName("MapFloor_1") ~= nil
+    if HasMapPool then Actor:SetActorEnableCollision(true) end
     Origin = HasMapPool and Actor:GetActorLocation() or FVector.new(6, 0, 0)
     for _, Component in ipairs(Player:GetComponents()) do
         local Script, Mesh = ULuaComponent.Cast(Component), UStaticMeshComponent.Cast(Component)
@@ -524,6 +541,9 @@ function TickComponent(Self, DeltaSeconds)
 end
 
 function EndPlay(Self)
+    for _, Row in ipairs(Rows) do
+        for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision) end
+    end
     PoolByActor, AvailableCars = {}, {}
     for _, Entry in ipairs(CarPool) do
         Entry.Script:Invoke("SetCar", nil, nil)

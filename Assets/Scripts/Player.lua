@@ -5,6 +5,7 @@ local MaxY = 33
 local YawOffset = 180.0
 local JumpDuration = 0.1
 local JumpHeight = 0.5
+local TreeHitboxExtent = FVector.new(1.0, 1.0, 0.5)
 
 local bWasWDown = false
 local bWasSDown = false
@@ -17,6 +18,21 @@ local JumpStartLocation = FVector.new(0.0, 0.0, 0.0)
 local JumpDirection = FVector.new(0.0, 0.0, 0.0)
 local MeshBaseLocation = nil
 local MeshBaseRotation = nil
+
+function InitializeComponent(Component)
+    -- 메시의 점프/회전과 분리해 지면 위 플레이어 몸통을 검사합니다.
+    local Hitbox = UBoxComponent.Cast(Actor:FindComponentByName("PlayerTreeHitbox"))
+        or UBoxComponent.Cast(Actor:AddComponent(UClass.Find("UBoxComponent"), "PlayerTreeHitbox"))
+    assert(Hitbox, "Could not create player tree hitbox")
+    Hitbox:SetupAttachment(Actor:GetRootComponent())
+    Hitbox:SetBoxExtent(TreeHitboxExtent)
+    Hitbox:SetRelativeLocation(FVector.new(0, 0, TreeHitboxExtent.Z))
+    Hitbox:SetCollisionObjectType(ECollisionChannel.Pawn)
+    Hitbox:SetCollisionResponseToAllChannels(ECollisionResponse.Ignore)
+    Hitbox:SetCollisionResponseToChannel(ECollisionChannel.WorldStatic, ECollisionResponse.Block)
+    Hitbox:SetCollisionEnabled(ECollisionEnabled.QueryOnly)
+    Actor:SetActorEnableCollision(true)
+end
 
 local function GetYawFromDirection(Direction)
     local X = Direction.X
@@ -184,7 +200,14 @@ function TickComponent(Component, DeltaSeconds)
             bWithinBounds = TargetY >= AllowedMinY and TargetY <= AllowedMaxY
         end
 
-        if bWithinBounds then
+        local bCanMove = bWithinBounds
+        if bCanMove then
+            -- 충돌체로 착지점을 검사한 뒤, 성공한 시험 이동은 점프 시작 위치로 되돌립니다.
+            bCanMove = RootComponent:TryMoveWithBlocking(MoveDirection * MoveDistance, RootComponent:GetWorldRotation())
+            if bCanMove then RootComponent:SetWorldLocation(CurrentLocation, false) end
+        end
+
+        if bCanMove then
             JumpStartLocation = RootComponent:GetWorldLocation()
             JumpDirection = MoveDirection
             JumpElapsed = 0.0
@@ -222,7 +245,11 @@ function TickComponent(Component, DeltaSeconds)
         -- 수평 이동을 부드럽게 진행
         local NewRootLocation = JumpStartLocation + JumpDirection * (MoveDistance * Alpha)
 
-        RootComponent:SetWorldLocation(NewRootLocation, false)
+        if not RootComponent:TryMoveWithBlocking(NewRootLocation - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation()) then
+            RootComponent:SetWorldLocation(JumpStartLocation, false)
+            ResetJump(MeshComponent)
+            return
+        end
 
         -- 포물선 형태로 메쉬가 위아래로 이동
         local HeightOffset = 4.0 * JumpHeight * Alpha * (1.0 - Alpha)
@@ -233,8 +260,6 @@ function TickComponent(Component, DeltaSeconds)
 
         -- 착지
         if Alpha >= 1.0 then
-
-            RootComponent:SetWorldLocation(JumpStartLocation + JumpDirection * MoveDistance, false)
 
             if MeshComponent ~= nil and MeshBaseLocation ~= nil then
                 MeshComponent:SetRelativeLocation(MeshBaseLocation)
