@@ -187,6 +187,11 @@ void UWorld::Tick(float DeltaTime)
 		if (Level)
 			PathTracker.Tick(Level->GetActors(), DeltaTime);
 	}
+	{
+		SCOPE_CYCLE_COUNTER(STAT_UpdateAllTransforms);
+		Scene.UpdateAllTransforms();
+	}
+
 	CollisionScene.UpdateOverlapPairs();
 }
 
