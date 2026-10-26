@@ -200,6 +200,7 @@ project "HitoriEditor"
 		"dxgi.lib",
 		"dxguid.lib",
 		"d3dcompiler.lib",
+		"winmm.lib",
 	}
 
 	filter "configurations:ObjViewer"
@@ -266,6 +267,7 @@ project "HitoriGame"
 		"dxguid.lib",
 		"d3dcompiler.lib",
 		"lua51.lib",
+		"winmm.lib",
 	}
 	
 	local engineLibPath = path.getabsolute("Build/Bin")
