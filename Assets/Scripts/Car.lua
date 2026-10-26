@@ -4,6 +4,12 @@ local TotalDistance = 20.0
 local Speed = 5.0
 local Distance = 0.0
 local bActive = false
+local Car = nil
+
+function SetCar(InCar)
+    -- Size는 추후 Collision Box 연결에 사용할 차량 설정으로 보관합니다.
+    Car = InCar
+end
 
 function SetSpeed(InSpeed)
     Speed = math.max(0.0, InSpeed)
