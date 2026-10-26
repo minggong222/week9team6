@@ -17,6 +17,8 @@ local InitialSeed = 20261026
 local PoolCount = 100
 local RoadHalfWidth = 34.0
 local CarWidth = 2.0
+local MinCarGap = 0.8 -- 차량 사이에 유지할 최소 여유 거리 (World Units)
+local MaxCarLength = 0.0 -- 풀의 메시 크기와 배율로 계산한 최대 차량 길이
 local MaxInitialCarsPerRow = 4
 local MinSpawnInterval = 0.25
 local MaxSpawnInterval = 2.5
@@ -65,8 +67,14 @@ local function TrafficRandom()
     TrafficRandomState = TrafficRandomState * 48271 % 2147483647
     return TrafficRandomState / 2147483647
 end
-local function SpawnInterval()
-    return MinSpawnInterval + TrafficRandom() * (MaxSpawnInterval - MinSpawnInterval)
+local function SpawnInterval(Speed)
+    local Minimum = MinSpawnInterval
+    if Speed then
+        if Speed <= 0 then return math.huge end
+        Minimum = math.max(Minimum, (MaxCarLength + MinCarGap) / Speed)
+    end
+    local Maximum = math.max(Minimum, MaxSpawnInterval)
+    return Minimum + TrafficRandom() * (Maximum - Minimum)
 end
 local function PickRowType(Index)
     if Index < 3 then return "grass" end
@@ -129,6 +137,7 @@ local function CreateCarPool()
             Mesh:SetStaticMesh(Asset)
             local Bounds, Position = Mesh:CalcBounds(), CarActor:GetActorLocation()
             local Scale = CarWidth / (Bounds.Max.Y - Bounds.Min.Y)
+            MaxCarLength = math.max(MaxCarLength, (Bounds.Max.X - Bounds.Min.X) * Scale)
             Mesh:SetRelativeScale3D(FVector.new(Scale, Scale, Scale))
             Mesh:SetRelativeLocation(FVector.new(
                 -(Bounds.Min.X + Bounds.Max.X - 2 * Position.X) * Scale / 2,
@@ -160,8 +169,15 @@ end
 
 local function SpawnRowCar(Row, Offset)
     local Sign = Row.Direction and 1 or -1
+    local SpawnY = Origin.Y + Sign * (-CarLimit + Offset)
+    -- 프레임 지연과 차량/매니저 Tick 순서에 관계없이 실제 거리도 확인합니다.
+    for _, Other in ipairs(Row.Cars) do
+        if math.abs(Other.Actor:GetActorLocation().Y - SpawnY) < MaxCarLength + MinCarGap then
+            return
+        end
+    end
     local Entry = SpawnCar(FVector.new(Origin.X + Row.Index * LaneSpacing,
-        Origin.Y + Sign * (-CarLimit + Offset), Origin.Z),
+        SpawnY, Origin.Z),
         FVector.new(0, Sign, 0), Row.Speed, CarLimit * 2 - Offset)
     if Entry then
         Entry.Row = Row
@@ -175,13 +191,13 @@ local function PopulateRoad(Row)
     local RoadCount = 0
     for _, Other in ipairs(Rows) do if Other.Active and Other.Kind == "road" then RoadCount = RoadCount + 1 end end
     local Count = math.min(MaxInitialCarsPerRow, math.floor(PoolCount / math.max(1, RoadCount)))
-    local Offset = Row.Speed * SpawnInterval() * TrafficRandom()
+    local Offset = Row.Speed * SpawnInterval(Row.Speed) * TrafficRandom()
     for _ = 1, Count do
         if Offset >= CarLimit * 2 then break end
         SpawnRowCar(Row, Offset)
-        Offset = Offset + Row.Speed * SpawnInterval()
+        Offset = Offset + Row.Speed * SpawnInterval(Row.Speed)
     end
-    Row.NextSpawnTime = SpawnInterval()
+    Row.NextSpawnTime = SpawnInterval(Row.Speed)
 end
 
 local function UpdateRoadTraffic(DeltaSeconds)
@@ -191,7 +207,7 @@ local function UpdateRoadTraffic(DeltaSeconds)
             Row.NextSpawnTime = Row.NextSpawnTime - DeltaSeconds
             if Row.NextSpawnTime <= 0 then
                 SpawnRowCar(Row, 0)
-                Row.NextSpawnTime = SpawnInterval()
+                Row.NextSpawnTime = SpawnInterval(Row.Speed)
             end
         end
     end
