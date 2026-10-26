@@ -9,4 +9,4 @@ Downloaded from the official Kenney site. CC0 terms are preserved in License.txt
 - Tools/BuildCrossySignals.mjs rebuilds both variants from the original OBJ.
 
 LevelManager.lua faces the signal toward -X and mounts a red point light beside its red lens.
-Signals blink before departure and throughout passage. Lights cast no shadows and are disabled with recycled rows.
+Signals blink from 2 seconds before departure for at most 3 seconds in total, then all switch off together. MapTrainBlinkDuration controls this duration independently of the pre-departure warning time. Lights cast no shadows and are disabled with recycled rows.

@@ -40,6 +40,7 @@ local MapTrainSpeed = 50.0
 local MapTrainWaitMin = 3.0
 local MapTrainWaitMax = 6.0
 local MapTrainWarningTime = 2.0 -- 열차 출발 전 경고 시간
+local MapTrainBlinkDuration = 2.5 -- 경고 시작부터 점멸을 유지할 전체 시간
 local MapTrainBlinkInterval = 0.25 -- 빨간불 켜짐/꺼짐 간격
 local MapRailSignalSpacing = 12.0 -- 레일을 따라 설치할 경고등 간격
 local MapRailSignalOffsetX = -1.4 -- 레일 앞쪽 가장자리
@@ -411,7 +412,8 @@ local function UpdateTrains(DeltaSeconds)
                     Row.WarningElapsed = 0
                 else ActiveCount = ActiveCount + 1 end
             end
-            Row.TrainWarning = Row.TrainActive or Row.TrainWait <= MapTrainWarningTime
+            Row.TrainWarning = (Row.TrainActive or Row.TrainWait <= MapTrainWarningTime)
+                and Row.WarningElapsed < MapTrainBlinkDuration
             local On = Row.TrainWarning and math.floor(Row.WarningElapsed / MapTrainBlinkInterval) % 2 == 0
             SetRailSignals(Row, true, On)
             local Lane = LevelInfo.RailLanes[Row.Index]
@@ -558,7 +560,7 @@ function BeginPlay(Self)
     assert(DeathRowsBehind > 0 and DeathRowsBehind <= RowsBehind, "Death boundary must be inside the retained map")
     assert(MapRoadChance >= 0 and MapRailChance >= 0 and MapRoadChance + MapRailChance <= 1, "Invalid map probabilities")
     assert(MapTrainSpeed > 0 and MapTrainWaitMin >= 0 and MapTrainWaitMax >= MapTrainWaitMin, "Invalid train settings")
-    assert(MapTrainWarningTime > 0 and MapTrainBlinkInterval > 0 and MapRailSignalSpacing > 0
+    assert(MapTrainWarningTime > 0 and MapTrainBlinkDuration > 0 and MapTrainBlinkInterval > 0 and MapRailSignalSpacing > 0
         and MapRailSignalIntensity >= 0, "Invalid rail signal settings")
     assert(MapMinLaneSpeed > 0 and MapMaxLaneSpeed >= MapMinLaneSpeed, "Invalid road speed range")
     assert(MapPositiveYChance >= 0 and MapPositiveYChance <= 1, "Invalid direction probability")

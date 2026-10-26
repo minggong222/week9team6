@@ -373,6 +373,45 @@ end
 Warning:Restart(); Warning:Finish()
 print("PASS long trucks and rail signals: spacing, 2s warning, 0.25s blinking, red lights, full passage, repeated warning, selection freeze and recycled-slot cleanup")
 
+-- Blink lifetime is a timer, independent of train position/direction and speed.
+local TimedWarning, DirectionsSeen = Setup(true, true, false), {}
+for Attempt = 1, 10 do
+    if DirectionsSeen[true] and DirectionsSeen[false] then break end
+    if Attempt > 1 then TimedWarning:Restart() end
+    local Index, Lane
+    for I, L in pairs(TimedWarning.Shared.CrossyLevel.RailLanes) do
+        if not DirectionsSeen[L.Direction] then Index, Lane = I, L; break end
+    end
+    if Lane then
+        TimedWarning.Shared.CrossyLevel.SetTrainSpeed(40, Index)
+        Lane = TimedWarning.Shared.CrossyLevel.RailLanes[Index]
+        local Slot = Index + 11
+        local function Advance(DT) TimedWarning.LevelScript:Invoke("TickComponent", TimedWarning.LevelScript, DT) end
+        Advance(Lane.SecondsUntilSpawn - 2 + 0.01)
+        assert(Lane.Warning and Lane.SignalOn and not Lane.TrainActive)
+        Advance(Lane.SecondsUntilSpawn + 0.01)
+        Advance(0.5) -- 2.51 seconds since warning started: still inside the 3-second lifetime.
+        assert(Lane.TrainActive and Lane.Warning and Lane.SignalOn)
+        Advance(0.5) -- 3.01 seconds: the train is still active, but every signal must be off.
+        assert(Lane.TrainActive and not Lane.Warning and not Lane.SignalOn)
+        for I = 1, 5 do
+            local M = TimedWarning.Components["RailSignal_" .. Slot .. "_" .. I]
+            local L = TimedWarning.Components["RailSignal_" .. Slot .. "_" .. I .. "_Light"]
+            assert(L.Intensity == 0 and not L.Visible and M.Asset:find("signal%-off.obj"), "Blink lifetime did not switch every signal off")
+        end
+        Advance(0.5)
+        assert(Lane.TrainActive and not Lane.Warning and not Lane.SignalOn, "Expired warning relit while the train was active")
+        Advance(10)
+        assert(not Lane.TrainActive)
+        Advance(Lane.SecondsUntilSpawn - 2 + 0.01)
+        assert(Lane.Warning and Lane.SignalOn, "Next train did not reset the blink lifetime")
+        DirectionsSeen[Lane.Direction] = true
+    end
+end
+assert(DirectionsSeen[true] and DirectionsSeen[false], "Both train directions were not covered")
+TimedWarning:Finish()
+print("PASS signal timer: 3-second total lifetime, simultaneous switch-off, independent of direction/speed, no relighting until next train")
+
 for _, GameFirst in ipairs({ false, true }) do
     local T = Setup(true, true, GameFirst)
     local S, Level = T.Shared.CrossyGameState, T.Shared.CrossyLevel
