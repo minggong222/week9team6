@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const folder = root + 'Assets/Models/Crossy/RoadTiles/';
-const grid = 2, tileScale = grid / 3;
+const grid = 3, tileScale = grid / 3;
+const rowCount = 40, playerLength = 2, vehicleWidth = 2;
+const mapCenterX = (rowCount - 1) * grid / 2;
 const roadStarts = [3, 8, 13, 18, 23, 28, 33];
 const roadWidths = [2, 3, 2, 3, 2, 2, 3];
 const sources = new Map(), materials = new Map();
@@ -118,16 +120,13 @@ async function merge(name, placements) {
 const columns = Array.from({ length: 23 }, (_, i) => i - 11);
 await merge('kenney-grass-row', columns.map(c => tile('163', 0, c * grid)));
 await merge('kenney-plaza-row', columns.map(c => Math.abs(c) <= 3 ? tile('002', 0, c * grid, 0, 0.63) : tile('163', 0, c * grid)));
-await merge('kenney-sidewalk', Array.from({ length: 40 }, (_, r) => tile('002', r * grid - 39, 0, 0, 0.63)));
-await merge('kenney-backdrop', [tile('163', 0, 0, 0, 0.55, 128 / 3, 96 / 3, -0.08)]);
-for (const width of [2, 3]) {
-    const placements = [];
-    for (let r = 0; r < width; r++) for (const c of columns) {
-        const edge = r === 0 || r === width - 1;
-        placements.push(tile(edge ? '059' : '034', (r - (width - 1) / 2) * grid, c * grid, edge ? (r === 0 ? -90 : 90) : 0, 0.6));
-    }
-    await merge(width === 2 ? 'kenney-road-narrow' : 'kenney-road-wide', placements);
-}
+await merge('kenney-sidewalk', Array.from({ length: rowCount }, (_, r) => tile('002', r * grid - mapCenterX, 0, 0, 0.63)));
+await merge('kenney-backdrop', [tile('163', 0, 0, 0, 0.55, (rowCount + 4) * grid / 3, 32 * grid / 3, -0.08)]);
+// Two half-width edge tiles form one lane, with white lines on its outside edges.
+await merge('kenney-road-row', columns.flatMap(c => [
+    tile('059', -grid / 4, c * grid, -90, 0.6, tileScale, tileScale / 2),
+    tile('059', grid / 4, c * grid, 90, 0.6, tileScale, tileScale / 2)
+]));
 const transform = (x = 0, y = 0, z = 0, yaw = 0, scale = 1) => ({
     Location: { X: x, Y: y, Z: z }, Rotation: { Pitch: 0, Roll: 0, Yaw: yaw }, Scale: { X: scale, Y: scale, Z: scale }
 });
@@ -144,12 +143,48 @@ function actor(name, mesh, x, y, yaw = 0, local = transform()) {
 if (!process.argv.includes('--assets-only')) {
 const scenePath = root + 'Scenes/Crossy.scene';
 const scene = JSON.parse(await readFile(scenePath, 'utf8'));
-// Preserve Player, cameras, cars and unrelated editor additions.
-const actors = scene.World.PersistentLevel.Actors.filter(a =>
-    !/^(Ground_|Grass_|Road_|LaneMark_|Tree_|Boundary_|Start_Line$|Finish_Tile_)/.test(a.Name));
+const previousActors = scene.World.PersistentLevel.Actors;
+const rootTransform = a => a.Components.find(c => c.Name === 'DefaultSceneRoot').Properties.Transform;
+// The editor normalizes numeric FName suffixes (Grass_01 becomes Grass_1).
+const referenceGrassRow = previousActors.find(a => /^Grass_0*1$/.test(a.Name));
+if (!referenceGrassRow) throw new Error('Grass row 1 is needed to identify the previous grid.');
+const previousGrid = rootTransform(referenceGrassRow).Location.X;
+if (!(previousGrid > 0)) throw new Error('Invalid previous grid size.');
+const carTemplates = previousActors.filter(a => /^Car_L\d+_\d+$/.test(a.Name));
+if (!carTemplates.length) throw new Error('No car templates found in Crossy.scene.');
+// Preserve Player, cameras and unrelated editor additions. Rebuild generated lanes and cars.
+const actors = previousActors.filter(a =>
+    !/^(Car_L\d+_\d+$|Ground_|Grass_|Road_|LaneMark_|Tree_|Boundary_|Start_Line$|Finish_Tile_)/.test(a.Name));
+// Move existing roadside decorations to the new grid; repeated generation keeps their placement stable.
+for (const decoration of actors.filter(a => /^(Rock_|Bench_|Cone_)/.test(a.Name))) {
+    const location = rootTransform(decoration).Location;
+    location.X *= grid / previousGrid;
+    location.Y *= grid / previousGrid;
+}
+const boundsCache = new Map();
+async function meshBounds(path) {
+    if (boundsCache.has(path)) return boundsCache.get(path);
+    const vertices = (await readFile(root + 'Assets/' + path, 'utf8')).split(/\r?\n/)
+        .filter(line => /^v\s/.test(line)).map(line => engine(line.trim().split(/\s+/).slice(1, 4).map(Number)));
+    if (!vertices.length) throw new Error('No vertices in ' + path);
+    const min = [0, 1, 2].map(axis => Math.min(...vertices.map(v => v[axis])));
+    const max = [0, 1, 2].map(axis => Math.max(...vertices.map(v => v[axis])));
+    const bounds = { min, max, size: max.map((value, axis) => value - min[axis]),
+        center: max.map((value, axis) => (value + min[axis]) / 2) };
+    boundsCache.set(path, bounds);
+    return bounds;
+}
+const player = actors.find(a => a.Name === 'Player');
+const playerMesh = player?.Components.find(c => c.Properties.StaticMesh === 'Models/OBJ format/animal-pig.obj');
+if (!playerMesh) throw new Error('Player pig mesh not found.');
+const pigBounds = await meshBounds(playerMesh.Properties.StaticMesh);
+const pigScale = playerLength / pigBounds.size[0];
+playerMesh.Properties.Transform.Scale = { X: pigScale, Y: pigScale, Z: pigScale };
+const pigCenter = rotate(pigBounds.center.map(value => value * pigScale), playerMesh.Properties.Transform.Rotation.Yaw);
+playerMesh.Properties.Transform.Location = { X: -pigCenter[0], Y: -pigCenter[1], Z: -pigBounds.min[2] * pigScale };
 const roadRows = new Set(roadStarts.flatMap((start, i) => Array.from({ length: roadWidths[i] }, (_, r) => start + r)));
-actors.push(actor('Ground_Backdrop', 'kenney-backdrop', 39, 0));
-for (let row = 0; row < 40; row++) {
+actors.push(actor('Ground_Backdrop', 'kenney-backdrop', mapCenterX, 0));
+for (let row = 0; row < rowCount; row++) {
     if (roadRows.has(row)) continue;
     actors.push(actor('Grass_' + String(row).padStart(2, '0'), row < 3 || row >= 37 ? 'kenney-plaza-row' : 'kenney-grass-row', row * grid, 0));
     for (const side of [-1, 1]) {
@@ -157,22 +192,35 @@ for (let row = 0; row < 40; row++) {
         const center = [0, 1].map(axis => (Math.min(...positions.map(p => p[axis])) + Math.max(...positions.map(p => p[axis]))) / 2);
         const scale = 1.4 + row % 3 * 0.15;
         actors.push(actor('Tree_' + row + '_' + (side < 0 ? 'L' : 'R'), 'kenney-tree-' + id,
-            row * grid, side * (20.8 + row % 3 * 0.4), row * 37 % 360,
+            row * grid, side * (10.4 + row % 3 * 0.2) * grid, row * 37 % 360,
             transform(-center[0] * scale, -center[1] * scale, 0, 0, scale)));
     }
 }
-for (const side of [-1, 1]) actors.push(actor(side < 0 ? 'Boundary_Left' : 'Boundary_Right', 'kenney-sidewalk', 39, side * 18));
-for (let i = 0; i < roadStarts.length; i++) {
-    const width = roadWidths[i], centerX = roadStarts[i] * grid + width - 1;
-    actors.push(actor('Road_Segment_' + String(i + 1).padStart(2, '0'), width === 2 ? 'kenney-road-narrow' : 'kenney-road-wide', centerX, 0));
-    for (let lane = 0; lane < 2; lane++) {
-        const x = centerX + (lane ? 1 : -1) * (width * grid - 1) / 4;
-        for (const car of actors.filter(a => a.Name.startsWith('Car_L' + (i * 2 + lane + 1) + '_')))
-            car.Components.find(c => c.Name === 'DefaultSceneRoot').Properties.Transform.Location.X = x;
-    }
+for (const side of [-1, 1]) actors.push(actor(side < 0 ? 'Boundary_Left' : 'Boundary_Right', 'kenney-sidewalk', mapCenterX, side * 9 * grid));
+for (const [lane, row] of [...roadRows].entries()) {
+    actors.push(actor('Road_Row_' + String(row).padStart(2, '0'), 'kenney-road-row', row * grid, 0));
+    const car = structuredClone(carTemplates[lane % carTemplates.length]);
+    car.Name = 'Car_L' + (lane + 1) + '_1';
+    const carRoot = rootTransform(car);
+    carRoot.Location.X = row * grid;
+    carRoot.Location.Y = (lane % 3 - 1) * 4 * grid;
+    carRoot.Rotation.Yaw = lane % 2 === 0 ? 90 : -90;
+    carRoot.Scale = { X: 1, Y: 1, Z: 1 };
+    const carMesh = car.Components.find(c => c.Properties.StaticMesh);
+    const bounds = await meshBounds(carMesh.Properties.StaticMesh);
+    // Cars face along Y, so their local Y width occupies the lane's X width.
+    const scale = vehicleWidth / bounds.size[1];
+    carMesh.Properties.Transform = transform(-bounds.center[0] * scale, -bounds.center[1] * scale,
+        -bounds.min[2] * scale, 0, scale);
+    actors.push(car);
 }
 scene.World.PersistentLevel.Actors = actors;
+const playerScriptPath = root + 'Assets/Scripts/Player.lua';
+const playerScript = await readFile(playerScriptPath, 'utf8');
+if (!/^local MoveDistance = [\d.]+/m.test(playerScript)) throw new Error('Player MoveDistance not found.');
+await writeFile(playerScriptPath, playerScript.replace(/^local MoveDistance = [\d.]+/m, 'local MoveDistance = ' + grid + '.0'));
 await writeFile(scenePath, JSON.stringify(scene, null, 4) + '\n');
-console.log('Kenney rebuild: ' + actors.length + ' actors, 7 roads; 40 x 17 playable grid; Player preserved.');
+console.log('Kenney rebuild: ' + actors.length + ' actors; ' + roadRows.size + ' single-lane road rows, one car per road row.');
+console.log('Grid/move: ' + grid + '; pig length: ' + playerLength + '; car width: ' + vehicleWidth + '; rows: ' + rowCount + '.');
 
 }

@@ -26,6 +26,11 @@ void LuaRegisterComponentBase(sol::state& State)
         "KeepWorld", EAttachmentRule::KeepWorld,
         "SnapToTarget", EAttachmentRule::SnapToTarget);
 
+    State.new_enum("ECollisionResponse",
+        "Ignore", ECollisionResponse::Ignore,
+        "Overlap", ECollisionResponse::Overlap,
+        "Block", ECollisionResponse::Block);
+
     State.new_usertype<FBox>("FBox", sol::constructors<FBox()>(),
         "Min", &FBox::Min, "Max", &FBox::Max);
     State.new_usertype<FRay>("FRay", sol::constructors<FRay()>(),
@@ -127,5 +132,7 @@ void LuaRegisterComponentBase(sol::state& State)
             FHitResult Hit;
             bool Success = Component.LineTraceComponent(Ray, Hit);
             return std::make_tuple(Success, Hit);
-        });
+        },
+        "SetCollisionResponseToAllChannels", & UPrimitiveComponent::SetCollisionResponseToAllChannels
+    );
 }

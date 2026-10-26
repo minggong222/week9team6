@@ -75,13 +75,16 @@ bool ULuaComponent::LoadLua()
 		return false;
 	}
 
-	const FLuaScriptSource* Script = GEngine->GetLuaRegistry().FindOrLoad(ScriptPath);
-	if (!Script || !Instance->Load(ScriptPath, Script->Source))
+	// 새 플레이에서는 디스크에 저장된 소스를 읽어 이전 세션의 캐시를 재사용하지 않습니다.
+	FLuaRegistry& Registry = GEngine->GetLuaRegistry();
+	FString Source;
+	if (!Registry.ReadCandidate(ScriptPath, Source) || !Instance->Load(ScriptPath, Source))
 	{
 		Instance->Unload();
 		return false;
 	}
 
+	Registry.Accept(ScriptPath, std::move(Source));
 	return true;
 }
 
@@ -141,7 +144,7 @@ void ULuaComponent::Serialize(FStructuredArchive::FRecord Record)
 	Super::Serialize(Record);
 
 	// 씬 로드는 컴포넌트를 먼저 등록한 뒤 경로를 읽으므로, 역직렬화 후 소스를 확보합니다.
-	// PIE 복제는 이미 채택한 소스를 사용하며 파일을 다시 읽지 않습니다.
+	// PIE 복제는 경로만 복사하고, 플레이 초기화의 LoadLua에서 파일을 읽습니다.
 	FArchive& Archive = Record.GetUnderlyingArchive();
 	if (GEngine && Archive.IsLoading() && !Archive.HasAnyPortFlags(EPropertyPortFlags::PPF_Duplicate)
 		&& !ScriptPath.empty())
@@ -173,7 +176,15 @@ void ULuaComponent::InitializeComponent()
 
 	// 인스턴스 초기화
 	InitializeLua();
-	LoadLua();
+	if (!LoadLua())
+	{
+		if (!ScriptPath.empty())
+		{
+			HTR_LOG(Error, "Lua 초기화 실패: Actor={}, Script={}",
+				GetOwner() ? GetOwner()->GetName() : "None", ScriptPath);
+		}
+		return;
+	}
 
 	InvokeLua("InitializeComponent", this);
 }
