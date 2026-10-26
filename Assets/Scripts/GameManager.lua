@@ -1,4 +1,3 @@
-
 print("[GameManager] SCRIPT LOADED")
 
 -- 게임 진행 상태
@@ -25,6 +24,9 @@ local PlayerMesh = nil
 local PlayerMeshStartScale = nil
 local PlayerMeshStartLocation, PlayerMeshStartRotation, PlayerScript = nil, nil, nil
 local ScoreText = nil
+local ScoreLabel = nil
+local SelectionTitle, SelectionName, SelectionCount, SelectionHint = nil, nil, nil, nil
+local ResultTitle, ResultScore, ResultHint = nil, nil, nil
 local Camera = nil
 
 local PlayerHitbox = nil
@@ -87,11 +89,101 @@ local function GetSelectionCameraLocation()
     return FVector.new(CharacterRowX - 8, GetCharacterRowY(SelectedCharacterIndex), GameplayCameraLocation.Z)
 end
 
+-- 기존 ScoreText는 재사용하고, 추가 UI는 게임 매니저에 생성한다.
+local function CreateUIText(Name, Text, Size)
+    local Component = UTextRenderComponent.Cast(Actor:FindComponentByName(Name))
+
+    if not Component then
+        Component = UTextRenderComponent.Cast(Actor:AddComponent(UTextRenderComponent.StaticClass(), Name))
+    end
+
+    if not Component then
+        print("[GameManager] UI component not found: " .. Name)
+        return nil
+    end
+
+    Component:SetText(Text)
+    Component:SetTextSize(Size)
+    Component:SetVisibility(false)
+    return Component
+end
+
+local function SetUITextVisible(Component, bVisible)
+    if Component then
+        Component:SetVisibility(bVisible)
+    end
+end
+
+local function UpdateSelectionUIText()
+    local Option = CharacterOptions[SelectedCharacterIndex]
+
+    if SelectionName then
+        SelectionName:SetText("<  " .. Option.Name:upper() .. "  >")
+    end
+
+    if SelectionCount then
+        SelectionCount:SetText(string.format("%02d / %02d", SelectedCharacterIndex, #CharacterOptions))
+    end
+end
+
+-- 선택 / 플레이 / 결과 화면의 텍스트를 각각 표시한다.
+local function ShowUIForPhase(Phase)
+    local bSelecting = Phase == GamePhase.Selecting
+    local bPlaying = Phase == GamePhase.Playing
+    local bResult = Phase == GamePhase.Dead or Phase == GamePhase.Clear
+
+    SetUITextVisible(SelectionTitle, bSelecting)
+    SetUITextVisible(SelectionName, bSelecting)
+    SetUITextVisible(SelectionCount, bSelecting)
+    SetUITextVisible(SelectionHint, bSelecting)
+
+    SetUITextVisible(ScoreLabel, bPlaying)
+    SetUITextVisible(ScoreText, bPlaying)
+
+    SetUITextVisible(ResultTitle, bResult)
+    SetUITextVisible(ResultScore, bResult)
+    SetUITextVisible(ResultHint, bResult)
+end
+
+-- 3D 텍스트를 카메라 앞에 배치해서 화면 UI처럼 보이게 한다.
+local function UpdateUIPosition()
+    if not Camera then
+        return
+    end
+
+    local Rotation = Camera:GetWorldRotation()
+    local Quaternion = Rotation:Quaternion()
+    local Up = Quaternion:GetUpVector()
+    local BaseLocation = Camera:GetWorldLocation() + Quaternion:GetForwardVector() * 4.0
+
+    local function Place(Component, VerticalOffset)
+        if Component then
+            Component:SetWorldLocation(BaseLocation + Up * VerticalOffset, false)
+            Component:SetWorldRotation(Rotation, false)
+        end
+    end
+
+    if GameState.Phase == GamePhase.Selecting then
+        Place(SelectionTitle, 1.20)
+        Place(SelectionName, -0.48)
+        Place(SelectionCount, -0.89)
+        Place(SelectionHint, -1.20)
+    elseif GameState.Phase == GamePhase.Playing then
+        Place(ScoreLabel, 1.26)
+        Place(ScoreText, 0.80)
+    elseif GameState.Phase == GamePhase.Dead or GameState.Phase == GamePhase.Clear then
+        Place(ResultTitle, 0.50)
+        Place(ResultScore, -0.06)
+        Place(ResultHint, -0.55)
+    end
+end
+
 local function ApplyCharacterSelection()
     for Index, Entry in pairs(CharacterPreviewActors) do
         Entry.Mesh:SetRelativeScale3D(Entry.BaseScale * (Index == SelectedCharacterIndex and 1.2 or 1.0))
     end
     GameState.PreviewCharacter = CharacterOptions[SelectedCharacterIndex].Name
+    UpdateSelectionUIText()
 end
 
 local function CreateCharacterPreviews()
@@ -127,9 +219,9 @@ local function StartGame()
     GameState.ClearRequested = false
 
     if ScoreText then
-        ScoreText:SetVisibility(true)
-        ScoreText:SetText("Score: 0")
+        ScoreText:SetText("000")
     end
+    ShowUIForPhase(GamePhase.Playing)
 
     print("Game Started")
 end
@@ -176,9 +268,13 @@ local function GameOver()
 
     Audio.PlaySFX("Audio/Collision.wav")
 
-    if ScoreText then
-        ScoreText:SetText("GAME OVER\nScore: " .. GameState.Score .. "\nPress R to Restart")
+    if ResultTitle then
+        ResultTitle:SetText("GAME OVER")
     end
+    if ResultScore then
+        ResultScore:SetText("SCORE  " .. GameState.Score)
+    end
+    ShowUIForPhase(GamePhase.Dead)
 
     print("Game Over!")
 end
@@ -193,9 +289,13 @@ local function GameClear()
 
     GameState.Phase = GamePhase.Clear
 
-    if ScoreText then
-        ScoreText:SetText("GAME CLEAR\nScore: " .. GameState.Score .. "\nPress R to Restart")
+    if ResultTitle then
+        ResultTitle:SetText("GAME CLEAR")
     end
+    if ResultScore then
+        ResultScore:SetText("SCORE  " .. GameState.Score)
+    end
+    ShowUIForPhase(GamePhase.Clear)
 
     print("Game Clear!")
 end
@@ -224,9 +324,6 @@ local function Restart()
     -- Player.lua에서 진행 중인 점프와 방향 초기화
     GameState.PlayerResetRequested = true
 
-    if ScoreText then
-        ScoreText:SetText("Score: 0")
-    end
 end
 
 -- 플레이어와 자동차의 겹침을 감지한다.
@@ -279,13 +376,22 @@ function BeginPlay(Self)
     Camera = Actor:GetWorld():GetPlayerCamera()
     if Camera then GameplayCameraLocation, GameplayCameraRotation = Camera:GetWorldLocation(), Camera:GetWorldRotation() end
 
-    if ScoreText then
-        ScoreText:SetText("Score: 0")
-        ScoreText:SetTextSize(0.25)
-        ScoreText:SetVisibility(false)
+    if not ScoreText then
+        ScoreText = CreateUIText("ScoreText", "000", 0.42)
     else
-        print("[GameManager] ScoreText not found")
+        ScoreText:SetText("000")
+        ScoreText:SetTextSize(0.42)
+        ScoreText:SetVisibility(false)
     end
+
+    ScoreLabel = CreateUIText("ScoreLabel", "SCORE", 0.19)
+    SelectionTitle = CreateUIText("SelectionTitle", "CHOOSE YOUR CHARACTER", 0.31)
+    SelectionName = CreateUIText("SelectionName", "", 0.47)
+    SelectionCount = CreateUIText("SelectionCount", "", 0.22)
+    SelectionHint = CreateUIText("SelectionHint", "LEFT / RIGHT : SELECT\nENTER : PLAY", 0.18)
+    ResultTitle = CreateUIText("ResultTitle", "", 0.56)
+    ResultScore = CreateUIText("ResultScore", "", 0.32)
+    ResultHint = CreateUIText("ResultHint", "PRESS R TO RETRY", 0.21)
 
     if not Audio.PlayBGM("Audio/CrossyBGM.wav") then
         print("[GameManager] Failed to start BGM")
@@ -300,6 +406,8 @@ function BeginPlay(Self)
         Camera:SetWorldLocation(GetSelectionCameraLocation(), false)
         Camera:SetWorldRotation(GameplayCameraRotation, false)
     end
+    ShowUIForPhase(GamePhase.Selecting)
+    UpdateUIPosition()
 end
 
 function TickComponent(Self, DeltaSeconds)
@@ -316,21 +424,10 @@ function TickComponent(Self, DeltaSeconds)
             local Current, Target = Camera:GetWorldLocation(), GetSelectionCameraLocation()
             Camera:SetWorldLocation(Current + (Target - Current) * math.min(1, DeltaSeconds * CameraMoveSpeed), false)
         end
+        UpdateUIPosition()
         return
     end
-    -- 점수 텍스트를 카메라 앞에 고정
-    if ScoreText and Camera then
-        local Rotation = Camera:GetWorldRotation()
-        local Quaternion = Rotation:Quaternion()
-        local Location = Camera:GetWorldLocation()
-
-        local TextLocation = Location
-            + Quaternion:GetForwardVector() * 3.0
-            + Quaternion:GetUpVector() * 0.9
-
-        ScoreText:SetWorldLocation(TextLocation, false)
-        ScoreText:SetWorldRotation(Rotation, false)
-    end
+    UpdateUIPosition()
 
     -- K키로 게임 오버 테스트
     if GameState.Phase == GamePhase.Playing and Input.IsKeyPressed(EKeyCode.K) then
@@ -368,7 +465,7 @@ function TickComponent(Self, DeltaSeconds)
             GameState.Score = Row
 
             if ScoreText then
-                ScoreText:SetText("Score: " .. GameState.Score)
+                ScoreText:SetText(string.format("%03d", GameState.Score))
             end
 
             print("Score: " .. GameState.Score)
