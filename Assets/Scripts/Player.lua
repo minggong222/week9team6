@@ -1,4 +1,6 @@
-local MoveDistance = 3.0
+local MoveDistance = 2.0
+local MinY = -16
+local MaxY = 16
 local YawOffset = 180.0
 local JumpDuration = 0.1
 local JumpHeight = 0.5
@@ -40,8 +42,7 @@ local function FindStaticMeshComponent(TargetActor)
     local Components = TargetActor:GetComponents()
 
     for _, Component in ipairs(Components) do
-        local MeshComponent =
-            UStaticMeshComponent.Cast(Component)
+        local MeshComponent = UStaticMeshComponent.Cast(Component)
 
         if MeshComponent ~= nil then
             return MeshComponent
@@ -102,7 +103,14 @@ function TickComponent(Component, DeltaSeconds)
         PressCount = PressCount + 1
     end
 
-    if not bIsJumping and PressCount == 1 then
+    local State = _G.CrossyGameState
+    local bCanStartMove = true;
+
+    if not State or State.Phase ~= "Playing" then
+        bCanStartMove = false
+    end
+
+    if bCanStartMove and not bIsJumping and PressCount == 1 then
 
         local MoveDirection = FVector.new(0.0, 0.0, 0.0)
 
@@ -116,22 +124,32 @@ function TickComponent(Component, DeltaSeconds)
             MoveDirection = FVector.new(0.0, 1.0, 0.0)
         end
 
-        JumpStartLocation = RootComponent:GetWorldLocation()
-        JumpDirection = MoveDirection
-        JumpElapsed = 0.0
-        bIsJumping = true
+        local CurrentLocation = RootComponent:GetWorldLocation()
+        local bWithinBounds = true
 
-        if MeshComponent ~= nil then
-            local Yaw = GetYawFromDirection(MoveDirection)
+        if MoveDirection.Y ~= 0.0 then
+            local TargetY = CurrentLocation.Y + MoveDirection.Y * MoveDistance
+            bWithinBounds = TargetY >= MinY and TargetY <= MaxY
+        end
 
-            if Yaw ~= nil then
-                Yaw = Yaw + YawOffset
+        if bWithinBounds then
+            JumpStartLocation = RootComponent:GetWorldLocation()
+            JumpDirection = MoveDirection
+            JumpElapsed = 0.0
+            bIsJumping = true
 
-                if Yaw > 180.0 then
-                    Yaw = Yaw - 360.0
+            if MeshComponent ~= nil then
+                local Yaw = GetYawFromDirection(MoveDirection)
+
+                if Yaw ~= nil then
+                    Yaw = Yaw + YawOffset
+
+                    if Yaw > 180.0 then
+                        Yaw = Yaw - 360.0
+                    end
+
+                    MeshComponent:SetRelativeRotation(FRotator.new(0.0, Yaw, 0.0))
                 end
-
-                MeshComponent:SetRelativeRotation(FRotator.new(0.0, Yaw, 0.0))
             end
         end
     end
