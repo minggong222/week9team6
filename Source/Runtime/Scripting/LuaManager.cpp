@@ -68,7 +68,7 @@ void FLuaManager::Initialize(FLuaRegistry& InRegistry)
 {
     Registry = &InRegistry;
     ElapsedSeconds = 0.0f;
-    State.open_libraries(sol::lib::base, sol::lib::math);
+    State.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string);
 
     // Lua 상태마다 한 번만 시드를 설정해 실행마다 다른 난수 순서를 사용합니다.
     State["math"]["randomseed"](Random::mt());
