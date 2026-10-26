@@ -5,10 +5,12 @@ local Speed = 5.0
 local Distance = 0.0
 local bActive = false
 local Car = nil
+local LevelManager = nil
 
-function SetCar(InCar)
+function SetCar(InCar, InLevelManager)
     -- Size는 추후 Collision Box 연결에 사용할 차량 설정으로 보관합니다.
     Car = InCar
+    LevelManager = InLevelManager
 end
 
 function SetSpeed(InSpeed)
@@ -41,7 +43,10 @@ function Deactivate()
     bActive = false
     Actor:SetActorEnableCollision(false)
     Actor:GetRootComponent():SetVisibility(false, true)
-    Actor:GetRootComponent():SetWorldLocation(FVector.new(0.0, 0.0, -1000.0), false)
+
+    if LevelManager then
+        LevelManager:Invoke("ReturnCar", Actor)
+    end
 end
 
 function Activate(Location, InDirection, InSpeed, TravelDistance)
