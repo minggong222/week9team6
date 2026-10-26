@@ -23,6 +23,9 @@ local StartPosition = nil
 local ScoreText = nil
 local Camera = nil
 
+local PlayerHitbox = nil
+local BeginOverlapHandle = nil
+
 local CellSize = 1.0
 local GoalRow = 40  -- 실제 맵의 마지막 행에 맞게 수정
 
@@ -77,11 +80,35 @@ local function Restart()
     end
 end
 
+-- 플레이어와 자동차의 겹침을 감지한다.
+local function OnPlayerOverlap(OtherComponent)
+    if GameState.Phase ~= GamePhase.Playing or not OtherComponent then
+        return
+    end
+
+    if OtherComponent:GetName() == "CarHitbox" then
+        GameState.GameOverRequested = true
+    end
+end
+
 function BeginPlay(Self)
     Player = Actor:GetWorld():GetPlayerPawn()
 
     if Player then
         StartPosition = Player:GetActorLocation()
+
+        Player:SetActorEnableCollision(true)
+
+        PlayerHitbox = UPrimitiveComponent.Cast(Player:FindComponentByName("PlayerHitbox"))
+
+        if PlayerHitbox then
+            PlayerHitbox:SetCollisionResponseToAllChannels(ECollisionResponse.Overlap)
+            BeginOverlapHandle = PlayerHitbox.OnComponentBeginOverlap:Add(OnPlayerOverlap)
+
+            print("[GameManager] Collision ready")
+        else
+            print("[GameManager] PlayerHitbox not found")
+        end
     end
 
     ScoreText = UTextRenderComponent.Cast(Actor:FindComponentByName("ScoreText"))
@@ -164,4 +191,14 @@ function TickComponent(Self, DeltaSeconds)
         GameState.ClearRequested = false
         GameClear()
     end
+end
+
+function EndPlay(Self)
+    -- PIE 종료 시 등록한 콜백을 해제한다.
+    if PlayerHitbox and BeginOverlapHandle then
+        PlayerHitbox.OnComponentBeginOverlap:Remove(BeginOverlapHandle)
+    end
+
+    BeginOverlapHandle = nil
+    PlayerHitbox = nil
 end
