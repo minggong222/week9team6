@@ -108,6 +108,12 @@ function TickComponent(Self, DeltaSeconds)
 
     local NextDistance = math.min(Distance + Speed * DeltaSeconds, TotalDistance)
     CheckPlayerCollision(Direction * (NextDistance - Distance))
+
+    -- 충돌로 게임이 끝났다면 이번 프레임의 이동과 풀 반환도 중단합니다.
+    if GameState.Phase ~= "Playing" then
+        return
+    end
+
     Distance = NextDistance
     Actor:GetRootComponent():SetWorldLocation(StartLocation + Direction * Distance, false)
 
