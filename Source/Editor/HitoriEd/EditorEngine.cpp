@@ -452,6 +452,9 @@ void UEditorEngine::UpdateViewportState(const float DeltaTime)
 		FEditorViewportClient* Client = ViewportsPanel->GetViewportClient(i);
 		if (!Client || !Client->IsActive())
 			continue;
+		// PIE/SIE 입력은 GameViewport가 처리하므로 편집 카메라에 중복 적용하지 않는다.
+		if (PlayWorld && i == PIEViewIndex)
+			continue;
 
 		Client->TickInput(DeltaTime, i == CapturedViewportIndex,
 			i == HoveredViewIndex, WheelDelta, MoveSpeed, MouseSens);
@@ -1299,6 +1302,15 @@ void UEditorEngine::StartPlayInEditorSession()
 	const bool bNewWindow = (PlayMode == EPlayModeType::InEditorFloating);
 
 	PIEStartEditorViewIndex = ViewportsPanel ? ViewportsPanel->GetActiveViewIndex() : 0;
+	bHasPIEStartEditorView = false;
+	if (PIEStartEditorViewIndex >= 0 && PIEStartEditorViewIndex < AllViewportClients.Num())
+	{
+		if (FEditorViewportClient* View = AllViewportClients[PIEStartEditorViewIndex])
+		{
+			PIEStartEditorView = View->CalcSceneView();
+			bHasPIEStartEditorView = true;
+		}
+	}
 	if (bNewWindow && CreatePIEWindow())
 		PIEViewIndex = -2;
 	else
@@ -1316,6 +1328,7 @@ void UEditorEngine::StartPlayInEditorSession()
 		DestroyWorldContext(FailedWorld);
 		PIEViewIndex = InvalidViewIndex;
 		PIEStartEditorViewIndex = InvalidViewIndex;
+		bHasPIEStartEditorView = false;
 		DestroyPIEWindow();
 		return;
 	}
@@ -1369,6 +1382,19 @@ void UEditorEngine::EndPlayMap()
 		ViewportsPanel->ClearGameViewportClient();
 	DestroyWorldContext(PlayWorld);
 	PlayWorld = nullptr;
+	if (bHasPIEStartEditorView && PIEStartEditorViewIndex >= 0 &&
+		PIEStartEditorViewIndex < AllViewportClients.Num())
+	{
+		if (FEditorViewportClient* View = AllViewportClients[PIEStartEditorViewIndex])
+		{
+			View->SetViewLocation(PIEStartEditorView.ViewLocation);
+			View->SetViewRotation(PIEStartEditorView.ViewRotation);
+			View->SetViewFOV(PIEStartEditorView.FieldOfView);
+			View->SetOrthoWidth(PIEStartEditorView.OrthoWidth);
+			View->SetIsPerspective(PIEStartEditorView.bIsPerspective);
+		}
+	}
+	bHasPIEStartEditorView = false;
 	PIEViewIndex = InvalidViewIndex;
 	PIEStartEditorViewIndex = InvalidViewIndex;
 	DestroyPIEWindow();

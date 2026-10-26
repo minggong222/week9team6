@@ -1,0 +1,31 @@
+# Generated color swatches from original Kenney Kd values; see License.txt.
+newmtl Stone
+Ka 0.000000 0.000000 0.000000
+Ks 0.330000 0.330000 0.330000
+Kd 1 1 1
+map_Kd kenney-color-Stone.png
+
+newmtl Grass
+Ka 0.000000 0.000000 0.000000
+Ks 0.330000 0.330000 0.330000
+Kd 1 1 1
+map_Kd kenney-color-Grass.png
+
+newmtl Alternate_Dirt
+Ka 0.000000 0.000000 0.000000
+Ks 0.330000 0.330000 0.330000
+Kd 1 1 1
+map_Kd kenney-color-Alternate_Dirt.png
+
+newmtl Asphalt
+Ka 0.000000 0.000000 0.000000
+Ks 0.330000 0.330000 0.330000
+Kd 1 1 1
+map_Kd kenney-color-Asphalt.png
+
+newmtl FrontColor
+Ka 0.000000 0.000000 0.000000
+Ks 0.330000 0.330000 0.330000
+Kd 1 1 1
+map_Kd kenney-color-FrontColor.png
+

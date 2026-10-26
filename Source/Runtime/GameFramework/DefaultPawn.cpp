@@ -11,10 +11,10 @@ ADefaultPawn::ADefaultPawn()
 	SetActorEnableCollision(false);
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("StaticMeshComponent");
-	SetRootComponent(StaticMeshComponent);
+	StaticMeshComponent->SetupAttachment(GetRootComponent());
 	StaticMeshComponent->SetStaticMesh(UAssetManager::GetAssetByPath<UStaticMesh>("Models/Hitori/Hitori.obj"));
 	ProjectileMesh = UAssetManager::GetAssetByPath<UStaticMesh>("Sphere");
-	CameraComponent->SetupAttachment(StaticMeshComponent);
+	CameraComponent->SetupAttachment(GetRootComponent());
 	CameraComponent->SetRelativeLocation({-5.0f, 0.0f, 8.0f});
 	CameraComponent->SetRelativeRotation({45.0f, 0.0f, 0.0f});
 	CameraComponent->SetExternalInputManaged(true);
