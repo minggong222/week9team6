@@ -201,6 +201,7 @@ project "HitoriEditor"
 		"dxguid.lib",
 		"d3dcompiler.lib",
 		"winmm.lib",
+		"xaudio2.lib",
 	}
 
 	filter "configurations:ObjViewer"
@@ -268,6 +269,7 @@ project "HitoriGame"
 		"d3dcompiler.lib",
 		"lua51.lib",
 		"winmm.lib",
+		"xaudio2.lib",
 	}
 	
 	local engineLibPath = path.getabsolute("Build/Bin")
