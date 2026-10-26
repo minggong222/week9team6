@@ -91,6 +91,8 @@ void UEngine::DestroyWorldContext(UWorld* InWorld)
 				}
 				for (ULevel* Level : InWorld->GetLevels()) delete Level;
 				if (bOwnsCamera) delete Camera;
+				// Shutdown과 아래 SetCurrentWorld가 삭제된 월드를 다시 참조하지 않게 먼저 끊습니다.
+				WorldContextlist[idx].SetCurrentWorld(nullptr);
 				delete InWorld;
 			}
 			else if (WorldContextlist[idx].GameViewport)
