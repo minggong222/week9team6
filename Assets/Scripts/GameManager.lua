@@ -121,6 +121,7 @@ local function StartGame()
     GameState.Phase = GamePhase.Playing
     GameState.Score = 0
     GameState.MaxRow = 0
+    GameState.PlayerResetRequested = false
     GameState.GameOverRequested = false
     GameState.ClearRequested = false
 
@@ -200,12 +201,15 @@ end
 
 local function Restart()
     GameState.RestartCount = (GameState.RestartCount or 0) + 1
+
+    -- 플레이어 위치와 크기 복원
     GameState.Phase = GamePhase.Ready
     if PlayerScript then PlayerScript:Invoke("StopMovement") end
     -- 플레이어를 시작 위치로 복귀
     if Player and StartPosition then
         Player:GetRootComponent():SetWorldLocation(StartPosition, false)
     end
+
     if PlayerMesh and PlayerMeshStartScale then
         PlayerMesh:SetRelativeScale3D(PlayerMeshStartScale)
         PlayerMesh:SetRelativeLocation(PlayerMeshStartLocation)
@@ -215,6 +219,9 @@ local function Restart()
     local Level = _G.CrossyLevel
     if Level then Level.Reset(true) end
     StartGame()
+
+    -- Player.lua에서 진행 중인 점프와 방향 초기화
+    GameState.PlayerResetRequested = true
 
     if ScoreText then
         ScoreText:SetText("Score: 0")

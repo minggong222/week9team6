@@ -16,6 +16,7 @@ local JumpElapsed = 0.0
 local JumpStartLocation = FVector.new(0.0, 0.0, 0.0)
 local JumpDirection = FVector.new(0.0, 0.0, 0.0)
 local MeshBaseLocation = nil
+local MeshBaseRotation = nil
 
 local function GetYawFromDirection(Direction)
     local X = Direction.X
@@ -53,6 +54,15 @@ local function FindStaticMeshComponent(TargetActor)
     return nil
 end
 
+-- 진행 중인 점프를 취소하고 메시 위치를 복원한다.
+local function ResetJump(MeshComponent)
+    bIsJumping = false
+    JumpElapsed = 0.0
+    JumpDirection = FVector.new(0.0, 0.0, 0.0)
+
+    if MeshComponent and MeshBaseLocation then
+        MeshComponent:SetRelativeLocation(MeshBaseLocation)
+    end
 -- 사망/재시작 시 진행 중인 점프까지 즉시 취소합니다.
 function StopMovement()
     bIsJumping, JumpElapsed = false, 0.0
@@ -87,6 +97,7 @@ function TickComponent(Component, DeltaSeconds)
 
     if MeshComponent ~= nil and MeshBaseLocation == nil then
         MeshBaseLocation = MeshComponent:GetRelativeLocation()
+        MeshBaseRotation = MeshComponent:GetRelativeRotation()
     end
 
     local bWDown = Input.IsKeyDown(EKeyCode.W) or Input.IsKeyDown(EKeyCode.Up)
@@ -123,13 +134,30 @@ function TickComponent(Component, DeltaSeconds)
     end
 
     local State = _G.CrossyGameState
-    local bCanStartMove = true;
 
-    if not State or State.Phase ~= "Playing" then
-        bCanStartMove = false
+    -- 재시작 시 이전 점프를 취소하고 시작 방향 복원
+    if State and State.PlayerResetRequested then
+        State.PlayerResetRequested = false
+
+        ResetJump(MeshComponent)
+
+        if MeshComponent and MeshBaseRotation then
+            MeshComponent:SetRelativeRotation(MeshBaseRotation)
+        end
+
+        return
     end
 
-    if bCanStartMove and not bIsJumping and PressCount == 1 then
+    -- 사망·클리어·캐릭터 선택 중에는 점프도 중단
+    if not State or State.Phase ~= "Playing" then
+        if bIsJumping then
+            ResetJump(MeshComponent)
+        end
+
+        return
+    end
+
+    if not bIsJumping and PressCount == 1 then
 
         local MoveDirection = FVector.new(0.0, 0.0, 0.0)
 
