@@ -26,6 +26,7 @@ local function StartGame()
     GameState.Phase = GamePhase.Playing
     GameState.Score = 0
     GameState.MaxRow = 0
+    GameState.GameOverRequested = false
 
     print("Game Started")
 end
@@ -91,6 +92,11 @@ function TickComponent(Self, DeltaSeconds)
     end
     
     if GameState.Phase == GamePhase.Playing and Input.IsKeyPressed(EKeyCode.K) then
+        GameState.GameOverRequested = true
+    end
+
+    if GameState.GameOverRequested then
+        GameState.GameOverRequested = false
         GameOver()
     end
 
