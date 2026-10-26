@@ -2,6 +2,7 @@
 
 #include "ActorComponent.h"
 #include "Core/EngineString.h"
+#include "sol/sol.hpp"
 
 class FLuaManager;
 class FLuaInstance;
@@ -22,6 +23,9 @@ public:
     void InitializeLua();
     bool LoadLua();
     bool ReloadLua();
+
+    // 인자는 그대로 전달하며 Self를 자동으로 추가하지 않습니다.
+    sol::variadic_results Invoke(const FString& FunctionName, sol::variadic_args Args);
 
     void OnInstanceLoaded(FLuaInstance& Instance);
 
