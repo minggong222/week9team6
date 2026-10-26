@@ -1,6 +1,6 @@
 local MoveDistance = 3.0
-local MinY = -16
-local MaxY = 16
+local MinY = -24
+local MaxY = 24
 local YawOffset = 180.0
 local JumpDuration = 0.1
 local JumpHeight = 0.5
@@ -129,7 +129,10 @@ function TickComponent(Component, DeltaSeconds)
 
         if MoveDirection.Y ~= 0.0 then
             local TargetY = CurrentLocation.Y + MoveDirection.Y * MoveDistance
-            bWithinBounds = TargetY >= MinY and TargetY <= MaxY
+            local MapBounds = _G.CrossyMapTest
+            local AllowedMinY = MapBounds and MapBounds.MinY or MinY
+            local AllowedMaxY = MapBounds and MapBounds.MaxY or MaxY
+            bWithinBounds = TargetY >= AllowedMinY and TargetY <= AllowedMaxY
         end
 
         if bWithinBounds then
