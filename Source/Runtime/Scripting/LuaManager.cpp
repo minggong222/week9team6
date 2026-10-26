@@ -12,6 +12,7 @@ extern void LuaRegisterMath(sol::state& State);
 extern void LuaRegisterComponent(sol::state& State);
 extern void LuaRegisterInput(sol::state& State);
 extern void LuaRegisterContainer(sol::state& State);
+extern void LuaRegisterAudio(sol::state& State);
 
 void LuaPrint(FStringView ComponentName, float Seconds, sol::this_state LuaState, sol::variadic_args Args)
 {
@@ -58,6 +59,7 @@ void LuaRegister(sol::state& State)
     LuaRegisterComponent(State);
     LuaRegisterWorld(State);
     LuaRegisterInput(State);
+    LuaRegisterAudio(State);
 }
 
 void FLuaManager::Initialize(FLuaRegistry& InRegistry)
