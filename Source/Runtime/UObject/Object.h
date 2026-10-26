@@ -98,7 +98,7 @@ public:
 	UObject* GetOuter() const { return Outer; }
 	void SetOuter(UObject* InOuter) { Outer = InOuter; }
 
-	void SetName(const FName& InName) { Name = FName(InName); }
+	virtual void SetName(const FName& InName) { Name = FName(InName); }
 
 	inline static void RegisterProperties(UClass* InClass) {};
 

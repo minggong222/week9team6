@@ -9,13 +9,6 @@ AStaticMeshActor::AStaticMeshActor()
 {
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("UStaticMeshComponent");
 	StaticMeshComponent->SetupAttachment(GetRootComponent());
-    CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
-
-    CameraComponent->SetupAttachment(GetRootComponent());
-    CameraComponent->SetRelativeLocation(FVector(-5.0f, 0.0f, 8.0f));
-
-    CameraComponent->SetExternalInputManaged(true);
-    CameraComponent->SetUseForPlayerView(true);
 }
 
 void AStaticMeshActor::SetPrimitiveType(EPrimitiveType Type)

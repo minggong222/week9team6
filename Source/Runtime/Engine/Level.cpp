@@ -13,6 +13,7 @@ void ULevel::AddActor(AActor* Actor)
 		return;
 
 	Actors.Add(Actor);
+	MarkActorListDirty();
 }
 
 void ULevel::ClearActors()
@@ -25,6 +26,7 @@ void ULevel::ClearActors()
 		delete Actor;
 	}
 	Actors.Reset();
+	MarkActorListDirty();
 }
 
 void ULevel::Serialize(FStructuredArchive::FRecord Record)
@@ -49,6 +51,7 @@ void ULevel::Serialize(FStructuredArchive::FRecord Record)
 		UObject* WorldObj = OwningWorld;
 		Record << SA_VALUE("OwningWorld", WorldObj);
 		OwningWorld = static_cast<UWorld*>(WorldObj);
+		if (Ar.IsLoading()) MarkActorListDirty();
 		return;
 	}
 

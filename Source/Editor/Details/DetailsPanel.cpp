@@ -818,13 +818,15 @@ namespace
 		}
 	}
 
-	void DrawActorHeader(AActor* Actor, UActorComponent*& OutSelectedComponent)
+	void DrawActorHeader(AActor* Actor, UActorComponent*& OutSelectedComponent, FActorNameEdit& NameEdit)
 	{
 		if (!Actor) { return; }
 
 		static char ComponentNameInputBuf[256] = {};
 
-		ImGui::Text("Actor: %s", Actor->GetName().c_str());
+		ImGui::PushID(Actor);
+		NameEdit.DrawInput(Actor, "Actor Name");
+		ImGui::PopID();
 		ImGui::Text("UUID: %u", Actor->GetUUID());
 
 		if (ImGui::Button("Add Component"))
@@ -951,7 +953,7 @@ void FDetailsPanel::OnRender()
 
 		UActorComponent* SelectCandidateComponent = TargetComponent;
 
-		DrawActorHeader(TargetActor, TargetComponent);
+		DrawActorHeader(TargetActor, TargetComponent, ActorNameEdit);
         // Script creation belongs to the selected Actor, not a manually added component.
         ULuaComponent* ActorScript = Cast<ULuaComponent>(TargetComponent);
         if (!ActorScript)

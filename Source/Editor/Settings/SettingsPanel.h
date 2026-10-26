@@ -100,6 +100,7 @@ private:
 	void DrawDefaultPawnSettings();
 	void DrawShadowMapSettings();
 	void DrawPlayerPawnSelection();
+	char PlayerPawnSearch[128] = {};
 	UWorld* World = nullptr;
 	UWorld* EditorWorld = nullptr;
 	FViewportsPanel* ViewportsPanel = nullptr;

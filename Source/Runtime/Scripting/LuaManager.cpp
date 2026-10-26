@@ -64,7 +64,7 @@ void FLuaManager::Initialize(FLuaRegistry& InRegistry)
 {
     Registry = &InRegistry;
     ElapsedSeconds = 0.0f;
-    State.open_libraries(sol::lib::base);
+    State.open_libraries(sol::lib::base, sol::lib::math);
 
     // Lua에서 호출할 C++ 함수
     LuaRegister(State);

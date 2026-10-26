@@ -12,6 +12,8 @@
 #include "UObject/UObjectIterator.h"
 #include "Engine/Level.h"
 #include "GameFramework/Pawn.h"
+#include <algorithm>
+#include <cctype>
 // 종료 시 렌더·에디터·뷰포트 설정을 함께 저장한다.
 FSettingsPanel::~FSettingsPanel()
 {
@@ -558,22 +560,11 @@ void FSettingsPanel::DrawPlayerPawnSelection()
 	ImGui::SeparatorText("Player Pawn");
 
 	if (!EditorWorld || !EditorWorld->GetPersistentLevel())
-	{
-		ImGui::TextDisabled("Editor world is not available.");
 		return;
-	}
-
-	// PIE 도중에는 원본 씬의 플레이어 설정을 변경하지 않는다.
-	if (World != EditorWorld)
-	{
-		ImGui::TextDisabled("Stop PIE to change the selected player Pawn.");
-		return;
-	}
 
 	const TArray<AActor*>& Actors = EditorWorld->GetPersistentLevel()->GetActors();
 
 	APawn* SelectedPawn = nullptr;
-	int32 SelectedPawnCount = 0;
 
 	// 현재 자동 소유 대상으로 지정된 Pawn을 찾는다.
 	for (AActor* Actor : Actors)
@@ -585,14 +576,23 @@ void FSettingsPanel::DrawPlayerPawnSelection()
 
 		if (!SelectedPawn)
 			SelectedPawn = Pawn;
-
-		++SelectedPawnCount;
 	}
 
 	const FString Preview = SelectedPawn ? SelectedPawn->GetName() : "None";
 
+	// PIE 중에는 선택 UI만 비활성화한다.
+	ImGui::BeginDisabled(World != EditorWorld);
 	if (ImGui::BeginCombo("Player Pawn", Preview.c_str()))
 	{
+		if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+		const float ButtonSize = ImGui::GetFrameHeight();
+		ImGui::SetNextItemWidth(-ButtonSize - ImGui::GetStyle().ItemSpacing.x);
+		ImGui::InputTextWithHint("##PlayerPawnSearch", "Search pawns...", PlayerPawnSearch, sizeof(PlayerPawnSearch));
+		ImGui::SameLine();
+		if (ImGui::Button("X", ImVec2(ButtonSize, ButtonSize))) PlayerPawnSearch[0] = '\0';
+		ImGui::Separator();
+		const FString Search = PlayerPawnSearch;
+
 		// None을 선택하면 모든 Pawn의 자동 소유 설정을 해제한다.
 		if (ImGui::Selectable("None", SelectedPawn == nullptr))
 		{
@@ -613,10 +613,13 @@ void FSettingsPanel::DrawPlayerPawnSelection()
 			if (!Pawn)
 				continue;
 
-			FString Label = Pawn->GetName();
-			Label += " [";
-			Label += Pawn->GetClass()->Name;
-			Label += "]";
+			const FString Label = Pawn->GetName();
+			if (!Search.empty() && std::search(Label.begin(), Label.end(), Search.begin(), Search.end(),
+				[](char A, char B)
+				{
+					return std::tolower(static_cast<unsigned char>(A)) == std::tolower(static_cast<unsigned char>(B));
+				}) == Label.end())
+				continue;
 
 			ImGui::PushID(Pawn);
 
@@ -635,22 +638,11 @@ void FSettingsPanel::DrawPlayerPawnSelection()
 
 				SelectedPawn = Pawn;
 			}
-
-			if (bIsSelected)
-				ImGui::SetItemDefaultFocus();
-
 			ImGui::PopID();
 		}
 
 		ImGui::EndCombo();
 	}
 
-	if (SelectedPawnCount > 1)
-	{
-		ImGui::TextDisabled("Multiple Pawns are selected. Choose one to fix this.");
-	}
-
-	ImGui::TextDisabled("Only actors derived from APawn are listed.");
-
-	ImGui::TextDisabled("Save the scene to keep this selection.");
+	ImGui::EndDisabled();
 }

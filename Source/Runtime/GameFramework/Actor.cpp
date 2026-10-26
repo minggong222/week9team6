@@ -29,6 +29,13 @@ AActor::~AActor()
 	}
 }
 
+void AActor::SetName(const FName& InName)
+{
+	if (GetName() == InName.ToString()) return;
+	Super::SetName(InName);
+	if (Level) Level->MarkActorListDirty();
+}
+
 void AActor::BeginPlay()
 {
 }
