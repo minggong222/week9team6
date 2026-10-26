@@ -6,13 +6,13 @@
 
 APlayerController::APlayerController()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 }
 
 void APlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	ProcessPlayerInput(DeltaTime);
+	//ProcessPlayerInput(DeltaTime);
 }
 
 void APlayerController::ProcessPlayerInput(float DeltaTime)

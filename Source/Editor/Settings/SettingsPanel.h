@@ -89,7 +89,7 @@ public:
     // 종료 저장은 마지막 프레임의 복사본을 사용해 저장 설정을 유지한다.
     void CaptureViewportSettings();
     void ApplyViewportSettings();
-
+	void SetEditorWorld(UWorld* InWorld) { EditorWorld = InWorld; }
 private:
 	static constexpr float SectionGap = 10.0f;
 	static constexpr float SubsectionGap = 4.0f;
@@ -99,8 +99,9 @@ private:
 	void ApplySceneDepthRange();
 	void DrawDefaultPawnSettings();
 	void DrawShadowMapSettings();
-
+	void DrawPlayerPawnSelection();
 	UWorld* World = nullptr;
+	UWorld* EditorWorld = nullptr;
 	FViewportsPanel* ViewportsPanel = nullptr;
 	FEditorSettings Settings;
 };

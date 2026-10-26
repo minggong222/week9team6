@@ -10,7 +10,8 @@
 #include "GameFramework/DefaultPawn.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/UObjectIterator.h"
-
+#include "Engine/Level.h"
+#include "GameFramework/Pawn.h"
 // 종료 시 렌더·에디터·뷰포트 설정을 함께 저장한다.
 FSettingsPanel::~FSettingsPanel()
 {
@@ -114,7 +115,7 @@ void FSettingsPanel::OnRender()
 	//////////////////////////////////////////////////////////
 	DrawShadowMapSettings();
 	//////////////////////////////////////////////////////////
-
+	DrawPlayerPawnSelection();
 	//////////////////////////////////////////////////////////
 	DrawDefaultPawnSettings();
 
@@ -551,3 +552,105 @@ void FSettingsPanel::DrawShadowMapSettings()
 		Settings.PcfMode = static_cast<EPcfMode>(PcfModeIndex);
 }
 
+void FSettingsPanel::DrawPlayerPawnSelection()
+{
+	ImGui::Dummy(ImVec2(0.0f, SectionGap));
+	ImGui::SeparatorText("Player Pawn");
+
+	if (!EditorWorld || !EditorWorld->GetPersistentLevel())
+	{
+		ImGui::TextDisabled("Editor world is not available.");
+		return;
+	}
+
+	// PIE 도중에는 원본 씬의 플레이어 설정을 변경하지 않는다.
+	if (World != EditorWorld)
+	{
+		ImGui::TextDisabled("Stop PIE to change the selected player Pawn.");
+		return;
+	}
+
+	const TArray<AActor*>& Actors = EditorWorld->GetPersistentLevel()->GetActors();
+
+	APawn* SelectedPawn = nullptr;
+	int32 SelectedPawnCount = 0;
+
+	// 현재 자동 소유 대상으로 지정된 Pawn을 찾는다.
+	for (AActor* Actor : Actors)
+	{
+		APawn* Pawn = Cast<APawn>(Actor);
+
+		if (!Pawn || !Pawn->GetAutoPossessPlayer())
+			continue;
+
+		if (!SelectedPawn)
+			SelectedPawn = Pawn;
+
+		++SelectedPawnCount;
+	}
+
+	const FString Preview = SelectedPawn ? SelectedPawn->GetName() : "None";
+
+	if (ImGui::BeginCombo("Player Pawn", Preview.c_str()))
+	{
+		// None을 선택하면 모든 Pawn의 자동 소유 설정을 해제한다.
+		if (ImGui::Selectable("None", SelectedPawn == nullptr))
+		{
+			for (AActor* Actor : Actors)
+			{
+				if (APawn* Pawn = Cast<APawn>(Actor))
+					Pawn->SetAutoPossessPlayer(false);
+			}
+
+			SelectedPawn = nullptr;
+		}
+
+		// 현재 씬에 배치된 Pawn 인스턴스를 목록에 표시한다.
+		for (AActor* Actor : Actors)
+		{
+			APawn* Pawn = Cast<APawn>(Actor);
+
+			if (!Pawn)
+				continue;
+
+			FString Label = Pawn->GetName();
+			Label += " [";
+			Label += Pawn->GetClass()->Name;
+			Label += "]";
+
+			ImGui::PushID(Pawn);
+
+			const bool bIsSelected = Pawn == SelectedPawn;
+
+			if (ImGui::Selectable(Label.c_str(), bIsSelected))
+			{
+				// 선택한 인스턴스만 true로 만든다.
+				for (AActor* OtherActor : Actors)
+				{
+					if (APawn* OtherPawn = Cast<APawn>(OtherActor))
+					{
+						OtherPawn->SetAutoPossessPlayer(OtherPawn == Pawn);
+					}
+				}
+
+				SelectedPawn = Pawn;
+			}
+
+			if (bIsSelected)
+				ImGui::SetItemDefaultFocus();
+
+			ImGui::PopID();
+		}
+
+		ImGui::EndCombo();
+	}
+
+	if (SelectedPawnCount > 1)
+	{
+		ImGui::TextDisabled("Multiple Pawns are selected. Choose one to fix this.");
+	}
+
+	ImGui::TextDisabled("Only actors derived from APawn are listed.");
+
+	ImGui::TextDisabled("Save the scene to keep this selection.");
+}

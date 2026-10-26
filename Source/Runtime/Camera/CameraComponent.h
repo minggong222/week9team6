@@ -9,9 +9,11 @@
 class UCameraComponent : public USceneComponent
 {
 	DECLARE_CLASS(UCameraComponent, USceneComponent)
-
+	REFLECT_START(ClassName)
+		PROPERTY_FLAGS(bUseForPlayerView, CPF_Edit)
+	REFLECT_END()
 public:
-	UCameraComponent() { PrimaryComponentTick.bCanEverTick = true; }   // 이동·회전 입력을 매 프레임 처리한다
+	UCameraComponent() = default;
 
 	// 매 프레임 카메라 입력/이동 처리
 	virtual void TickComponent(float DeltaTime) override;
@@ -63,6 +65,11 @@ public:
 	void UpdateRotation(float DeltaTime); // 마우스 우클릭 회전
 	void UpdateZoom(float DeltaTime);     // 마우스 휠 줌
 
+	bool GetUseForPlayerView() const { return bUseForPlayerView; }
+
+	void SetUseForPlayerView(bool bValue) { bUseForPlayerView = bValue; }
+
+	virtual void PostEditChangeProperty(const FProperty& Property) override;
 protected:
 	float FieldOfView = 60.0f;
 	float AspectRatio = 16.0f / 9.0f;
@@ -77,5 +84,6 @@ protected:
 	float WheelSpeed = 0.1f;
 	bool bExternalInputManaged = false;
 
+	bool bUseForPlayerView = false;
 };
 

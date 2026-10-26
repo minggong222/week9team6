@@ -2,17 +2,17 @@
 #include "CameraComponent.h"
 #include "Input/InputSystem.h"
 #include "../Collision/Ray.h"
-
+#include "GameFramework/Actor.h"
 // 외부 입력 관리 시 기본 입력을 생략해 ViewportLayout와 카메라의 중복 갱신을 막는다.
 void UCameraComponent::TickComponent(float DeltaTime)
 {
     Super::TickComponent(DeltaTime);
-	if (bExternalInputManaged)
+	/*if (bExternalInputManaged)
 		return;
 
     UpdateMovement(DeltaTime);
     UpdateRotation(DeltaTime);
-    UpdateZoom(DeltaTime);
+    UpdateZoom(DeltaTime);*/
 }
 
 // 마우스 조작
@@ -46,6 +46,31 @@ void UCameraComponent::UpdateZoom(float DeltaTime)
     Transform.Location += Transform.GetForward() * WheelSpeed * WheelDelta * DeltaTime;
 }
 
+void UCameraComponent::PostEditChangeProperty(
+    const FProperty& Property)
+{
+    Super::PostEditChangeProperty(Property);
+
+    if (Property.Name != "bUseForPlayerView" || !bUseForPlayerView)
+    {
+        return;
+    }
+
+    AActor* Owner = GetOwner();
+    if (!Owner)
+        return;
+
+    for (UActorComponent* Component : Owner->GetComponents())
+    {
+        UCameraComponent* OtherCamera =
+            Cast<UCameraComponent>(Component);
+
+        if (OtherCamera && OtherCamera != this)
+        {
+            OtherCamera->SetUseForPlayerView(false);
+        }
+    }
+}
 
 // 화면 좌표를 투영 모드에 맞는 월드 광선으로 역투영한다.
 FRay UCameraComponent::DeProjection(FVector2 MousePos, float ScreenW, float ScreenH)
