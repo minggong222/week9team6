@@ -2,10 +2,13 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const scene = JSON.parse(await readFile(root + 'Scenes/crossy2.scene', 'utf8'));
+// --main combines __Crossy's player/camera/HUD with the pooled map and traffic.
+const mainGame = process.argv.includes('--main');
+const outputPath = 'Scenes/' + (mainGame ? '0_Main_Game.scene' : 'maptest.scene');
+const scene = JSON.parse(await readFile(root + 'Scenes/' + (mainGame ? '__Crossy.scene' : 'crossy2.scene'), 'utf8'));
 // Preserve the user's player/camera/light edits when refreshing the generated map.
 let existingScene;
-try { existingScene = JSON.parse(await readFile(root + 'Scenes/maptest.scene', 'utf8')); }
+try { existingScene = JSON.parse(await readFile(root + outputPath, 'utf8')); }
 catch (e) { if (e.code !== 'ENOENT') throw e; }
 // Read the editor preview settings from the same Lua constants used at runtime.
 const settings = await readFile(root + 'Assets/Scripts/LevelManager.lua', 'utf8');
@@ -15,6 +18,7 @@ function numberSetting(name) {
     return Number(match[1]);
 }
 const grid = numberSetting('LaneSpacing'), behind = numberSetting('RowsBehind'), ahead = numberSetting('RowsAhead');
+const initialSeed = numberSetting('InitialSeed');
 const halfWidth = numberSetting('MapPlayerHalfWidth'), boundaryWidth = numberSetting('MapBoundaryWidth');
 const roadChance = numberSetting('MapRoadChance'), treesPerRow = numberSetting('TreesPerRow');
 const railChance = numberSetting('MapRailChance');
@@ -85,8 +89,8 @@ for (const name of ['kenney-tree-019', 'kenney-tree-020']) {
 }
 
 // Same deterministic preview as LevelManager's map-only mode.
-let seed = 20261026, safeColumn = 0;
-let trainTypeSeed = (20261026 + 65537) % 2147483647;
+let seed = initialSeed, safeColumn = 0;
+let trainTypeSeed = (initialSeed + 65537) % 2147483647;
 const pickTrain = () => {
     trainTypeSeed = trainTypeSeed * 48271 % 2147483647;
     return trains[Math.floor(trainTypeSeed / 2147483647 * trains.length)];
@@ -108,8 +112,12 @@ function treeCount() {
     return treeWeights.length - 1;
 }
 const existingActors = existingScene?.World.PersistentLevel.Actors ?? sourceActors;
-const existingManager = existingActors.find(a => a.Name === 'MapTestLevelManager');
-const rootPose = existingManager?.Components.find(c => c.Name === 'DefaultSceneRoot')?.Properties.Transform ?? transform();
+const managerName = mainGame ? 'LevelManager' : 'MapTestLevelManager';
+const existingManager = existingScene?.World.PersistentLevel.Actors.find(a => a.Name === managerName);
+const playerTemplate = existingActors.find(a => a.Name === 'Player');
+const playerOrigin = playerTemplate?.Components.find(c => c.Name === 'DefaultSceneRoot')?.Properties.Transform.Location;
+const rootPose = existingManager?.Components.find(c => c.Name === 'DefaultSceneRoot')?.Properties.Transform
+    ?? transform(mainGame ? playerOrigin.X : 0, mainGame ? playerOrigin.Y : 0);
 const components = [sceneComponent('DefaultSceneRoot', '', structuredClone(rootPose))];
 let previewRailRows = 0;
 for (let slot = 1; slot <= poolCount; slot++) {
@@ -171,11 +179,16 @@ if (!existingScene) {
     playerRoot.Location = { X: 0, Y: 0, Z: playerRoot.Location.Z };
 }
 const actors = [player, ...existingActors.filter(a => /LightActor$/.test(a.Class) || a.Class === 'ACameraActor'), {
-    Class: 'AActor', Name: 'MapTestLevelManager', Properties: { bActorEnableCollision: false }, Components: components
+    Class: 'AActor', Name: managerName, Properties: { bActorEnableCollision: false }, Components: components
 }];
+if (mainGame) {
+    const gameManager = existingActors.find(a => a.Components.some(c => c.Properties.ScriptPath === 'Scripts/GameManager.lua'));
+    if (!gameManager) throw new Error('__Crossy GameManager/HUD is missing.');
+    actors.push(gameManager);
+}
 const outputScene = existingScene ?? scene;
 outputScene.World.PersistentLevel.Actors = actors;
-await writeFile(root + 'Scenes/maptest.scene', JSON.stringify(outputScene, null, 4) + '\n');
-console.log(JSON.stringify({ output: 'Scenes/maptest.scene', actors: actors.length,
+await writeFile(root + outputPath, JSON.stringify(outputScene, null, 4) + '\n');
+console.log(JSON.stringify({ output: outputPath, actors: actors.length,
     rows: poolCount, behind, ahead, treePool: poolCount * treesPerRow,
-    railRows: previewRailRows, trainPool: poolCount, cars: 0 }));
+    railRows: previewRailRows, trainPool: poolCount, cars: mainGame ? '100 pooled at runtime' : 0 }));
