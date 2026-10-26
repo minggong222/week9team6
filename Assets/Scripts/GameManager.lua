@@ -121,6 +121,10 @@ function BeginPlay(Self)
         print("[GameManager] ScoreText not found")
     end
 
+    if not Audio.PlayBGM("Audio/CrossyBGM.wav") then
+        print("[GameManager] Failed to start BGM")
+    end
+
     StartGame()
 end
 
@@ -194,6 +198,7 @@ function TickComponent(Self, DeltaSeconds)
 end
 
 function EndPlay(Self)
+    Audio.StopBGM()
     -- PIE 종료 시 등록한 콜백을 해제한다.
     if PlayerHitbox and BeginOverlapHandle then
         PlayerHitbox.OnComponentBeginOverlap:Remove(BeginOverlapHandle)
