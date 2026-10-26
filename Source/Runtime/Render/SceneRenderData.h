@@ -310,7 +310,8 @@ struct FSceneRenderData
 		CachedShadows = LightShadows;
 	}
 
-	void Commit(const FFrustumCorners& CameraFrustumCorners, const FFrustumPlanes& CameraFrustum, float CameraNear, float CameraFar, uint32 ExpectCascadeCount, float LogRatio,
+	void Commit(const FMatrix& CameraViewMatrix, const FMatrix& CameraProjectionMatrix, const FFrustumPlanes& CameraFrustum,
+		float CameraNear, float CameraFar, uint32 ExpectCascadeCount, float LogRatio,
 		bool bCacheShadows, const FShadowInvalidationList& ShadowInvalidations, bool& bLightUpaloadSucceeded)
 	{
 		RenderQueue.Sort();
@@ -471,6 +472,7 @@ struct FSceneRenderData
 			}
 
 			float CascadeShadowFar = FMath::Min(CameraFar, MaxCascadeDistance);
+			const FMatrix CameraToWorld = CameraViewMatrix.Inverse();
 
 			CascadeShadowCount = FMath::Clamp(ExpectCascadeCount, 1u, MaxCascadeShadowCount);
 
@@ -478,7 +480,9 @@ struct FSceneRenderData
 			{
 				int32 LightIndex = GetDirectionalLightOffset() + i;
 				const FLightShadowSettings& ShadowSettings = VisibleLightShadowSettings[LightIndex];
-				if (!ShadowSettings.bCastShadows) continue;bool bHasReceiver = false;
+				if (!ShadowSettings.bCastShadows) continue;
+
+				bool bHasReceiver = false;
 				for (const FPrimitiveSceneProxy* Proxy : VisibleProxies)
 					if (Proxy->bReceiveShadow) { bHasReceiver = true; break; }
 				if (!bHasReceiver) { CountShadowSkip(EShadowSkip::NoReceiver); continue; }
@@ -489,27 +493,26 @@ struct FSceneRenderData
 				DirectionalLight.ShadowIndex = uint32(LightShadows.Num());
 				// 텍셀 스냅은 카메라와 무관하게 고정된 라이트 공간(원점 기준)에서 해야 그림자 격자가 월드에 고정된다.
 				const FMatrix ViewMatrix = LookAt(FVector(0.f), DirectionalLight.Direction, UpVector);
-
-				FVector ToTL = CameraFrustumCorners.FTL() - CameraFrustumCorners.NTL();
-				FVector ToTR = CameraFrustumCorners.FTR() - CameraFrustumCorners.NTR();
-				FVector ToBL = CameraFrustumCorners.FBL() - CameraFrustumCorners.NBL();
-				FVector ToBR = CameraFrustumCorners.FBR() - CameraFrustumCorners.NBR();
-
-				FVector PrevTL = CameraFrustumCorners.NTL();
-				FVector PrevTR = CameraFrustumCorners.NTR();
-				FVector PrevBL = CameraFrustumCorners.NBL();
-				FVector PrevBR = CameraFrustumCorners.NBR();
+				const FMatrix CameraToLight = CameraToWorld * ViewMatrix;
 
 				uint32 CascadeShadowMapSize = ScaleShadowMapSize(DirectionalLightShadowMapSize, ShadowSettings.ResolutionScale);
 
 				auto CornersAt = [&](float Distance, FVector& TL, FVector& TR, FVector& BL, FVector& BR)
-					{
-						const float T = (Distance - CameraNear) / (CameraFar - CameraNear);
-						TL = CameraFrustumCorners.NTL() + ToTL * T;
-						TR = CameraFrustumCorners.NTR() + ToTR * T;
-						BL = CameraFrustumCorners.NBL() + ToBL * T;
-						BR = CameraFrustumCorners.NBR() + ToBR * T;
-					};
+				{
+					// 먼 평면의 역투영 오차가 텍셀 크기에 섞이지 않도록 카메라 공간에서 직접 구한다.
+					// 원근 투영은 W = Distance, 직교 투영은 W = 1이다.
+					const float W = Distance * CameraProjectionMatrix.M[0][3] + CameraProjectionMatrix.M[3][3];
+					const float HalfWidth = W / CameraProjectionMatrix.M[1][0];
+					const float HalfHeight = W / CameraProjectionMatrix.M[2][1];
+
+					TL = FVector(Distance, -HalfWidth, HalfHeight);
+					TR = FVector(Distance, HalfWidth, HalfHeight);
+					BL = FVector(Distance, -HalfWidth, -HalfHeight);
+					BR = FVector(Distance, HalfWidth, -HalfHeight);
+				};
+
+				FVector PrevTL, PrevTR, PrevBL, PrevBR;
+				CornersAt(CameraNear, PrevTL, PrevTR, PrevBL, PrevBR);
 
 				float PrevSplit = CameraNear;
 				for (int32 j = 0; j < CascadeShadowCount; j++)
@@ -521,7 +524,7 @@ struct FSceneRenderData
 					FVector LT, RT, LB, RB;
 					CornersAt(Dist, LT, RT, LB, RB);
 
-					FVector* WorldCorners[] = {
+					FVector* CameraCorners[] = {
 						&PrevTL,
 						&PrevTR,
 						&PrevBL,
@@ -534,7 +537,7 @@ struct FSceneRenderData
 
 					FVector CascadeCenter(0.f);
 					for (int32 k = 0; k < 8; k++)
-						CascadeCenter += *WorldCorners[k];
+						CascadeCenter += *CameraCorners[k];
 					CascadeCenter *= 1.f / 8.f;
 
 					float RadiusSquared = 0.f;
@@ -542,18 +545,18 @@ struct FSceneRenderData
 					float MaxLightX = -FLT_MAX;
 					for (int32 k = 0; k < 8; k++)
 					{
-						RadiusSquared = std::max(RadiusSquared, (*WorldCorners[k] - CascadeCenter).SizeSquared());
-						FVector4 InCascadeLightSpace = FVector4(*WorldCorners[k], 1.0f) * ViewMatrix;
+						RadiusSquared = std::max(RadiusSquared, (*CameraCorners[k] - CascadeCenter).SizeSquared());
+						FVector4 InCascadeLightSpace = FVector4(*CameraCorners[k], 1.0f) * CameraToLight;
 						MinLightX = std::min(MinLightX, InCascadeLightSpace.X);
 						MaxLightX = std::max(MaxLightX, InCascadeLightSpace.X);
 					}
 
-					// 회전해도 투영 크기가 변하지 않도록 cascade를 구로 감싼다. 부동 소수점 오류 방지 위해 격자점에 snap
+					// 카메라 공간의 반지름을 사용해 카메라 이동·회전과 무관하게 텍셀 크기를 유지한다.
 					const float Radius = std::ceil(std::sqrt(RadiusSquared) * 16.f) / 16.f;
 					const float Extent = Radius * CascadeShadowMapSize / (CascadeShadowMapSize - 1.f); // 패딩 공간 주기 위해 n / n-1 배 해주기
 					const float TexelSize = 2.f * Extent / CascadeShadowMapSize;
 
-					FVector4 CenterInLight = FVector4(CascadeCenter, 1.f) * ViewMatrix;
+					FVector4 CenterInLight = FVector4(CascadeCenter, 1.f) * CameraToLight;
 
 					const float CenterY = std::round(CenterInLight.Y / TexelSize) * TexelSize; // 중심을 가까운 격자점에 스냅함
 					const float CenterZ = std::round(CenterInLight.Z / TexelSize) * TexelSize;
@@ -580,12 +583,11 @@ struct FSceneRenderData
 					// 후면 컬링이 빛을 향한 앞면을 버려 물체의 뒷면이 깊이로 남는다(접촉부에서 그림자가 떨어지는 peter panning).
 					FMatrix CascadeProjectionMatrix = Ortho(-Extent, Extent, Extent, -Extent, 0, MaxLightX - NearX);
 
+					// LookAt으로 회전축을 다시 계산하지 않고 라이트 공간의 이동 성분만 바꾼다.
+					FMatrix CascadeViewMatrix = ViewMatrix;
+					CascadeViewMatrix.SetOrigin(FVector(-NearX, -CenterY, -CenterZ));
+
 					FLightShadowRenderData Shadow{};
-					FVector NearPlaneCenterInLight = FVector(NearX, CenterY, CenterZ);
-					FVector4 NearPlaneCenterWorld = FVector4(NearPlaneCenterInLight, 1.0) * ViewMatrix.Inverse();
-					const FVector CascadeEye(NearPlaneCenterWorld.X, NearPlaneCenterWorld.Y, NearPlaneCenterWorld.Z);
-					// 회전은 ViewMatrix와 같고, 원점만 스냅된 near 평면 중심으로 옮긴다.
-					const FMatrix CascadeViewMatrix = LookAt(CascadeEye, CascadeEye + DirectionalLight.Direction, UpVector);
 					Shadow.ViewProjection = CascadeViewMatrix * CascadeProjectionMatrix;
 					Shadow.Near = NearX;
 					Shadow.Far = MaxLightX;
@@ -596,11 +598,6 @@ struct FSceneRenderData
 					AddShadowView(Shadow, ShadowSettings, CascadeShadowMapSize, FVector4(0.0f, 0.0f, 0.0f, -1.0f));
 
 					AreaInfos.Add({ CascadeShadowMapSize, Index });
-
-					PrevTL = LT;
-					PrevTR = RT;
-					PrevBL = LB;
-					PrevBR = RB;
 
 					CascadeShadowDistances[j] = Dist;
 
