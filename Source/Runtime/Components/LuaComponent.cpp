@@ -5,6 +5,24 @@
 #include "Engine/Engine.h"
 #include "Scripting/LuaInstance.h"
 
+namespace
+{
+	// 생명주기 함수는 생략할 수 있으며, 실행 중 발생한 오류만 로그로 남깁니다.
+	template<typename... Args>
+	bool InvokeLifecycle(FLuaInstance& Instance, FStringView FunctionName, Args... args)
+	{
+		auto Result = Instance.Invoke(FunctionName, args...);
+		if (Result && !Result->valid())
+		{
+			sol::error Error = *Result;
+			HTR_LOG(Error, "Lua 함수 실행 실패: {}", Error.what());
+			return false;
+		}
+
+		return true;
+	}
+}
+
 ULuaComponent::ULuaComponent()
 {
 	// 스크립트가 동작해야 하므로 Tick을 활성화
@@ -83,6 +101,29 @@ bool ULuaComponent::ReloadLua()
 	return GetLoaded() && InstanceManager && InstanceManager->RequestHotReload(Instance);
 }
 
+sol::variadic_results ULuaComponent::Invoke(const FString& FunctionName, sol::variadic_args Args)
+{
+	if (!GetLoaded())
+	{
+		throw sol::error("Invoke: script is not loaded");
+	}
+
+	auto Result = Instance->Invoke(FunctionName, Args);
+	if (!Result)
+	{
+		throw sol::error("Invoke: function not found: " + FunctionName);
+	}
+
+	if (!Result->valid())
+	{
+		sol::error Error = *Result;
+		throw Error;
+	}
+
+	// 결과가 Lua 스택에서 제거되기 전에 nil을 포함한 모든 반환값을 확보합니다.
+	return sol::variadic_results(std::move(*Result));
+}
+
 bool ULuaComponent::SetScriptPath(const FString& InPath)
 {
 	// 연결 시 소스만 확보합니다. 게임 코드 실행은 플레이 초기화까지 미룹니다.
@@ -117,10 +158,13 @@ void ULuaComponent::OnInstanceLoaded(FLuaInstance& Instance)
 template<typename... Args>
 bool ULuaComponent::InvokeLua(FStringView Name, Args... Arguments)
 {
+	if (!Instance)
+		return false;
+
 	if (!GetLoaded())
 		return false;
 
-	return Instance->Invoke(Name, Arguments...);
+	return InvokeLifecycle(*Instance, Name, Arguments...);
 }
 
 void ULuaComponent::InitializeComponent()

@@ -49,9 +49,10 @@ public:
 	// 디스크를 읽지 않고 Registry에서 채택한 소스를 새 환경에 실행합니다.
 	bool Load(FStringView InPath, FStringView Source);
 
-	// Lua 스크립트에서 함수를 호출합니다.
+	// 현재 환경의 함수를 호출합니다. 미로드 또는 함수가 없으면 빈 결과를 반환합니다.
+	// 실행 성공 여부와 반환값은 호출부에서 처리합니다.
 	template<typename... Args>
-	bool Invoke(FStringView FunctionName, Args... args);
+	sol::optional<sol::protected_function_result> Invoke(FStringView FunctionName, Args... args);
 
 	template<typename T>
 	bool SetGlobalVariable(FStringView VariableName, T Value);
@@ -80,32 +81,22 @@ public:
 };
 
 template<typename... Args>
-bool FLuaInstance::Invoke(FStringView FunctionName, Args... args)
+sol::optional<sol::protected_function_result> FLuaInstance::Invoke(FStringView FunctionName, Args... args)
 {
-	// Environment가 없음
-	if (!Environment.valid())
+	if (!bInitialized)
 	{
-		return false;
+		return sol::nullopt;
 	}
 
-	sol::protected_function Function = Environment[FunctionName];
-
-	// 함수가 없음
-	if (!Function.valid())
+	// 공통 전역 함수가 아닌 대상 스크립트에 선언된 함수만 호출합니다.
+	sol::object Value = Environment.raw_get<sol::object>(FunctionName);
+	if (Value.get_type() != sol::type::function)
 	{
-		return false;
+		return sol::nullopt;
 	}
 
-	sol::protected_function_result Result = Function(args...);
-
-	if (!Result.valid())
-	{
-		sol::error Error = Result;
-		HTR_LOG(Error, "Lua 함수 실행 실패: {}", Error.what());
-		return false;
-	}
-
-	return true;
+	sol::protected_function Function = Value;
+	return Function(args...);
 }
 
 template<typename T>

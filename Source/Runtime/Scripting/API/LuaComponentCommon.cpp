@@ -37,6 +37,7 @@ void LuaRegisterComponentCommon(sol::state& State)
         "Cast", &Cast<ULuaComponent>,
         "InitializeLua", &ULuaComponent::InitializeLua,
         "LoadLua", &ULuaComponent::LoadLua,
+        "Invoke", &ULuaComponent::Invoke,
         "GetScriptPath", &ULuaComponent::GetScriptPath,
         "SetScriptPath", &ULuaComponent::SetScriptPath,
         "GetInitialized", &ULuaComponent::GetInitialized,
