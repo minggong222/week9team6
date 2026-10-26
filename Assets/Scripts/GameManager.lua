@@ -20,6 +20,8 @@ local GameState = _G.CrossyGameState
 
 local Player = nil
 local StartPosition = nil
+local PlayerMesh = nil
+local PlayerMeshStartScale = nil
 local ScoreText = nil
 local Camera = nil
 
@@ -45,6 +47,16 @@ local function GameOver()
     end
 
     GameState.Phase = GamePhase.Dead
+
+    if PlayerMesh and PlayerMeshStartScale then
+        local Scale = PlayerMesh:GetRelativeScale3D()
+
+        Scale.Z = PlayerMeshStartScale.Z * 0.25
+
+        PlayerMesh:SetRelativeScale3D(Scale)
+    end
+
+    Audio.PlaySFX("Audio/Collision.wav")
 
     if ScoreText then
         ScoreText:SetText("GAME OVER\nScore: " .. GameState.Score .. "\nPress R to Restart")
@@ -75,7 +87,9 @@ local function Restart()
     if Player and StartPosition then
         Player:GetRootComponent():SetWorldLocation(StartPosition, false)
     end
-
+    if PlayerMesh and PlayerMeshStartScale then
+        PlayerMesh:SetRelativeScale3D(PlayerMeshStartScale)
+    end
     StartGame()
 
     if ScoreText then
@@ -93,7 +107,6 @@ local function OnPlayerOverlap(OtherComponent)
         and not GameState.GameOverRequested then
 
         GameState.GameOverRequested = true
-        Audio.PlaySFX("Audio/Collision.wav")
     end
 end
 
@@ -102,7 +115,13 @@ function BeginPlay(Self)
 
     if Player then
         StartPosition = Player:GetActorLocation()
+        PlayerMesh = UStaticMeshComponent.Cast(Player:FindComponentByName("StaticMeshComponent"))
 
+        if PlayerMesh then
+            PlayerMeshStartScale = PlayerMesh:GetRelativeScale3D()
+        else
+            print("[GameManager] Player StaticMeshComponent not found")
+        end
         Player:SetActorEnableCollision(true)
 
         PlayerHitbox = UPrimitiveComponent.Cast(Player:FindComponentByName("PlayerHitbox"))
