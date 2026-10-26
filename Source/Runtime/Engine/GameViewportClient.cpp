@@ -52,15 +52,7 @@ bool FGameViewportClient::InputKey(FViewport* Viewport, int32 Key, bool bDown)
 
 	if (bSIEMode && Key == static_cast<int32>(EKeyCode::LButton)) return true;
 
-	if (World && !World->IsPaused())
-	{
-		if (APlayerController* PC = World->GetPlayerController())
-		{
-			PC->InputKey(Key, bDown);
-		}
-		return true;
-	}
-	return false;
+	return World && !World->IsPaused();
 }
 
 bool FGameViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, EGameInputAxis AxisKey, float Delta, float DeltaTime)
@@ -68,15 +60,7 @@ bool FGameViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, EGa
 	if (HandleUIAxis(AxisKey, Delta))
 		return true;
 
-	if (World && !World->IsPaused())
-	{
-		if (APlayerController* PC = World->GetPlayerController())
-		{
-			PC->InputAxis(AxisKey, Delta);
-		}
-		return true;
-	}
-	return false;
+	return World && !World->IsPaused();
 }
 
 void FGameViewportClient::LostFocus()

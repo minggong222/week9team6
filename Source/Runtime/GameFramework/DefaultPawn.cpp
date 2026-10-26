@@ -18,6 +18,7 @@ ADefaultPawn::ADefaultPawn()
 	CameraComponent->SetRelativeLocation({-5.0f, 0.0f, 8.0f});
 	CameraComponent->SetRelativeRotation({45.0f, 0.0f, 0.0f});
 	CameraComponent->SetExternalInputManaged(true);
+	CameraComponent->SetUseForPlayerView(true);
 }
 
 void ADefaultPawn::BeginPlay()

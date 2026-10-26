@@ -564,13 +564,19 @@ UCameraComponent* UWorld::GetMainCameraComponent() const
 
 UCameraComponent* UWorld::GetPlayerCamera() const
 {
-	if (PlayerPawn)
+	if (!PlayerPawn)
+		return nullptr;
+
+	for (UActorComponent* Component : PlayerPawn->GetComponents())
 	{
-		if (const auto* DefaultPawn = Cast<ADefaultPawn>(PlayerPawn))
-			if (UCameraComponent* Camera = DefaultPawn->GetCameraComponent()) return Camera;
-		for (UActorComponent* Component : PlayerPawn->GetComponents())
-			if (auto* Camera = Cast<UCameraComponent>(Component)) return Camera;
+		UCameraComponent* Camera = Cast<UCameraComponent>(Component);
+
+		if (Camera && Camera->GetUseForPlayerView())
+		{
+			return Camera;
+		}
 	}
+
 	return nullptr;
 }
 
