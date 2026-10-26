@@ -1,11 +1,12 @@
-local Direction = FVector.new(0.0, 1.0, 0.0)
-local StartLocation = FVector.new(0.0, 0.0, 0.0)
-local TotalDistance = 20.0
-local Speed = 5.0
-local Distance = 0.0
-local bActive = false
-local Car = nil
-local LevelManager = nil
+-- HotReload가 이관할 수 있도록 차량별 실행 상태를 스크립트 환경의 전역 변수로 둡니다.
+Direction = FVector.new(0.0, 1.0, 0.0)
+StartLocation = FVector.new(0.0, 0.0, 0.0)
+TotalDistance = 20.0
+Speed = 5.0
+Distance = 0.0
+bActive = false
+Car = nil
+LevelManager = nil
 
 function SetCar(InCar, InLevelManager)
     -- Size는 추후 Collision Box 연결에 사용할 차량 설정으로 보관합니다.
