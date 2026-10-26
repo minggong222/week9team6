@@ -540,7 +540,7 @@ local function CaptureMapPool()
         local Floor = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapFloor_" .. Slot))
         local Train = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapTrain_" .. Slot))
         assert(Floor and Train, "Map pool is incomplete; regenerate the scene")
-        local Row = { Floor = Floor, Train = Train, Trees = {}, TreeHitboxes = {}, Cars = {}, Active = false }
+        local Row = { Slot = Slot, Floor = Floor, Train = Train, Trees = {}, TreeHitboxes = {}, Cars = {}, Active = false }
         Row.Walls = {}
         for Side = 1, 2 do
             local Name = "MapWall_" .. Slot .. "_" .. Side

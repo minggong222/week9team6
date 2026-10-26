@@ -158,7 +158,7 @@
                             "Parent": "",
                             "Properties": {
                                 "AngularRadiusDegrees": 3.0,
-                                "Intensity": 0.800000011920929,
+                                "Intensity": 0.5,
                                 "LightColor": 4294967295,
                                 "ShadowBias": 0.009999999776482582,
                                 "ShadowResolutionScale": 1.0,
@@ -166,9 +166,9 @@
                                 "ShadowSlopeBias": 0.009999999776482582,
                                 "Transform": {
                                     "Location": {
-                                        "X": 9.296205520629883,
-                                        "Y": -5.36716365814209,
-                                        "Z": 11.331645965576172
+                                        "X": -15.84000015258789,
+                                        "Y": -0.6700000166893005,
+                                        "Z": -175.58999633789063
                                     },
                                     "Rotation": {
                                         "Pitch": 49.99999237060547,
