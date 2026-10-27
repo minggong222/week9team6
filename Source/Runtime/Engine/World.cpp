@@ -120,6 +120,10 @@ AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transf
 
 void UWorld::Tick(float DeltaTime)
 {
+	RealDeltaSeconds = DeltaTime;
+	// 에디터 프리뷰에는 게임 시간 배율을 적용하지 않는다.
+	DeltaSeconds = WorldType == EWorldType::Editor ? DeltaTime : DeltaTime * GlobalTimeDilation;
+
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UpdateAllTransforms);
 		Scene.UpdateAllTransforms();
@@ -139,7 +143,7 @@ void UWorld::Tick(float DeltaTime)
 			if (Comp->GetParticlesForView().IsEmpty())
 				Comp->SetParticles(10);
 
-			Comp->DispatchTickComponent(DeltaTime);
+			Comp->DispatchTickComponent(RealDeltaSeconds);
 		}
 
 		ProcessPendingComponentDestructions();
@@ -167,7 +171,7 @@ void UWorld::Tick(float DeltaTime)
     if (!bIsPaused)
     {
         if (FLuaManager* Manager = GetLuaManager())
-            Manager->UpdateCoroutines(DeltaTime);
+            Manager->UpdateCoroutines(DeltaSeconds);
     }
 
 	ProcessPendingStarts();
@@ -176,7 +180,7 @@ void UWorld::Tick(float DeltaTime)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_ActorTick);
 
-		TickTaskManager.RunAllTickGroups(DeltaTime, bIsPaused);
+		TickTaskManager.RunAllTickGroups(DeltaSeconds, bIsPaused);
 	}
 
 	ProcessPendingComponentDestructions();
@@ -188,7 +192,7 @@ void UWorld::Tick(float DeltaTime)
 	for (ULevel* Level : Levels)
 	{
 		if (Level)
-			PathTracker.Tick(Level->GetActors(), DeltaTime);
+			PathTracker.Tick(Level->GetActors(), DeltaSeconds);
 	}
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UpdateAllTransforms);
@@ -1183,11 +1187,23 @@ void UWorld::EndPlay()
 	PlayerController = nullptr;
 	PlayerPawn = nullptr;
 	bIsPaused = false;
+	GlobalTimeDilation = 1.0f;
+	DeltaSeconds = 0.0f;
+	RealDeltaSeconds = 0.0f;
 	bIsEndingPlay = false;
 	if (!bIsClearingWorld)
 	{
 		ProcessPendingDestroyActors();
 	}
+}
+
+void UWorld::SetGlobalTimeDilation(float Value)
+{
+	// 역방향 시간과 NaN/무한대는 허용하지 않는다. 0은 시간 진행 정지에 사용한다.
+	if (!std::isfinite(Value) || Value < 0.0f)
+		return;
+
+	GlobalTimeDilation = Value;
 }
 
 void UWorld::SetPaused(bool bPaused)

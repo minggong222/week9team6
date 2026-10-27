@@ -5,16 +5,12 @@
 #include "GameFramework/Actor.h"
 #include "Collision/CollisionScene.h"
 #include "Components/PrimitiveComponent.h"
-#include "Components/MovementComponent.h"
-#include "Components/TextRenderComponent.h"
 #include "Math/Transform.h"
 #include "Render/Renderer.h"
 #include "PathTracker.h"
 #include "Math/Frustum.h"
-#include "Math/BVH.h"
 #include "Engine/Scene.h"
 #include "Camera/CameraActor.h"
-#include "Asset/LOD/StaticMeshLODSelector.h"
 #include "Engine/EngineTypes.h"
 #include "Render/SceneRenderData.h"
 
@@ -48,6 +44,13 @@ public:
 
 	bool IsPaused() const { return bIsPaused; }
 	void SetPaused(bool bPaused);
+
+	// 배율은 다음 월드 Tick부터 적용하며, 하위 Tick에는 계산된 게임 시간을 전달한다.
+	float GetGlobalTimeDilation() const { return GlobalTimeDilation; }
+	void SetGlobalTimeDilation(float Value);
+	float GetDeltaSeconds() const { return DeltaSeconds; }
+	// EngineTimer에서 전달받은 배율 적용 전 시간으로, 프레임 시간 제한이 포함될 수 있다.
+	float GetRealDeltaSeconds() const { return RealDeltaSeconds; }
 
 
 	////////////////////////////////////////////////////////////
@@ -220,6 +223,11 @@ private:
 	APlayerController* PlayerController = nullptr;
 	bool bIsPaused = false;
 	bool bBegunPlay = false;
+
+	// 월드별 실행 상태이며, 플레이 종료 시 기본값으로 복원한다.
+	float GlobalTimeDilation = 1.0f;
+	float DeltaSeconds = 0.0f;
+	float RealDeltaSeconds = 0.0f;
 
 	// 경로 추적
 	FPathTracker PathTracker;
