@@ -4,7 +4,7 @@
 #include "../Components/SceneComponent.h"
 #include "../Math/EngineMath.h"
 #include "../Math/Rotator.h"
-
+#include "CameraViewInfo.h"
 
 class UCameraComponent : public USceneComponent
 {
@@ -46,6 +46,8 @@ public:
 
 	float GetOrthoWidth() const { return OrthoWidth; }
 	void SetOrthoWidth(float InOrthoWidth) { OrthoWidth = InOrthoWidth; }
+
+	FCameraPOV GetCameraPOV() const;
 
 	// 마우스 조작 설정
 	float GetMoveSpeed() const { return MoveSpeed; }
