@@ -172,6 +172,7 @@ void APlayerCameraManager::Tick(float DeltaTime)
 void APlayerCameraManager::EndPlay()
 {
     StopCameraFade();
+    StopLetterBox();
     ViewTarget.Reset();
     FinalPOV = FCameraPOV{};
     bHasFinalPOV = false;
@@ -412,6 +413,33 @@ void APlayerCameraManager::StopCameraFade()
     FadeElapsed = 0.0f;
 }
 
+bool APlayerCameraManager::SetLetterBox(float Height, float Duration)
+{
+    if (!std::isfinite(Height) || !std::isfinite(Duration) || Duration < 0.0f)
+    {
+        return false;
+    }
+
+    LetterBoxFrom = LetterBoxHeight;
+    LetterBoxTarget = std::clamp(Height, 0.0f, 0.5f);
+    LetterBoxDuration = Duration;
+    LetterBoxElapsed = 0.0f;
+    if (Duration == 0.0f)
+    {
+        LetterBoxHeight = LetterBoxTarget;
+    }
+    return true;
+}
+
+void APlayerCameraManager::StopLetterBox()
+{
+    LetterBoxHeight = 0.0f;
+    LetterBoxFrom = 0.0f;
+    LetterBoxTarget = 0.0f;
+    LetterBoxDuration = 0.0f;
+    LetterBoxElapsed = 0.0f;
+}
+
 void APlayerCameraManager::UpdateCameraEffects(float DeltaTime)
 {
     if (!std::isfinite(DeltaTime) || DeltaTime <= 0.0f)
@@ -425,6 +453,14 @@ void APlayerCameraManager::UpdateCameraEffects(float DeltaTime)
         FadeElapsed = std::min(FadeDuration, FadeElapsed + DeltaTime);
         const float Alpha = FadeElapsed / FadeDuration;
         FadeAmount = FadeFrom + (FadeTarget - FadeFrom) * Alpha;
+    }
+
+    if (LetterBoxDuration > 0.0f && LetterBoxElapsed < LetterBoxDuration)
+    {
+        LetterBoxElapsed = std::min(LetterBoxDuration, LetterBoxElapsed + DeltaTime);
+        const float Alpha = LetterBoxElapsed / LetterBoxDuration;
+        const float Blend = Alpha * Alpha * (3.0f - 2.0f * Alpha);
+        LetterBoxHeight = LetterBoxFrom + (LetterBoxTarget - LetterBoxFrom) * Blend;
     }
 }
 

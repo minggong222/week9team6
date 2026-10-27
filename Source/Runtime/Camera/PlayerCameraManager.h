@@ -59,6 +59,11 @@ public:
 	float GetFadeAmount() const { return FadeAmount; }
 	const FColor& GetFadeColor() const { return FadeColor; }
 
+	// 상하 띠 각각의 높이를 화면 높이의 0~0.5 비율로 지정한다.
+	bool SetLetterBox(float Height, float Duration);
+	void StopLetterBox();
+	float GetLetterBoxHeight() const { return LetterBoxHeight; }
+
 	FCameraModifier* AddCameraModifier(TUniquePtr<FCameraModifier> Modifier);
 	bool RemoveCameraModifier(FCameraModifier* Modifier);
 	void ClearCameraModifiers();
@@ -88,6 +93,12 @@ private:
 	float FadeTarget = 0.0f;
 	float FadeDuration = 0.0f;
 	float FadeElapsed = 0.0f;
+
+	float LetterBoxHeight = 0.0f;
+	float LetterBoxFrom = 0.0f;
+	float LetterBoxTarget = 0.0f;
+	float LetterBoxDuration = 0.0f;
+	float LetterBoxElapsed = 0.0f;
 
 	std::vector<TUniquePtr<FCameraModifier>> CameraModifiers;
 };
