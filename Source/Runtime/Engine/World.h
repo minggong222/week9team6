@@ -12,6 +12,7 @@
 #include "Math/Frustum.h"
 #include "Engine/Scene.h"
 #include "Engine/EngineTypes.h"
+#include "Engine/WorldTimeManager.h"
 #include "Render/RenderStats.h"
 
 class ULevel;
@@ -42,7 +43,7 @@ public:
 	void ClearWorld();	// Release
 
 	void BeginPlay();
-	void Tick(float DeltaTime);
+	void Tick(float DeltaTime, float RealDeltaTime = -1.0f);
 	void EndPlay();
 
 	bool HasBegunPlay() const { return bBegunPlay; }
@@ -51,11 +52,32 @@ public:
 	void SetPaused(bool bPaused);
 
 	// 배율은 다음 월드 Tick부터 적용하며, 하위 Tick에는 계산된 게임 시간을 전달한다.
-	float GetGlobalTimeDilation() const { return GlobalTimeDilation; }
-	bool SetGlobalTimeDilation(float Value);
-	float GetDeltaSeconds() const { return DeltaSeconds; }
-	// EngineTimer에서 전달받은 배율 적용 전 시간으로, 프레임 시간 제한이 포함될 수 있다.
-	float GetRealDeltaSeconds() const { return RealDeltaSeconds; }
+	float GetGlobalTimeDilation() const { return TimeManager.GetGlobalTimeDilation(); }
+	bool SetGlobalTimeDilation(float Value) { return TimeManager.SetGlobalTimeDilation(Value); }
+	float GetDeltaSeconds() const { return TimeManager.GetDeltaSeconds(); }
+	float GetRealDeltaSeconds() const { return TimeManager.GetRealDeltaSeconds(); }
+
+	bool PlaySlomo(float Scale, float BlendIn, float Hold, float BlendOut, ETimeMode Mode = ETimeMode::RealTime)
+	{
+		return TimeManager.PlaySlomo(Scale, BlendIn, Hold, BlendOut, Mode);
+	}
+
+	bool BeginSlomo(float Scale, float BlendIn, ETimeMode Mode = ETimeMode::RealTime)
+	{
+		return TimeManager.BeginSlomo(Scale, BlendIn, Mode);
+	}
+
+	bool EndSlomo(float BlendOut, ETimeMode Mode = ETimeMode::RealTime)
+	{
+		return TimeManager.EndSlomo(BlendOut, Mode);
+	}
+
+	bool PlayHitStop(float BlendIn, float Hold, float BlendOut)
+	{
+		return TimeManager.PlayHitStop(BlendIn, Hold, BlendOut);
+	}
+
+	void ResetTimeEffects() { TimeManager.ResetTimeEffects(); }
 
 
 	////////////////////////////////////////////////////////////
@@ -230,9 +252,7 @@ private:
 	bool bBegunPlay = false;
 
 	// 월드별 실행 상태이며, 플레이 종료 시 기본값으로 복원한다.
-	float GlobalTimeDilation = 1.0f;
-	float DeltaSeconds = 0.0f;
-	float RealDeltaSeconds = 0.0f;
+	FWorldTimeManager TimeManager;
 
 	// 경로 추적
 	FPathTracker PathTracker;

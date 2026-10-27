@@ -1,5 +1,6 @@
 #include "EnginePCH.h"
 #include "GameEngine.h"
+#include "Core/EngineTimer.h"
 
 #include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
@@ -102,7 +103,7 @@ void UGameEngine::Tick(float DeltaTime)
 		return;
 	}
 	TickGameInput(DeltaTime);
-	GameContext->World()->Tick(DeltaTime);
+	GameContext->World()->Tick(DeltaTime, EngineTimer::GetRealDeltaTime());
 
 	RenderGameFrame();
 }

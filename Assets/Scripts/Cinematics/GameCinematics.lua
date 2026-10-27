@@ -92,9 +92,7 @@ function StopCinematics()
         Sequence.bPlaying = false
 
         if World then
-            World:SetGlobalTimeDilation(
-                Sequence.PreviousTimeDilation or 1.0
-            )
+            World:EndSlomo(0.0, ETimeMode.RealTime)
 
             if Sequence.ReturnCamera then
                 World:SetMainCameraComponent(
@@ -104,7 +102,6 @@ function StopCinematics()
             end
         end
 
-        Sequence.PreviousTimeDilation = nil
         Sequence.ReturnCamera = nil
 
         if ScriptComponent then
@@ -194,13 +191,9 @@ function PlayCameraSequence(Duration)
         return false
     end
 
-    Sequence.PreviousTimeDilation = World:GetGlobalTimeDilation()
-
-    if not World:SetGlobalTimeDilation(0.35) then
+    if not World:BeginSlomo(0.35, 0.0, ETimeMode.RealTime) then
         -- 배율 변경에 실패하면 원래 카메라로 복귀
         World:SetMainCameraComponent(ReturnCamera, 0.0)
-
-        Sequence.PreviousTimeDilation = nil
 
         print("[GameCinematics] Failed to set time dilation")
         return false
@@ -276,11 +269,7 @@ function TickComponent(Self, DeltaSeconds)
 
         Sequence.bPlaying = false
 
-        World:SetGlobalTimeDilation(
-            Sequence.PreviousTimeDilation or 1.0
-        )
-
-        Sequence.PreviousTimeDilation = nil
+        World:EndSlomo(0.0, ETimeMode.RealTime)
 
         if Sequence.ReturnCamera then
             World:SetMainCameraComponent(

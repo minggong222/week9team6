@@ -9,6 +9,11 @@
 
 void LuaRegisterWorld(sol::state& State)
 {
+	State.new_enum<ETimeMode>("ETimeMode", {
+		{ "GameTime", ETimeMode::GameTime },
+		{ "RealTime", ETimeMode::RealTime }
+	});
+
     State.new_usertype<APlayerCameraManager>("APlayerCameraManager", sol::no_constructor,
         sol::base_classes, sol::bases<AActor, UObject>(),
         "StartCameraFade", &APlayerCameraManager::StartCameraFade,
@@ -38,6 +43,19 @@ void LuaRegisterWorld(sol::state& State)
         },
         "GetGlobalTimeDilation", &UWorld::GetGlobalTimeDilation,
         "SetGlobalTimeDilation", &UWorld::SetGlobalTimeDilation,
+        "GetDeltaSeconds", &UWorld::GetDeltaSeconds,
+        "GetRealDeltaSeconds", &UWorld::GetRealDeltaSeconds,
+        "PlaySlomo", [](UWorld& World, float Scale, float BlendIn, float Hold, float BlendOut, sol::optional<ETimeMode> Mode) {
+            return World.PlaySlomo(Scale, BlendIn, Hold, BlendOut, Mode.value_or(ETimeMode::RealTime));
+        },
+        "BeginSlomo", [](UWorld& World, float Scale, float BlendIn, sol::optional<ETimeMode> Mode) {
+            return World.BeginSlomo(Scale, BlendIn, Mode.value_or(ETimeMode::RealTime));
+        },
+        "EndSlomo", [](UWorld& World, float BlendOut, sol::optional<ETimeMode> Mode) {
+            return World.EndSlomo(BlendOut, Mode.value_or(ETimeMode::RealTime));
+        },
+        "PlayHitStop", &UWorld::PlayHitStop,
+        "ResetTimeEffects", &UWorld::ResetTimeEffects,
         "SetMainCameraComponent",
         [](UWorld& World, UCameraComponent* Camera, sol::optional<float> BlendTime)
         {

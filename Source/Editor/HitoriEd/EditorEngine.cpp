@@ -500,7 +500,7 @@ void UEditorEngine::TickWorldAndEditor(const float DeltaTime)
 			bStepRequested = false;
 		}
 		else if(ActiveWorld && (!bIsPaused || ActiveWorld == PlayWorld))
-			GetActiveWorld()->Tick(DeltaTime);
+			GetActiveWorld()->Tick(DeltaTime, EngineTimer::GetRealDeltaTime());
 
 	}
 	{
