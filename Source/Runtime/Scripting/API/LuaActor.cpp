@@ -5,7 +5,7 @@
 #include "Engine/Level.h"
 #include "GameFramework/Pawn.h"
 #include "Camera/CameraActor.h"
-
+#include "Camera/CineCameraActor.h"
 void LuaRegisterActor(sol::state& State)
 {
     State.new_usertype<AActor>("AActor", sol::no_constructor,
@@ -58,4 +58,15 @@ void LuaRegisterActor(sol::state& State)
         "StaticClass", &ACameraActor::StaticClass,
         "Cast", &Cast<ACameraActor>,
         "GetCameraComponent", &ACameraActor::GetCameraComponent);
+
+    State.new_usertype<ACineCameraActor>("ACineCameraActor", sol::no_constructor,
+        sol::base_classes, sol::bases<ACameraActor, AActor, UObject>(),
+        "StaticClass", &ACineCameraActor::StaticClass,
+        "Cast", &Cast<ACineCameraActor>,
+        "GetCameraComponent", &ACameraActor::GetCameraComponent,
+        "GetSensorWidth", &ACineCameraActor::GetSensorWidth,
+        "SetSensorWidth", &ACineCameraActor::SetSensorWidth,
+        "GetFocalLength",  &ACineCameraActor::GetFocalLength,
+        "SetFocalLength", &ACineCameraActor::SetFocalLength
+    );
 }
