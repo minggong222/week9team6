@@ -37,6 +37,12 @@ local function UpdateHUD()
     end
 end
 
+-- 연출과 HUD를 각각 갱신한다. 재시작의 Ready 처리도 FadeOut보다 먼저 끝낸다.
+local function UpdateScreen()
+    Refs.Cinematics:Invoke("Update", State.Game.Phase)
+    UpdateHUD()
+end
+
 function BindLevel(LevelManager)
     Refs.Level = LevelManager
 end
@@ -65,7 +71,7 @@ function StartGame()
     Game.Score, Game.MaxRow = 0, 0
     Game.GameOverRequested, Game.ClearRequested = false, false
     RequestPlayerReset(false)
-    UpdateHUD()
+    UpdateScreen()
     print("Game Started")
 end
 
@@ -77,14 +83,14 @@ function GameOver()
     if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
     Refs.HitReaction:Invoke("PlayHitReaction")
     Refs.Cinematics:Invoke("PlayDeath")
-    UpdateHUD()
+    UpdateScreen()
     print("Game Over!")
 end
 
 local function GameClear()
     if State.Game.Phase ~= GamePhase.Playing then return end
     State.Game.Phase = GamePhase.Clear
-    UpdateHUD()
+    UpdateScreen()
     print("Game Clear!")
 end
 
@@ -103,10 +109,15 @@ local function ResetRun()
 end
 
 local function Restart()
+    if State.Restarting then return end
+    local WasDead = State.Game.Phase == GamePhase.Dead
     State.Game.RestartCount = (State.Game.RestartCount or 0) + 1
-    ResetRun()
-    StartGame()
-    RequestPlayerReset(true)
+    State.Restarting = true
+    State.Game.Phase = GamePhase.Ready
+    -- 사망 때 이미 중단했으므로 자세 복원은 암전 뒤 ResetRun에서만 수행한다.
+    if Refs.PlayerScript and not WasDead then Refs.PlayerScript:Invoke("StopMovement") end
+    UpdateScreen()
+    State.RestartRemaining = Refs.Cinematics:Invoke("PlayRestart")
 end
 
 local function ReturnToCharacterSelection()
@@ -116,7 +127,7 @@ local function ReturnToCharacterSelection()
     State.Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
     local Target = Refs.Selection:Invoke("GetSelectionCameraLocation")
     Refs.Camera:Invoke("ShowSelectionCamera", Target)
-    UpdateHUD()
+    UpdateScreen()
 end
 
 local function EnterSelectedCharacter()
@@ -202,11 +213,23 @@ function BeginPlay(Self)
     State.Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
     local Target = Refs.Selection:Invoke("GetSelectionCameraLocation")
     Refs.Camera:Invoke("ShowSelectionCamera", Target)
-    UpdateHUD()
+    UpdateScreen()
 end
 
 function TickComponent(Self, DeltaSeconds)
     local Game = State.Game
+    -- 암전 중에는 재입력을 막고, 초기화는 화면이 가려진 뒤 실행한다.
+    if State.Restarting then
+        State.RestartRemaining = State.RestartRemaining - DeltaSeconds
+        if State.RestartRemaining <= 0 then
+            ResetRun()
+            State.Restarting = false
+            StartGame()
+            RequestPlayerReset(true)
+        end
+        return
+    end
+
     --------------------------------------------------------------------------------------
     -- 임시 F3로 정상 속도와 슬로모션 전환
     local bF3Down = Input.IsKeyPressed(EKeyCode.F3)
@@ -359,7 +382,7 @@ function TickComponent(Self, DeltaSeconds)
         local Changed, Confirmed = Refs.Selection:Invoke("HandleInput")
         if Changed then
             Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
-            UpdateHUD()
+            UpdateScreen()
         end
         if Confirmed then
             EnterSelectedCharacter()
@@ -368,7 +391,7 @@ function TickComponent(Self, DeltaSeconds)
 
         local Target = Refs.Selection:Invoke("GetSelectionCameraLocation")
         Refs.Camera:Invoke("UpdateSelectionCamera", DeltaSeconds, Target)
-        UpdateHUD()
+        UpdateScreen()
         return
     end
 
@@ -378,7 +401,10 @@ function TickComponent(Self, DeltaSeconds)
         Game.GameOverRequested = false
         GameOver()
     end
-    if Input.IsKeyPressed(EKeyCode.R) then Restart() end
+    if Input.IsKeyPressed(EKeyCode.R) then
+        Restart()
+        return
+    end
 
     if Game.Phase == GamePhase.Playing and Refs.Player and State.StartPosition then
         local Position = Refs.Player:GetActorLocation()
@@ -403,7 +429,7 @@ function TickComponent(Self, DeltaSeconds)
         Game.ClearRequested = false
         GameClear()
     end
-    UpdateHUD()
+    UpdateScreen()
 end
 
 function EndPlay(Self)

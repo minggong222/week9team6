@@ -1,3 +1,10 @@
+-- 카메라 효과와 음향 연출 진입점. 게임 규칙과 상태 전환은 GameManager 담당
+local Black = FColor.new(0, 0, 0, 255)
+local FadeDuration = 0.3
+local LetterBoxHeight = 0.08
+local LetterBoxDuration = 0.25
+State = {}
+
 
 -- 게임 연출 및 카메라 시퀀스
 
@@ -25,6 +32,57 @@ end
 
 function PlayDeath()
     Audio.PlaySFX("Audio/Collision.wav")
+end
+
+function FadeIn(Duration, Color)
+    local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
+    return CameraManager and CameraManager:StartCameraFade(1, 0, Duration or FadeDuration, Color or Black) or false
+end
+
+function FadeOut(Duration, Color)
+    local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
+    return CameraManager and CameraManager:StartCameraFade(CameraManager:GetFadeAmount(), 1,
+        Duration or FadeDuration, Color or Black) or false
+end
+
+function SetLetterBox(Height, Duration)
+    local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
+    return CameraManager and CameraManager:SetLetterBox(Height, Duration or LetterBoxDuration) or false
+end
+
+function PlayRestart()
+    if not FadeOut(FadeDuration) then return 0 end
+    return FadeDuration
+end
+
+function StopEffects()
+    local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
+    if CameraManager then
+        CameraManager:StopCameraFade()
+        CameraManager:StopLetterBox()
+    end
+end
+
+function Update(Phase)
+    local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
+    -- BeginPlay 호출 순서상 Manager가 아직 없으면 다음 Update에서 다시 확인한다.
+    if not CameraManager or State.Phase == Phase then return end
+
+    local FromAlpha = CameraManager:GetFadeAmount()
+    if State.Phase == nil then FromAlpha = 1 end
+
+    if Phase == "Playing" then
+        -- 재시작 대기가 끝난 프레임은 완전 암전에서 새 화면을 드러낸다.
+        if State.Phase == "Ready" then FromAlpha = 1 end
+        CameraManager:StartCameraFade(FromAlpha, 0, FadeDuration, Black)
+        CameraManager:SetLetterBox(0, LetterBoxDuration)
+    elseif Phase == "SelectingCharacter" then
+        CameraManager:StartCameraFade(FromAlpha, 0, FadeDuration, Black)
+        CameraManager:SetLetterBox(LetterBoxHeight, LetterBoxDuration)
+    else
+        StopEffects()
+    end
+    State.Phase = Phase
 end
 
 function StopCinematics()
@@ -55,6 +113,7 @@ function StopCinematics()
     end
 
     Audio.StopBGM()
+    StopEffects()
 end
 
 -- F4 테스트에서 호출할 카메라 시퀀스
