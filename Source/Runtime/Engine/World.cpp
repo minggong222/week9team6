@@ -10,6 +10,7 @@
 
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/DefaultPawn.h"
 #include "GameFramework/PlayerController.h"
@@ -592,9 +593,38 @@ UCameraComponent* UWorld::GetPlayerCamera() const
 
 bool UWorld::SetMainCameraComponent(UCameraComponent* Camera)
 {
-	if (Camera && Camera->GetWorld() != this) return false;
+	if (Camera && Camera->GetWorld() != this)
+	{
+		return false;
+	}
+
 	FWorldContext* Context = GEngine ? GEngine->GetWorldContextFromWorld(this) : nullptr;
-	if (!Context || !Context->GameViewport) return false;
+
+	if (!Context || !Context->GameViewport)
+	{
+		return false;
+	}
+
+	if (PlayerController)
+	{
+		APlayerCameraManager* CameraManager = PlayerController->GetPlayerCameraManager();
+
+		if (CameraManager)
+		{
+			if (Camera)
+			{
+				if (!CameraManager->SetViewTarget(Camera))
+				{
+					return false;
+				}
+			}
+			else
+			{
+				CameraManager->ResetViewTarget();
+			}
+		}
+	}
+
 	Context->GameViewport->SetCameraComponent(Camera);
 	return true;
 }

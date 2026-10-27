@@ -4,6 +4,7 @@
 #include "Input/InputSystem.h"
 
 class APawn;
+class APlayerCameraManager;
 
 class APlayerController : public AActor
 {
@@ -12,17 +13,21 @@ class APlayerController : public AActor
 	REFLECT_END()
 public:
 	APlayerController();
+	void BeginPlay() override;
 	void Tick(float DeltaTime) override;
+	void EndPlay() override;
 	void ProcessPlayerInput(float DeltaTime);
 	void GetPlayerViewCamera(FVector& OutLocation, FRotator& OutRotation) const;
 	void Possess(APawn* InPawn);
 	void UnPossess();
 	APawn* GetPawn() const { return PossessedPawn; }
+	APlayerCameraManager* GetPlayerCameraManager() const { return CameraManager; }
 	void InputKey(int32 Key, bool bDown);
 	void InputAxis(EGameInputAxis Axis, float Delta);
 	void ClearInputState();
 private:
 	APawn* PossessedPawn = nullptr;
+	APlayerCameraManager* CameraManager = nullptr;
 	bool bKeyDown[256]{};
 	float MouseAxisX = 0.0f;
 	float MouseAxisY = 0.0f;

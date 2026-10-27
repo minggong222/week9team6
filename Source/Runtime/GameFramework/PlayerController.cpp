@@ -2,6 +2,8 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/DefaultPawn.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Engine/World.h"
 #include <cstring>
 
 APlayerController::APlayerController()
@@ -9,10 +11,46 @@ APlayerController::APlayerController()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
+void APlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UWorld* World = GetWorld();
+	if (!World || CameraManager)
+	{
+		return;
+	}
+
+	CameraManager = World->SpawnActor<APlayerCameraManager>();
+	if (!CameraManager)
+	{
+		return;
+	}
+
+	if (!CameraManager->InitalizeForPlayer(this))
+	{
+		CameraManager->Destroy();
+		CameraManager = nullptr;
+	}
+}
+
 void APlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	//ProcessPlayerInput(DeltaTime);
+}
+
+void APlayerController::EndPlay()
+{
+	if (CameraManager)
+	{
+		APlayerCameraManager* Manager = CameraManager;
+		CameraManager = nullptr;
+
+		Manager->Destroy();
+	}
+	UnPossess();
+	Super::EndPlay();
 }
 
 void APlayerController::ProcessPlayerInput(float DeltaTime)
