@@ -3,7 +3,10 @@
 #include "GameFramework/Actor.h"
 #include "CameraViewInfo.h"
 #include "Math/Color.h"
+#include "Camera/CameraModifier.h"
 
+#include <memory>
+#include <vector>
 class APlayerController;
 class UCameraComponent;
 class UWorld;
@@ -55,6 +58,11 @@ public:
 	void StopCameraFade();
 	float GetFadeAmount() const { return FadeAmount; }
 	const FColor& GetFadeColor() const { return FadeColor; }
+
+	FCameraModifier* AddCameraModifier(TUniquePtr<FCameraModifier> Modifier);
+	bool RemoveCameraModifier(FCameraModifier* Modifier);
+	void ClearCameraModifiers();
+	FCameraShakeModifier* StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency);
 private:
 	void UpdateCameraEffects(float DeltaTime);
 
@@ -80,4 +88,6 @@ private:
 	float FadeTarget = 0.0f;
 	float FadeDuration = 0.0f;
 	float FadeElapsed = 0.0f;
+
+	std::vector<TUniquePtr<FCameraModifier>> CameraModifiers;
 };

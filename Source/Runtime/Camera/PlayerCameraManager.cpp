@@ -181,7 +181,7 @@ void APlayerCameraManager::EndPlay()
     TransitionStartPOV = FCameraPOV{};
 
     PlayerController = nullptr;
-
+    ClearCameraModifiers();
     Super::EndPlay();
 }
 
@@ -360,6 +360,28 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
         FinalPOV = TargetPOV;
     }
 
+    for (auto It = CameraModifiers.begin(); It != CameraModifiers.end();)
+    {
+        if (!(*It))
+        {
+            It = CameraModifiers.erase(It);
+            continue;
+        }
+        FCameraModifier* Modifier = It->get();
+
+        if (Modifier->IsEnabled())
+        {
+            Modifier->ModifyCamera(DeltaTime, FinalPOV);
+        }
+
+        if (Modifier->IsFinished())
+        {
+            It = CameraModifiers.erase(It);
+            continue;
+        }
+        ++It;
+    }
+
     bHasFinalPOV = FinalPOV.IsValid();
 
     return bHasFinalPOV;
@@ -404,4 +426,52 @@ void APlayerCameraManager::UpdateCameraEffects(float DeltaTime)
         const float Alpha = FadeElapsed / FadeDuration;
         FadeAmount = FadeFrom + (FadeTarget - FadeFrom) * Alpha;
     }
+}
+
+FCameraModifier* APlayerCameraManager::AddCameraModifier(TUniquePtr<FCameraModifier> Modifier)
+{
+    if (!Modifier)
+    {
+        return nullptr;
+    }
+
+    FCameraModifier* Result = Modifier.get();
+    CameraModifiers.emplace_back(std::move(Modifier));
+    return Result;
+}
+
+bool APlayerCameraManager::RemoveCameraModifier(FCameraModifier* Modifier)
+{
+    if (!Modifier)
+    {
+        return false;
+    }
+    const auto It = std::find_if(CameraModifiers.begin(), CameraModifiers.end(), [Modifier](const TUniquePtr<FCameraModifier>& Entry)
+        {
+            return Entry.get() == Modifier;
+        });
+    if (It == CameraModifiers.end())
+    {
+        return false;
+    }
+    CameraModifiers.erase(It);
+    return true;
+}
+
+void APlayerCameraManager::ClearCameraModifiers()
+{
+    CameraModifiers.clear();
+}
+
+FCameraShakeModifier* APlayerCameraManager::StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency)
+{
+    auto Modifier = MakeUnique<FCameraShakeModifier>();
+    Modifier->Start(Duration, LocationAmplitude, RotationAmplitude, Frequency);
+    if (Modifier->IsFinished())
+    {
+        return nullptr;
+    }
+    FCameraShakeModifier* Result = Modifier.get();
+    AddCameraModifier(std::move(Modifier));
+    return Result;
 }
