@@ -1,12 +1,13 @@
 #include "EnginePCH.h"
 #include "CameraModifier.h"
 
+#include "Math/MathUtility.h"
+
 #include <algorithm>
 #include <cmath>
 
 namespace
 {
-	constexpr float TwoPi = 6.2831853071795864769f;
 
 	float InterpolateAngle(float From, float To, float Alpha)
 	{
@@ -170,7 +171,7 @@ void FCameraShakeModifier::ModifyCamera(float DeltaTime, FCameraPOV& InOutPOV)
 	ElapsedTime = std::min(Duration, ElapsedTime + DeltaTime);
 
 	const float Fade = std::max(0.0f, 1.0f - ElapsedTime / Duration);
-	const float Phase = ElapsedTime * Frequency * TwoPi;
+	const float Phase = ElapsedTime * Frequency * TWO_PI;
 	const float LocationOffset = std::sin(Phase) * LocationAmplitude * Fade;
 	const float RotationOffset = std::cos(Phase) * RotationAmplitude * Fade;
 	const FVector LocalOffset(0.0f, 0.0f, LocationOffset);
