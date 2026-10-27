@@ -17,7 +17,7 @@ public:
 	float GetAlpha() const { return Alpha; }
 	void ApplyCamera(float DeltaTime, FCameraPOV& InOutPOV);
 	virtual void ModifyCamera(float DeltaTime, FCameraPOV& InOutPOV) = 0;
-	virtual bool IsFinished() const { return false; }
+	virtual bool IsFinished() const { return bPendingRemoval; }
 private:
 	int32 Priority = 0;
 
