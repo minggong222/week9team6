@@ -8,6 +8,14 @@
 
 void LuaRegisterWorld(sol::state& State)
 {
+    State.new_usertype<APlayerCameraManager>("APlayerCameraManager", sol::no_constructor,
+        sol::base_classes, sol::bases<AActor, UObject>(),
+        "StartCameraFade", &APlayerCameraManager::StartCameraFade,
+        "StopCameraFade", &APlayerCameraManager::StopCameraFade,
+        "GetFadeAmount", &APlayerCameraManager::GetFadeAmount,
+        "SetLetterBox", &APlayerCameraManager::SetLetterBox,
+        "StopLetterBox", &APlayerCameraManager::StopLetterBox);
+
     State.new_usertype<UWorld>("UWorld", sol::no_constructor,
         sol::base_classes, sol::bases<UObject>(),
         "SpawnActor", [](UWorld& World, UClass* Class, sol::optional<FString> Name, sol::optional<FTransform> Transform) {
@@ -22,6 +30,10 @@ void LuaRegisterWorld(sol::state& State)
         "GetMainCamera", &UWorld::GetMainCamera,
         "GetMainCameraComponent", &UWorld::GetMainCameraComponent,
         "GetPlayerCamera", &UWorld::GetPlayerCamera,
+        "GetPlayerCameraManager", [](UWorld& World) -> APlayerCameraManager* {
+            APlayerController* Controller = World.GetPlayerController();
+            return Controller ? Controller->GetPlayerCameraManager() : nullptr;
+        },
         "SetMainCameraComponent",
         [](UWorld& World, UCameraComponent* Camera, sol::optional<float> BlendTime)
         {
