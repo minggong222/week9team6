@@ -34,6 +34,8 @@ void LuaRegisterWorld(sol::state& State)
             APlayerController* Controller = World.GetPlayerController();
             return Controller ? Controller->GetPlayerCameraManager() : nullptr;
         },
+        "GetTimeDilation", & UWorld::GetTimeDilation,
+        "SetTimeDilation", & UWorld::SetTimeDilation,
         "SetMainCameraComponent",
         [](UWorld& World, UCameraComponent* Camera, sol::optional<float> BlendTime)
         {

@@ -99,6 +99,9 @@ public:
 	bool IsPaused() const { return bIsPaused; }
 	void SetPaused(bool bPaused);
 
+	float GetTimeDilation() const { return TimeDilation; }
+	bool SetTimeDilation(float InTimeDilation);
+
 	FScene& GetScene() { return Scene; }
 
 	FCollisionScene& GetCollisionScene() { return CollisionScene; }
@@ -170,7 +173,7 @@ private:
 	APlayerController* PlayerController = nullptr;
 	bool bIsPaused = false;
 	bool bBegunPlay = false;
-
+	float TimeDilation = 1.0f;
 	FPathTracker PathTracker;
 
 	ULevel* PersistentLevel = nullptr;
