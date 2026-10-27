@@ -245,7 +245,7 @@ function TickComponent(Self, DeltaSeconds)
     if Input.IsKeyPressed(EKeyCode.F7) then
         local World = Actor:GetWorld()
 
-        if World:StartCameraShake(2.0, 120.0, 50.0, 8.0) then
+        if World:StartCameraShake(1.5, 2.0, 3.0, 16.0) then
             print("[CameraModifierTest] Camera shake started")
         else
             print("[CameraModifierTest] Failed to start camera shake")

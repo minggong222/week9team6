@@ -12,7 +12,7 @@ public:
 	virtual void ModifyCamera(float DeltaTime, FCameraPOV& InOutPOV) = 0;
 	virtual bool IsFinished() const { return false; }
 private:
-	bool bIsEnabled;
+	bool bIsEnabled = true;
 };
 
 class FCameraShakeModifier final : public FCameraModifier
