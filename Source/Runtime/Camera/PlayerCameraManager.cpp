@@ -8,6 +8,43 @@
 #include "Components/ActorComponent.h"
 #include "Camera/SpringArmComponent.h"
 
+#include <algorithm>
+#include <cmath>
+
+namespace
+{
+    float InterpolateAngle(float Start, float Target, float Alpha)
+    {
+        const float Delta = std::remainder(Target - Start, 360.0f);
+        return Start + Delta * Alpha;
+    }
+
+    FCameraPOV BlendCameraPOV(const FCameraPOV& Start, const FCameraPOV& Target, float Alpha)
+    {
+        FCameraPOV Result;
+
+        Alpha = std::clamp(Alpha, 0.0f, 1.0f);
+
+        Result.Location = Start.Location + (Target.Location - Start.Location) * Alpha;
+
+        Result.Rotation = FRotator(InterpolateAngle(Start.Rotation.Pitch, Target.Rotation.Pitch, Alpha), InterpolateAngle(Start.Rotation.Yaw, Target.Rotation.Yaw, Alpha), InterpolateAngle(Start.Rotation.Roll, Target.Rotation.Roll, Alpha));
+        
+        Result.FieldOfView = Start.FieldOfView + (Target.FieldOfView - Start.FieldOfView) * Alpha;
+
+        Result.AspectRatio = Start.AspectRatio + (Target.AspectRatio - Start.AspectRatio) * Alpha;
+
+        Result.NearClip = Start.NearClip + (Target.NearClip - Start.NearClip) * Alpha;
+
+        Result.FarClip = Start.FarClip + (Target.FarClip - Start.FarClip) * Alpha;
+
+        Result.OrthoWidth = Start.OrthoWidth + (Target.OrthoWidth - Start.OrthoWidth) * Alpha;
+
+        Result.bIsPerspective = Start.bIsPerspective;
+
+        return Result;
+    }
+}
+
 // ------------------------------------------------------------
 // FViewTarget
 // ------------------------------------------------------------
@@ -136,13 +173,17 @@ void APlayerCameraManager::EndPlay()
     ViewTarget.Reset();
     FinalPOV = FCameraPOV{};
     bHasFinalPOV = false;
+    bIsTransitioning = false;
+    TransitionDuration = 0.0f;
+    TransitionElapsed = 0.0f;
+    TransitionStartPOV = FCameraPOV{};
 
     PlayerController = nullptr;
 
     Super::EndPlay();
 }
 
-bool APlayerCameraManager::SetViewTarget(UCameraComponent* InCamera)
+bool APlayerCameraManager::SetViewTarget(UCameraComponent* InCamera, float BlendTime)
 {
     UWorld* World = GetWorld();
 
@@ -158,6 +199,23 @@ bool APlayerCameraManager::SetViewTarget(UCameraComponent* InCamera)
         return false;
     }
 
+    const bool bCanBlend = std::isfinite(BlendTime) && BlendTime > 0.0f && bHasFinalPOV && FinalPOV.IsValid() && FinalPOV.bIsPerspective == NewTarget.POV.bIsPerspective;
+
+    if (bCanBlend)
+    {
+        TransitionStartPOV = FinalPOV;
+
+        TransitionDuration = BlendTime;
+        TransitionElapsed = 0.0f;
+        bIsTransitioning = true;
+    }
+    else
+    {
+        TransitionDuration = 0.0f;
+        TransitionElapsed = 0.0f;
+        bIsTransitioning = false;
+    }
+
     ViewTarget = NewTarget;
 
     return EvaluateCamera(0.0f);
@@ -168,7 +226,10 @@ void APlayerCameraManager::ResetViewTarget()
     ViewTarget.Reset();
     FinalPOV = FCameraPOV{};
     bHasFinalPOV = false;
-    
+    bIsTransitioning = false;
+    TransitionDuration = 0.0f;
+    TransitionElapsed = 0.0f;
+    TransitionStartPOV = FCameraPOV{};
     EvaluateCamera(0.0f);
 }
 
@@ -243,14 +304,11 @@ bool APlayerCameraManager::GetCameraPOV(FCameraPOV& OutPOV) const
 
 bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
 {
-    // 아직 시간 기반 전환 구현 x
-    // 이후 Transition 평가에서 DeltaTime 사용
-    static_cast<void>(DeltaTime);
-
     if (!RefreshViewTarget())
     {
         FinalPOV = FCameraPOV{};
         bHasFinalPOV = false;
+        bIsTransitioning = false;
         return false;
     }
 
@@ -260,6 +318,7 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
     {
         FinalPOV = FCameraPOV{};
         bHasFinalPOV = false;
+        bIsTransitioning = false;
         return false;
     }
 
@@ -268,21 +327,37 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
         SpringArm->UpdateSpringArm(DeltaTime, Camera);
     }
 
-    // 1. 기본 카메라 상태
-    FCameraPOV EvaluatedPOV = Camera->GetCameraPOV();
-    if (!EvaluatedPOV.IsValid())
+    const FCameraPOV TargetPOV = Camera->GetCameraPOV();
+
+    if (!TargetPOV.IsValid())
     {
+        FinalPOV = FCameraPOV{};
         bHasFinalPOV = false;
+        bIsTransitioning = false;
         return false;
     }
-    // 2. Spring Arm 평가
-    // 
-    // 3. Camera Transition 평가
-    // 4. Camera Modifier 적용
 
-    // 5. 최종 카메라 상태 확정
-    ViewTarget.POV = EvaluatedPOV;
-    FinalPOV = EvaluatedPOV;
+    ViewTarget.POV = TargetPOV;
+
+    if (bIsTransitioning && TransitionDuration > 0.0f)
+    {
+        const float SafeDeltaTime = (std::isfinite(DeltaTime) && DeltaTime > 0.0f) ? DeltaTime : 0.0f;
+        TransitionElapsed = std::min(TransitionElapsed + SafeDeltaTime, TransitionDuration);
+        const float Alpha = std::clamp(TransitionElapsed / TransitionDuration, 0.0f, 1.0f);
+
+        FinalPOV = BlendCameraPOV(TransitionStartPOV, TargetPOV, Alpha);
+
+        if (Alpha >= 1.0f)
+        {
+            FinalPOV = TargetPOV;
+            bIsTransitioning = false;
+        }
+    }
+    else
+    {
+        FinalPOV = TargetPOV;
+    }
+
     bHasFinalPOV = FinalPOV.IsValid();
 
     return bHasFinalPOV;

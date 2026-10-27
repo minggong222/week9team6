@@ -20,6 +20,19 @@ void LuaRegisterWorld(sol::state& State)
         "GetMainCamera", &UWorld::GetMainCamera,
         "GetMainCameraComponent", &UWorld::GetMainCameraComponent,
         "GetPlayerCamera", &UWorld::GetPlayerCamera,
-        "SetMainCameraComponent", &UWorld::SetMainCameraComponent,
-        "SetCameraComponent", &UWorld::SetMainCameraComponent);
+        "SetMainCameraComponent",
+        [](UWorld& World, UCameraComponent* Camera, sol::optional<float> BlendTime)
+        {
+            return World.SetMainCameraComponent(
+                Camera,
+                BlendTime ? *BlendTime : 0.0f);
+        },
+
+        "SetCameraComponent",
+        [](UWorld& World, UCameraComponent* Camera, sol::optional<float> BlendTime)
+        {
+            return World.SetMainCameraComponent(
+                Camera,
+                BlendTime ? *BlendTime : 0.0f);
+        });
 }

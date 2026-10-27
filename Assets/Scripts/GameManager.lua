@@ -207,6 +207,39 @@ end
 
 function TickComponent(Self, DeltaSeconds)
     local Game = State.Game
+    -- 임시 Camera Transition 테스트: F6
+    if Input.IsKeyPressed(EKeyCode.F6) then
+        local World = Actor:GetWorld()
+        local PlayerCamera = World:GetPlayerCamera()
+        local MainCamera = World:GetMainCameraComponent()
+
+        if not PlayerCamera or not MainCamera then
+            print("[CameraTransitionTest] Camera not found")
+            return
+        end
+
+        local TargetCamera
+        local TargetName
+
+        if State.CameraTransitionTestToMain then
+            TargetCamera = PlayerCamera
+            TargetName = "PlayerCamera"
+        else
+            TargetCamera = MainCamera
+            TargetName = "MainCamera"
+        end
+
+        if World:SetMainCameraComponent(TargetCamera, 1.5) then
+            State.CameraTransitionTestToMain =
+                not State.CameraTransitionTestToMain
+
+            print("[CameraTransitionTest] Transition to " .. TargetName)
+        else
+            print("[CameraTransitionTest] Failed to change ViewTarget")
+        end
+
+        return
+    end
     if Game.Phase ~= GamePhase.Selecting and Input.IsKeyPressed(EKeyCode.Backspace) then
         ReturnToCharacterSelection()
         return

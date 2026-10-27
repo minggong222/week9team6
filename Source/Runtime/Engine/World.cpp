@@ -564,6 +564,7 @@ void UWorld::CreateMainCamera()
 	MainCamera->Level = nullptr;
 	MainCamera->GetCameraComponent()->SetRelativeLocation(FVector(-5.0f, -5.0f, 5.0f));
 
+	MainCamera->RegisterAllComponents();
 	// 메인 카메라는 Level에 속하지 않아 BeginPlay를 거치지 않으므로 여기서 등록한다.
 	MainCamera->RegisterAllActorTickFunctions(true);
 }
@@ -591,7 +592,7 @@ UCameraComponent* UWorld::GetPlayerCamera() const
 	return nullptr;
 }
 
-bool UWorld::SetMainCameraComponent(UCameraComponent* Camera)
+bool UWorld::SetMainCameraComponent(UCameraComponent* Camera, float BlendTime)
 {
 	if (Camera && Camera->GetWorld() != this)
 	{
@@ -613,7 +614,7 @@ bool UWorld::SetMainCameraComponent(UCameraComponent* Camera)
 		{
 			if (Camera)
 			{
-				if (!CameraManager->SetViewTarget(Camera))
+				if (!CameraManager->SetViewTarget(Camera, BlendTime))
 				{
 					return false;
 				}

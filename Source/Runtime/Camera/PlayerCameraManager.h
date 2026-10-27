@@ -40,7 +40,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void EndPlay() override;
 
-	bool SetViewTarget(UCameraComponent* InCamera);
+	bool SetViewTarget(UCameraComponent* InCamera, float BlendTime = 0.0f);
 	void ResetViewTarget();
 	bool RefreshViewTarget();
 	UCameraComponent* GetViewTargetCamera() const;
@@ -54,4 +54,14 @@ private:
 
 	FCameraPOV FinalPOV;
 	bool bHasFinalPOV = false;
+
+	// 전환이 시작될 때의 카메라 상태
+	FCameraPOV TransitionStartPOV;
+
+	// 전환 시간과 현재까지 경과한 시간
+	float TransitionDuration = 0.0f;
+	float TransitionElapsed = 0.0f;
+
+	// 현재 카메라 전환이 진행 중인지 여부
+	bool bIsTransitioning = false;
 };
