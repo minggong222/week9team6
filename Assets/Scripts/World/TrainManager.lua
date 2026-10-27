@@ -1,7 +1,7 @@
 -- 레일별 기차·경고등 상태 소유. 지형·차량 시스템의 직접 호출 제외
 local Config = {
-    Speed = 50.0, WaitMin = 3.0, WaitMax = 6.0, WarningTime = 2.0,
-    BlinkDuration = 2.5, BlinkInterval = 0.25,
+    Speed = 50.0, WaitMin = 3.0, WaitMax = 6.0, WarningTime = 1.0,
+    BlinkDuration = 1.0, BlinkInterval = 0.25,
     SignalSpacing = 12.0, SignalOffsetX = -1.4, SignalIntensity = 6.0,
     Types = {
         { Name = "bullet", Path = "Models/Crossy/Trains/crossy-train-long.obj" },
