@@ -2,6 +2,7 @@
 
 #include "GameFramework/Actor.h"
 #include "CameraViewInfo.h"
+#include "Math/Color.h"
 
 class APlayerController;
 class UCameraComponent;
@@ -48,7 +49,15 @@ public:
 	const FViewTarget& GetViewTarget() const { return ViewTarget; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
 	bool EvaluateCamera(float DeltaTime);
+
+	// 투명도 0은 원래 화면, 1은 지정 색상. 완료 후 끝 값을 유지한다.
+	bool StartCameraFade(float FromAlpha, float ToAlpha, float Duration, const FColor& Color);
+	void StopCameraFade();
+	float GetFadeAmount() const { return FadeAmount; }
+	const FColor& GetFadeColor() const { return FadeColor; }
 private:
+	void UpdateCameraEffects(float DeltaTime);
+
 	APlayerController* PlayerController = nullptr;
 	FViewTarget ViewTarget;
 
@@ -64,4 +73,11 @@ private:
 
 	// 현재 카메라 전환이 진행 중인지 여부
 	bool bIsTransitioning = false;
+
+	FColor FadeColor = FColor(0, 0, 0, 255);
+	float FadeAmount = 0.0f;
+	float FadeFrom = 0.0f;
+	float FadeTarget = 0.0f;
+	float FadeDuration = 0.0f;
+	float FadeElapsed = 0.0f;
 };

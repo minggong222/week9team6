@@ -165,11 +165,13 @@ void APlayerCameraManager::BeginPlay()
 void APlayerCameraManager::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+    UpdateCameraEffects(DeltaTime);
     EvaluateCamera(DeltaTime);
 }
 
 void APlayerCameraManager::EndPlay()
 {
+    StopCameraFade();
     ViewTarget.Reset();
     FinalPOV = FCameraPOV{};
     bHasFinalPOV = false;
@@ -361,4 +363,45 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
     bHasFinalPOV = FinalPOV.IsValid();
 
     return bHasFinalPOV;
+}
+
+bool APlayerCameraManager::StartCameraFade(float FromAlpha, float ToAlpha, float Duration, const FColor& Color)
+{
+    if (!std::isfinite(FromAlpha) || !std::isfinite(ToAlpha) || !std::isfinite(Duration) || Duration < 0.0f)
+    {
+        return false;
+    }
+
+    FadeColor = Color;
+    FadeFrom = std::clamp(FromAlpha, 0.0f, 1.0f);
+    FadeTarget = std::clamp(ToAlpha, 0.0f, 1.0f);
+    FadeDuration = Duration;
+    FadeElapsed = 0.0f;
+    FadeAmount = Duration > 0.0f ? FadeFrom : FadeTarget;
+    return true;
+}
+
+void APlayerCameraManager::StopCameraFade()
+{
+    FadeAmount = 0.0f;
+    FadeFrom = 0.0f;
+    FadeTarget = 0.0f;
+    FadeDuration = 0.0f;
+    FadeElapsed = 0.0f;
+}
+
+void APlayerCameraManager::UpdateCameraEffects(float DeltaTime)
+{
+    if (!std::isfinite(DeltaTime) || DeltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    // POV 조회는 한 프레임에 여러 번 호출될 수 있으므로 효과 시간은 Tick에서만 진행한다.
+    if (FadeDuration > 0.0f && FadeElapsed < FadeDuration)
+    {
+        FadeElapsed = std::min(FadeDuration, FadeElapsed + DeltaTime);
+        const float Alpha = FadeElapsed / FadeDuration;
+        FadeAmount = FadeFrom + (FadeTarget - FadeFrom) * Alpha;
+    }
 }
