@@ -12,6 +12,7 @@
 #include <cmath>
 #include "Math/Frustum.h"
 #include "Render/RenderCommand.h"
+#include "Camera/PlayerCameraManager.h"
 
 FGameViewportClient::FGameViewportClient()
 {
@@ -131,43 +132,83 @@ FSceneView FGameViewportClient::CalcSceneView(const FRect& InViewRect)
 
 	const float Aspect = static_cast<float>(Width) / static_cast<float>(Height);
 
-	if (!CameraComponent && World)
+	FCameraPOV POV;
+	bool bHasPOV = false;
+
+	APlayerCameraManager* CameraManager = nullptr;
+
+	if (!bSIEMode && World)
 	{
-		CameraComponent = FindPlayerCamera();
-		if (!CameraComponent && World->GetMainCamera())
-			CameraComponent = World->GetMainCamera()->GetCameraComponent();
+		APlayerController* PlayerController = World->GetPlayerController();
+
+		if (PlayerController)
+		{
+			CameraManager = PlayerController->GetPlayerCameraManager();
+		}
+
+		if (CameraManager && CameraManager->GetCameraPOV(POV))
+		{
+			CameraComponent = CameraManager->GetViewTargetCamera();
+			POV.AspectRatio = Aspect;
+			bHasPOV = POV.IsValid();
+		}
 	}
 
-	if (CameraComponent)
+	if (bHasPOV)
 	{
-		CameraComponent->SetAspectRatio(Aspect);
+		if (CameraManager && !bSIEMode && World)
+		{
+			CameraComponent = FindPlayerCamera();
 
-		OutView.ViewLocation = CameraComponent->GetWorldLocation();
-		OutView.ViewRotation = CameraComponent->GetWorldRotation();
-		OutView.ViewForward = OutView.ViewRotation.Quaternion().GetForwardVector();
-		OutView.ViewMatrix = CameraComponent->GetViewMatrix();
-		OutView.ProjectionMatrix = CameraComponent->GetProjectionMatrix();
-		OutView.ViewProjectionMatrix = CameraComponent->GetViewProjectionMatrix();
-		OutView.FieldOfView = CameraComponent->GetFieldOfView();
-		OutView.AspectRatio = Aspect;
-		OutView.NearClip = CameraComponent->GetNearZ();
-		OutView.FarClip = CameraComponent->GetFarZ();
-		OutView.OrthoWidth = CameraComponent->GetOrthoWidth();
-		OutView.bIsPerspective = !CameraComponent->GetIsOrthogonal();
-		OutView.bIsWireframe = false;
+			if (!CameraComponent)
+			{
+				CameraComponent = World->GetMainCameraComponent();
+			}
+		}
+		else if (!CameraComponent && World)
+		{
+			CameraComponent = FindPlayerCamera();
+			if (!CameraComponent)
+			{
+				CameraComponent = World->GetMainCameraComponent();
+			}
+		}
+
+		if (CameraComponent)
+		{
+			POV = CameraComponent->GetCameraPOV();
+			POV.AspectRatio = Aspect;
+			bHasPOV = POV.IsValid();
+		}
 	}
-	else
+
+	// 어떤 카메라도 사용할 수 없을 때의 기본 시점.
+	if (!bHasPOV)
 	{
-		OutView.ViewLocation = FVector(-5.0f, -10.0f, 10.0f);
-		OutView.ViewRotation = FRotator(30.0f, 45.0f, 0.0f);
-		OutView.ViewForward = OutView.ViewRotation.Quaternion().GetForwardVector();
-		OutView.FieldOfView = 60.0f;
-		OutView.AspectRatio = Aspect;
-		OutView.NearClip = 0.1f;
-		OutView.FarClip = 1000.0f;
-		OutView.bIsPerspective = true;
-		OutView.bIsWireframe = false;
+		POV = FCameraPOV{};
+		POV.Location = FVector(-5.0f, -10.0f, 10.0f);
+		POV.Rotation = FRotator(30.0f, 45.0f, 0.0f);
+		POV.FieldOfView = 60.0f;
+		POV.AspectRatio = Aspect;
+		POV.NearClip = 0.1f;
+		POV.FarClip = 1000.0f;
 	}
+
+	OutView.ViewLocation = POV.Location;
+	OutView.ViewRotation = POV.Rotation;
+	OutView.ViewForward = POV.Rotation.Quaternion().GetForwardVector();
+
+	OutView.ViewMatrix = POV.GetViewMatrix();
+	OutView.ProjectionMatrix = POV.GetProjectionMatrix();
+	OutView.ViewProjectionMatrix = POV.GetViewProjectionMatrix();
+
+	OutView.FieldOfView = POV.FieldOfView;
+	OutView.AspectRatio = POV.AspectRatio;
+	OutView.NearClip = POV.NearClip;
+	OutView.FarClip = POV.FarClip;
+	OutView.OrthoWidth = POV.OrthoWidth;
+	OutView.bIsPerspective = POV.bIsPerspective;
+	OutView.bIsWireframe = false;
 
 	OutView.Frustum = ExtractFrustumPlanes(OutView.ViewProjectionMatrix);
 	OutView.FrustumCorners = GenerateFrustumCorners(OutView.ViewProjectionMatrix.Inverse());

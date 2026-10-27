@@ -111,7 +111,7 @@ bool APlayerCameraManager::InitalizeForPlayer(APlayerController* InPlayerControl
     }
     PlayerController = InPlayerController;
 
-    RefreshViewTarget();
+    EvaluateCamera(0.0f);
 
     return true;
 }
@@ -119,18 +119,21 @@ bool APlayerCameraManager::InitalizeForPlayer(APlayerController* InPlayerControl
 void APlayerCameraManager::BeginPlay()
 {
     Super::BeginPlay();
-    RefreshViewTarget();
+    EvaluateCamera(0.0f);
 }
 
 void APlayerCameraManager::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    RefreshViewTarget();
+    EvaluateCamera(DeltaTime);
 }
 
 void APlayerCameraManager::EndPlay()
 {
     ViewTarget.Reset();
+    FinalPOV = FCameraPOV{};
+    bHasFinalPOV = false;
+
     PlayerController = nullptr;
 
     Super::EndPlay();
@@ -154,7 +157,16 @@ bool APlayerCameraManager::SetViewTarget(UCameraComponent* InCamera)
 
     ViewTarget = NewTarget;
 
-    return true;
+    return EvaluateCamera(0.0f);
+}
+
+void APlayerCameraManager::ResetViewTarget()
+{
+    ViewTarget.Reset();
+    FinalPOV = FCameraPOV{};
+    bHasFinalPOV = false;
+    
+    EvaluateCamera(0.0f);
 }
 
 bool APlayerCameraManager::RefreshViewTarget()
@@ -164,32 +176,46 @@ bool APlayerCameraManager::RefreshViewTarget()
     if (!World)
     {
         ViewTarget.Reset();
+        bHasFinalPOV = false;
         return false;
     }
 
     if (ViewTarget.IsValidForWorld(World))
     {
-        ViewTarget.POV = ViewTarget.TargetCamera->GetCameraPOV();
-        return ViewTarget.POV.IsValid();
+        return true;
     }
 
     ViewTarget.Reset();
+    bHasFinalPOV = false;
 
     // 1순위 플레이어 카메라 
     UCameraComponent* Camera = World->GetPlayerCamera();
 
+    if (Camera)
+    {
+        FViewTarget NewTarget;
+        if (NewTarget.SetTarget(Camera) && NewTarget.IsValidForWorld(World))
+        {
+            ViewTarget = NewTarget;
+            return true;
+        }
+    }
+
+
     // 2순위 기존 World MainCamera
-    if (!Camera)
+    Camera = World->GetMainCameraComponent();
+
+    if (Camera)
     {
-        Camera = World->GetMainCameraComponent();
+        FViewTarget NewTarget;
+        if (NewTarget.SetTarget(Camera) && NewTarget.IsValidForWorld(World))
+        {
+            ViewTarget = NewTarget;
+            return true;
+        }
     }
 
-    if (!Camera)
-    {
-        return false;
-    }
-
-    return SetViewTarget(Camera);
+    return false;
 }
 
 UCameraComponent* APlayerCameraManager::GetViewTargetCamera() const
@@ -201,15 +227,54 @@ UCameraComponent* APlayerCameraManager::GetViewTargetCamera() const
     return ViewTarget.TargetCamera;
 }
 
-bool APlayerCameraManager::GetCameraPOV(FCameraPOV& OutPOV) const
+bool APlayerCameraManager::GetCameraPOV(FCameraPOV& OutPOV)
 {
-    UCameraComponent* Camera = GetViewTargetCamera();
-    if (!Camera)
+    if (!EvaluateCamera(0.0f))
     {
         return false;
     }
 
-    OutPOV = Camera->GetCameraPOV();
+    OutPOV = FinalPOV;
 
     return OutPOV.IsValid();
+}
+
+bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
+{
+    // 아직 시간 기반 전환 구현 x
+    // 이후 Transition 평가에서 DeltaTime 사용
+    static_cast<void>(DeltaTime);
+
+    if (!RefreshViewTarget())
+    {
+        FinalPOV = FCameraPOV{};
+        bHasFinalPOV = false;
+        return false;
+    }
+
+    UCameraComponent* Camera = ViewTarget.TargetCamera;
+
+    if (!Camera)
+    {
+        FinalPOV = FCameraPOV{};
+        bHasFinalPOV = false;
+        return false;
+    }
+    // 1. 기본 카메라 상태
+    FCameraPOV EvaluatedPOV = Camera->GetCameraPOV();
+    if (!EvaluatedPOV.IsValid())
+    {
+        bHasFinalPOV = false;
+        return false;
+    }
+    // 2. Spring Arm 평가
+    // 3. Camera Transition 평가
+    // 4. Camera Modifier 적용
+
+    // 5. 최종 카메라 상태 확정
+    ViewTarget.POV = EvaluatedPOV;
+    FinalPOV = EvaluatedPOV;
+    bHasFinalPOV = FinalPOV.IsValid();
+
+    return bHasFinalPOV;
 }

@@ -41,12 +41,17 @@ public:
 	virtual void EndPlay() override;
 
 	bool SetViewTarget(UCameraComponent* InCamera);
+	void ResetViewTarget();
 	bool RefreshViewTarget();
 	UCameraComponent* GetViewTargetCamera() const;
-	bool GetCameraPOV(FCameraPOV& OutPOV) const;
+	bool GetCameraPOV(FCameraPOV& OutPOV);
 	const FViewTarget& GetViewTarget() const { return ViewTarget; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
+	bool EvaluateCamera(float DeltaTime);
 private:
 	APlayerController* PlayerController = nullptr;
 	FViewTarget ViewTarget;
+
+	FCameraPOV FinalPOV;
+	bool bHasFinalPOV = false;
 };
