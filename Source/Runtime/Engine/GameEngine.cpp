@@ -123,6 +123,10 @@ void UGameEngine::PreExit()
 		return;
 	}
 
+	// 레벨 밖의 카메라도 삭제 전에 컴포넌트 등록을 해제한다.
+	if (ACameraActor* Camera = GameWorld->GetMainCamera())
+		Camera->UnregisterAllComponents();
+
 	GameWorld->ClearWorld();
 
 	ACameraActor* MainCamera = GameWorld->GetMainCamera();
