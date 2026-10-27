@@ -158,7 +158,14 @@ function Update(DeltaSeconds)
                 local Position = Row.Train:GetRelativeLocation()
                 local NextY = math.max(-Limit, math.min(Limit, Position.Y + Sign * Row.Speed * Step))
                 local Bounds, DeltaY = Row.Train:CalcBounds(), NextY - Position.Y
-                local HasBounds, PlayerBounds = Refs.Player:TryGetActorBounds()
+                -- 시각적인 메시 압축·확대와 무관하게 자동차와 같은 몸통 Hitbox를 사용한다.
+                local Hitbox = UBoxComponent.Cast(Refs.Player:FindComponentByName("PlayerTreeHitbox"))
+                local HasBounds, PlayerBounds
+                if Hitbox then
+                    HasBounds, PlayerBounds = true, Hitbox:CalcBounds()
+                else
+                    HasBounds, PlayerBounds = Refs.Player:TryGetActorBounds()
+                end
 
                 -- 빠른 기차의 한 프레임 내 통과도 감지하도록 이동 구간 전체로 충돌 판정
                 local bHit = Refs.Level:Invoke("GetPhase") == "Playing" and HasBounds

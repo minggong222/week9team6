@@ -5,6 +5,9 @@ local MaxY = 33
 local YawOffset = 180.0
 local JumpDuration = 0.1
 local JumpHeight = 0.5
+local JumpSquashRatio = 0.12
+local JumpSquashDuration = 0.08
+local LandingSquashDuration = 0.08
 local BounceDuration = 0.12 -- 나무에 부딪힌 뒤 출발 칸으로 돌아오는 시간
 local CollisionStep = 0.01 -- 프레임이 길어져도 점프 이동을 나눠 충돌 검사
 local TreeHitboxExtent = FVector.new(1.0, 1.0, 0.5)
@@ -26,6 +29,10 @@ State.JumpStartLocation = FVector.new(0.0, 0.0, 0.0)
 State.JumpDirection = FVector.new(0.0, 0.0, 0.0)
 State.MeshBaseLocation = nil
 State.MeshBaseRotation = nil
+State.MeshBaseScale = nil
+State.MoveQueue = {}
+State.JumpSquashElapsed = 0.0
+State.LandingSquashRemaining = 0.0
 
 function BindGame(GameManager)
     Refs.Game = GameManager
@@ -99,15 +106,23 @@ local function FindStaticMeshComponent(TargetActor)
     return nil
 end
 
--- 진행 중인 점프 취소 및 메시 위치 복원
-local function ResetJump(MeshComponent)
+-- 정상 착지는 예약 입력을 유지하고, 사망·재시작은 입력까지 취소
+local function ResetJump(MeshComponent, bKeepQueuedInput)
     State.bIsJumping, State.bIsReturning = false, false
     PublishJumping(false)
     State.JumpElapsed, State.ReturnElapsed, State.CurrentJumpHeight = 0.0, 0.0, 0.0
     State.JumpDirection = FVector.new(0.0, 0.0, 0.0)
+    if not bKeepQueuedInput then
+        State.MoveQueue = {}
+    end
+    State.JumpSquashElapsed = 0.0
+    State.LandingSquashRemaining = 0.0
 
     if MeshComponent and State.MeshBaseLocation then
         MeshComponent:SetRelativeLocation(State.MeshBaseLocation)
+    end
+    if MeshComponent and State.MeshBaseScale then
+        MeshComponent:SetRelativeScale3D(State.MeshBaseScale)
     end
 end
 
@@ -125,10 +140,21 @@ end
 function RefreshMeshBaseLocation()
     local Mesh = FindStaticMeshComponent(Actor)
     State.MeshBaseLocation = Mesh and Mesh:GetRelativeLocation() or nil
+    State.MeshBaseScale = Mesh and Mesh:GetRelativeScale3D() or nil
     ResetJump(Mesh)
 end
 
 function TickComponent(Component, DeltaSeconds)
+
+    -- HotReload는 기존 State를 유지하므로 새로 추가된 필드만 보충한다.
+    State.MoveQueue = State.MoveQueue or {}
+    State.JumpSquashElapsed = State.JumpSquashElapsed or 0.0
+    State.LandingSquashRemaining = State.LandingSquashRemaining or 0.0
+    -- 이전 FIFO 버전에서 HotReload해도 가장 최근 예약 한 칸만 유지한다.
+    if #State.MoveQueue > 1 then
+        State.MoveQueue = { State.MoveQueue[#State.MoveQueue] }
+        State.JumpSquashElapsed = 0.0
+    end
 
     if Actor == nil then
         return
@@ -162,26 +188,13 @@ function TickComponent(Component, DeltaSeconds)
     State.bWasADown = bADown
     State.bWasDDown = bDDown
 
-    local PressCount = 0
-
-    if bWPressed then
-        PressCount = PressCount + 1
-    end
-
-    if bSPressed then
-        PressCount = PressCount + 1
-    end
-
-    if bAPressed then
-        PressCount = PressCount + 1
-    end
-
-    if bDPressed then
-        PressCount = PressCount + 1
-    end
-
     local Manager = Refs.Game or Refs.Level
     local Phase = Manager and Manager:Invoke("GetPhase")
+
+    -- 사망 중 HotReload한 경우 피격 압축을 기본 크기로 저장하지 않는다.
+    if MeshComponent and State.MeshBaseScale == nil and Phase == "Playing" then
+        State.MeshBaseScale = MeshComponent:GetRelativeScale3D()
+    end
 
     -- 재시작 시 이전 점프를 취소하고 시작 방향 복원
     if State.ResetRequested then
@@ -199,27 +212,57 @@ function TickComponent(Component, DeltaSeconds)
 
     -- 사망·클리어·캐릭터 선택 중에는 점프도 중단
     if Phase ~= "Playing" then
-        if State.bIsJumping then
+        if State.bIsJumping or #State.MoveQueue > 0 or State.LandingSquashRemaining > 0.0 then
             ResetJump(MeshComponent)
         end
 
         return
     end
 
-    if not State.bIsJumping and PressCount == 1 then
+    State.LandingSquashRemaining = math.max(0.0, State.LandingSquashRemaining - DeltaSeconds)
 
-        local MoveDirection = FVector.new(0.0, 0.0, 0.0)
+    -- 점프 중에도 다음 한 칸만 예약하며, 새 입력은 이전 예약을 교체한다.
+    if bWPressed then
+        State.MoveQueue[1] = { Direction = FVector.new(1.0, 0.0, 0.0), Released = false }
+    end
+    if bSPressed then
+        State.MoveQueue[1] = { Direction = FVector.new(-1.0, 0.0, 0.0), Released = false }
+    end
+    if bAPressed then
+        State.MoveQueue[1] = { Direction = FVector.new(0.0, -1.0, 0.0), Released = false }
+    end
+    if bDPressed then
+        State.MoveQueue[1] = { Direction = FVector.new(0.0, 1.0, 0.0), Released = false }
+    end
+    if bWPressed or bSPressed or bAPressed or bDPressed then
+        State.JumpSquashElapsed = 0.0
+    end
 
-        if bWPressed then
-            MoveDirection = FVector.new(1.0, 0.0, 0.0)
-        elseif bSPressed then
-            MoveDirection = FVector.new(-1.0, 0.0, 0.0)
-        elseif bAPressed then
-            MoveDirection = FVector.new(0.0, -1.0, 0.0)
-        elseif bDPressed then
-            MoveDirection = FVector.new(0.0, 1.0, 0.0)
+    -- 예약 키의 해제 여부는 착지 전에도 기록한다.
+    for _, Move in ipairs(State.MoveQueue) do
+        local MoveDirection = Move.Direction
+        local bDirectionDown = (MoveDirection.X > 0.0 and bWDown)
+            or (MoveDirection.X < 0.0 and bSDown)
+            or (MoveDirection.Y < 0.0 and bADown)
+            or (MoveDirection.Y > 0.0 and bDDown)
+
+        if not bDirectionDown then Move.Released = true end
+    end
+
+    -- 지상에서 누르고 있으면 압축, 키를 떼면 예약 한 칸을 소비한다.
+    local ReleasedMoveDirection = nil
+    if not State.bIsJumping and State.MoveQueue[1] then
+        if State.MoveQueue[1].Released then
+            ReleasedMoveDirection = State.MoveQueue[1].Direction
+            State.MoveQueue[1] = nil
+            State.JumpSquashElapsed = 0.0
+        else
+            State.JumpSquashElapsed = math.min(JumpSquashDuration, State.JumpSquashElapsed + DeltaSeconds)
         end
+    end
 
+    if ReleasedMoveDirection ~= nil then
+        local MoveDirection = ReleasedMoveDirection
         local CurrentLocation = RootComponent:GetWorldLocation()
         local bWithinBounds = true
 
@@ -235,6 +278,7 @@ function TickComponent(Component, DeltaSeconds)
             State.JumpDirection = MoveDirection
             State.JumpElapsed = 0.0
             State.bIsJumping = true
+            State.LandingSquashRemaining = 0.0
             PublishJumping(true)
             Audio.PlaySFX("Audio/Move.wav")
 
@@ -255,7 +299,7 @@ function TickComponent(Component, DeltaSeconds)
     end
 
 
-    -- 전진 점프 -> 충돌 시 복귀 -> 출발 칸 착지. 복귀 중 새 이동 입력 차단
+    -- 전진 점프 -> 충돌 시 복귀 -> 출발 칸 착지. 예약 이동은 착지 후 처리
     local Remaining = DeltaSeconds
     while State.bIsJumping and Remaining > 0 do
         local Step = math.min(Remaining, CollisionStep)
@@ -271,7 +315,10 @@ function TickComponent(Component, DeltaSeconds)
                 return
             end
             State.CurrentJumpHeight = State.ReturnStartHeight * (1.0 - Alpha)
-            if Alpha >= 1.0 then ResetJump(MeshComponent) end
+            if Alpha >= 1.0 then
+                ResetJump(MeshComponent, true)
+                State.LandingSquashRemaining = LandingSquashDuration
+            end
         else
             State.JumpElapsed = State.JumpElapsed + Step
             local Alpha = math.min(1.0, State.JumpElapsed / JumpDuration)
@@ -279,7 +326,10 @@ function TickComponent(Component, DeltaSeconds)
             local Location = State.JumpStartLocation + State.JumpDirection * (MoveDistance * Alpha)
             if RootComponent:TryMoveWithBlocking(Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation()) then
                 State.CurrentJumpHeight = 4.0 * JumpHeight * Alpha * (1.0 - Alpha)
-                if Alpha >= 1.0 then ResetJump(MeshComponent) end
+                if Alpha >= 1.0 then
+                    ResetJump(MeshComponent, true)
+                    State.LandingSquashRemaining = LandingSquashDuration
+                end
             else
                 State.bIsReturning, State.ReturnElapsed = true, 0.0
                 State.ReturnStartLocation = RootComponent:GetWorldLocation()
@@ -289,5 +339,16 @@ function TickComponent(Component, DeltaSeconds)
         if MeshComponent and State.MeshBaseLocation then
             MeshComponent:SetRelativeLocation(State.MeshBaseLocation + FVector.new(0.0, 0.0, State.CurrentJumpHeight))
         end
+    end
+
+    -- 키다운·착지 압축이 겹쳐도 최대 비율을 넘거나 누적되지 않도록 함
+    if MeshComponent and State.MeshBaseScale then
+        local Alpha = State.JumpSquashElapsed / JumpSquashDuration
+        local Squash = JumpSquashRatio * Alpha * (2.0 - Alpha)
+        local LandingAlpha = State.LandingSquashRemaining / LandingSquashDuration
+        Squash = math.max(Squash, JumpSquashRatio * LandingAlpha * LandingAlpha)
+        local Width = 1.0 + Squash * 0.5
+        local Scale = State.MeshBaseScale
+        MeshComponent:SetRelativeScale3D(FVector.new(Scale.X * Width, Scale.Y * Width, Scale.Z * (1.0 - Squash)))
     end
 end
