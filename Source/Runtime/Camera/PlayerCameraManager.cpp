@@ -80,6 +80,8 @@ bool FViewTarget::IsValidForWorld(const UWorld* InWorld) const
 
         return TargetCamera->GetCameraPOV().IsValid();
     }
+
+    return false;
 }
 
 void FViewTarget::Reset()

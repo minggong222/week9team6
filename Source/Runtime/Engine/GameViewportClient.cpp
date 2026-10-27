@@ -154,7 +154,7 @@ FSceneView FGameViewportClient::CalcSceneView(const FRect& InViewRect)
 		}
 	}
 
-	if (bHasPOV)
+	if (!bHasPOV)
 	{
 		if (CameraManager && !bSIEMode && World)
 		{
