@@ -5,19 +5,20 @@
 void LuaRegisterInput(sol::state& State)
 {
     State.create_named_table("Input",
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "IsKeyPressed", &FInputSystem::IsKeyPressed,
-        "IsKeyReleased", &FInputSystem::IsKeyReleased,
-        "IsKeyDown", &FInputSystem::IsKeyDown,
-        "IsMouseDown", &FInputSystem::IsMouseDown,
-        "IsMousePressed", &FInputSystem::IsMousePressed,
-        "IsMouseReleased", &FInputSystem::IsMouseReleased,
-        "GetMouseX", &FInputSystem::GetMouseX,
-        "GetMouseY", &FInputSystem::GetMouseY,
-        "GetMouseDeltaX", &FInputSystem::GetMouseDeltaX,
-        "GetMouseDeltaY", &FInputSystem::GetMouseDeltaY,
+        // "IsKeyReleased", &FInputSystem::IsKeyReleased,
+        "IsKeyDown", &FInputSystem::IsKeyDown
+        // "IsMouseDown", &FInputSystem::IsMouseDown,
+        // "IsMousePressed", &FInputSystem::IsMousePressed,
+        // "IsMouseReleased", &FInputSystem::IsMouseReleased,
+        // "GetMouseX", &FInputSystem::GetMouseX,
+        // "GetMouseY", &FInputSystem::GetMouseY,
+        // "GetMouseDeltaX", &FInputSystem::GetMouseDeltaX,
+        // "GetMouseDeltaY", &FInputSystem::GetMouseDeltaY,
 
         // GetWheelDelta는 입력받은 Wheel Delta를 소모한다.
-        "GetWheelDelta", &FInputSystem::GetWheelDelta
+        // "GetWheelDelta", &FInputSystem::GetWheelDelta
     );
 
     State.new_enum<EKeyCode>("EKeyCode", {
@@ -132,11 +133,12 @@ void LuaRegisterInput(sol::state& State)
         {"RightBracket", EKeyCode::RightBracket},
         {"Quote", EKeyCode::Quote},
     });
-    State.new_enum<EMouseButton>("EMouseButton", {
-        {"Left", EMouseButton::Left},
-        {"Right", EMouseButton::Right},
-        {"Middle", EMouseButton::Middle},
-        {"Side1", EMouseButton::Side1},
-        {"Side2", EMouseButton::Side2}
-    });
+    // 현재 Lua 스크립트에서 사용하지 않는 열거형입니다.
+    // State.new_enum<EMouseButton>("EMouseButton", {
+        // {"Left", EMouseButton::Left},
+        // {"Right", EMouseButton::Right},
+        // {"Middle", EMouseButton::Middle},
+        // {"Side1", EMouseButton::Side1},
+        // {"Side2", EMouseButton::Side2}
+    // });
 }

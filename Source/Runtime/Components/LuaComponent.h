@@ -2,7 +2,7 @@
 
 #include "ActorComponent.h"
 #include "Core/EngineString.h"
-#include "sol/sol.hpp"
+#include "sol/forward.hpp"
 #include "Containers/StringView.h"
 
 class FLuaManager;

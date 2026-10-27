@@ -5,6 +5,7 @@
 void LuaRegisterMathMatrix(sol::state& State)
 {
     State.new_usertype<FMatrix>(
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "FMatrix",
         sol::constructors<
             FMatrix(),
@@ -18,44 +19,44 @@ void LuaRegisterMathMatrix(sol::state& State)
             )
         >(),
         "Identity", sol::property([] { return FMatrix::Identity; }),
-        "SetIdentity", &FMatrix::SetIdentity,
-        "SetAxes", &FMatrix::SetAxes,
-        "SetAxis", &FMatrix::SetAxis,
-        "GetColumn", &FMatrix::GetColumn,
-        "SetColumn", &FMatrix::SetColumn,
-        "GetOrigin", &FMatrix::GetOrigin,
-        "SetOrigin", &FMatrix::SetOrigin,
-        "GetScaledAxis", [](const FMatrix& M) {
-            FVector4 X, Y, Z;
-            M.GetScaledAxis(X, Y, Z);
-            return std::make_tuple(X, Y, Z);
-        },
-        "GetUnitAxis", [](const FMatrix& M) {
-            FVector4 X, Y, Z;
-            M.GetUnitAxis(X, Y, Z);
-            return std::make_tuple(X, Y, Z);
-        },
-        "TransformFVector4", &FMatrix::TransformFVector4,
-        "TransformFVector4NoScale", &FMatrix::TransformFVector4NoScale,
-        "TransformPosition", &FMatrix::TransformPosition,
-        "TransformVector", &FMatrix::TransformVector,
-        "TransformVectorNoScale", &FMatrix::TransformVectorNoScale,
-        "InverseTransformPosition", &FMatrix::InverseTransformPosition,
-        "ApplyScale", &FMatrix::ApplyScale,
-        "GetTransposed", &FMatrix::GetTransposed,
-        "Inverse", &FMatrix::Inverse,
-        "Multiply", &FMatrix::Multiply,
-        "Determinant", &FMatrix::Determinant,
-        "MakeTranslation", &FMatrix::MakeTranslation,
-        "ToRotator", &MatrixToRotator,
-        "LookAt", &LookAt,
-        "Perspective", &Perspective,
-        "Ortho", sol::overload(
-            sol::resolve<FMatrix(float, float, float, float)>(&Ortho),
-            sol::resolve<FMatrix(float, float, float, float, float, float)>(&Ortho)
-        ),
-        "GetElement", &FMatrix::GetElement,
-        "SetElement", &FMatrix::SetElement,
+        // "SetIdentity", &FMatrix::SetIdentity,
+        // "SetAxes", &FMatrix::SetAxes,
+        // "SetAxis", &FMatrix::SetAxis,
+        // "GetColumn", &FMatrix::GetColumn,
+        // "SetColumn", &FMatrix::SetColumn,
+        // "GetOrigin", &FMatrix::GetOrigin,
+        // "SetOrigin", &FMatrix::SetOrigin,
+        // "GetScaledAxis", [](const FMatrix& M) {
+            // FVector4 X, Y, Z;
+            // M.GetScaledAxis(X, Y, Z);
+            // return std::make_tuple(X, Y, Z);
+        // },
+        // "GetUnitAxis", [](const FMatrix& M) {
+            // FVector4 X, Y, Z;
+            // M.GetUnitAxis(X, Y, Z);
+            // return std::make_tuple(X, Y, Z);
+        // },
+        // "TransformFVector4", &FMatrix::TransformFVector4,
+        // "TransformFVector4NoScale", &FMatrix::TransformFVector4NoScale,
+        // "TransformPosition", &FMatrix::TransformPosition,
+        // "TransformVector", &FMatrix::TransformVector,
+        // "TransformVectorNoScale", &FMatrix::TransformVectorNoScale,
+        // "InverseTransformPosition", &FMatrix::InverseTransformPosition,
+        // "ApplyScale", &FMatrix::ApplyScale,
+        // "GetTransposed", &FMatrix::GetTransposed,
+        // "Inverse", &FMatrix::Inverse,
+        // "Multiply", &FMatrix::Multiply,
+        // "Determinant", &FMatrix::Determinant,
+        // "MakeTranslation", &FMatrix::MakeTranslation,
+        // "ToRotator", &MatrixToRotator,
+        // "LookAt", &LookAt,
+        // "Perspective", &Perspective,
+        // "Ortho", sol::overload(
+            // sol::resolve<FMatrix(float, float, float, float)>(&Ortho),
+            // sol::resolve<FMatrix(float, float, float, float, float, float)>(&Ortho)
+        // ),
+        // "GetElement", &FMatrix::GetElement,
+        // "SetElement", &FMatrix::SetElement,
         sol::meta_function::unary_minus, sol::resolve<FMatrix()>(&FMatrix::operator-),
         sol::meta_function::addition, &FMatrix::operator+,
         sol::meta_function::subtraction, sol::resolve<FMatrix(const FMatrix&) const>(&FMatrix::operator-),

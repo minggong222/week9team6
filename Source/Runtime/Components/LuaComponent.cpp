@@ -4,6 +4,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/Engine.h"
 #include "Scripting/LuaInstance.h"
+#include "Scripting/LuaManager.h"
 
 namespace
 {

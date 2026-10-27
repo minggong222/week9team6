@@ -1,6 +1,7 @@
 #include "EnginePCH.h"
 #include "World.h"
 #include "Engine/GameInstance.h"
+#include "Scripting/LuaManager.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Level.h"

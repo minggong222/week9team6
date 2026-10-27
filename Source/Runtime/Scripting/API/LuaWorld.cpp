@@ -18,6 +18,7 @@ void LuaRegisterWorld(sol::state& State)
 
     State.new_usertype<UWorld>("UWorld", sol::no_constructor,
         sol::base_classes, sol::bases<UObject>(),
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "SpawnActor", [](UWorld& World, UClass* Class, sol::optional<FString> Name, sol::optional<FTransform> Transform) {
             if (!Class || !Class->IsChildOf(AActor::StaticClass()) || !Class->Constructor)
             {

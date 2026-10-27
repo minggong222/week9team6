@@ -22,10 +22,11 @@ void LuaRegisterComponent(sol::state& State)
 
 void LuaRegisterComponentBase(sol::state& State)
 {
-    State.new_enum("EAttachmentRule",
-        "KeepRelative", EAttachmentRule::KeepRelative,
-        "KeepWorld", EAttachmentRule::KeepWorld,
-        "SnapToTarget", EAttachmentRule::SnapToTarget);
+    // 현재 Lua 스크립트에서 사용하지 않는 열거형입니다.
+    // State.new_enum("EAttachmentRule",
+        // "KeepRelative", EAttachmentRule::KeepRelative,
+        // "KeepWorld", EAttachmentRule::KeepWorld,
+        // "SnapToTarget", EAttachmentRule::SnapToTarget);
 
     State.new_enum("ECollisionResponse",
         "Ignore", ECollisionResponse::Ignore,
@@ -43,41 +44,48 @@ void LuaRegisterComponentBase(sol::state& State)
     State.new_usertype<FBox>("FBox", sol::constructors<FBox()>(),
         "Min", &FBox::Min, "Max", &FBox::Max);
     State.new_usertype<FRay>("FRay", sol::constructors<FRay()>(),
-        "Origin", &FRay::Origin, "Direction", &FRay::Direction,
-        "PointAt", &FRay::PointAt);
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
+        "Origin", &FRay::Origin, "Direction", &FRay::Direction
+        // "PointAt", &FRay::PointAt
+    );
     State.new_usertype<FHitResult>("FHitResult", sol::no_constructor,
-        "HitComponent", sol::readonly(&FHitResult::HitComponent),
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
+        // "HitComponent", sol::readonly(&FHitResult::HitComponent),
         "Distance", sol::readonly(&FHitResult::Distance),
-        "Time", sol::readonly(&FHitResult::Time),
-        "Location", sol::readonly(&FHitResult::Location),
-        "ImpactPoint", sol::readonly(&FHitResult::ImpactPoint),
-        "Normal", sol::readonly(&FHitResult::Normal),
-        "ImpactNormal", sol::readonly(&FHitResult::ImpactNormal),
-        "bBlockingHit", sol::readonly(&FHitResult::bBlockingHit));
+        // "Time", sol::readonly(&FHitResult::Time),
+        "Location", sol::readonly(&FHitResult::Location)
+        // "ImpactPoint", sol::readonly(&FHitResult::ImpactPoint),
+        // "Normal", sol::readonly(&FHitResult::Normal),
+        // "ImpactNormal", sol::readonly(&FHitResult::ImpactNormal),
+        // "bBlockingHit", sol::readonly(&FHitResult::bBlockingHit)
+    );
 
     State.new_usertype<UActorComponent>("UActorComponent", sol::no_constructor,
         sol::base_classes, sol::bases<UObject>(),
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "StaticClass", &UActorComponent::StaticClass,
         "Cast", &Cast<UActorComponent>,
-        "GetOwner", &UActorComponent::GetOwner,
+        // "GetOwner", &UActorComponent::GetOwner,
         "GetWorld", &UActorComponent::GetWorld,
         "Activate", sol::overload(&UActorComponent::Activate,
             [](UActorComponent& Component) { Component.Activate(); }),
         "Deactivate", &UActorComponent::Deactivate,
-        "SetActive", &UActorComponent::SetActive,
+        // "SetActive", &UActorComponent::SetActive,
         "IsActive", &UActorComponent::IsActive,
-        "SetAutoActivate", &UActorComponent::SetAutoActivate,
-        "IsAutoActivate", &UActorComponent::IsAutoActivate,
+        // "SetAutoActivate", &UActorComponent::SetAutoActivate,
+        // "IsAutoActivate", &UActorComponent::IsAutoActivate,
         "SetVisibility", &UActorComponent::SetVisibility,
-        "IsVisible", &UActorComponent::IsVisible,
-        "SetHiddenInGame", &UActorComponent::SetHiddenInGame,
-        "IsHiddenInGame", &UActorComponent::IsHiddenInGame,
-        "SetComponentTickEnabled", &UActorComponent::SetComponentTickEnabled,
-        "IsComponentTickEnabled", &UActorComponent::IsComponentTickEnabled,
-        "HasBegunPlay", &UActorComponent::HasBegunPlay);
+        // "IsVisible", &UActorComponent::IsVisible,
+        // "SetHiddenInGame", &UActorComponent::SetHiddenInGame,
+        // "IsHiddenInGame", &UActorComponent::IsHiddenInGame,
+        "SetComponentTickEnabled", &UActorComponent::SetComponentTickEnabled
+        // "IsComponentTickEnabled", &UActorComponent::IsComponentTickEnabled,
+        // "HasBegunPlay", &UActorComponent::HasBegunPlay
+    );
 
     State.new_usertype<USceneComponent>("USceneComponent", sol::no_constructor,
         sol::base_classes, sol::bases<UActorComponent, UObject>(),
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "StaticClass", &USceneComponent::StaticClass,
         "Cast", &Cast<USceneComponent>,
         // Lua는 const &이 없기 때문에, 복사본을 반환. 
@@ -85,63 +93,65 @@ void LuaRegisterComponentBase(sol::state& State)
         "GetRelativeLocation", [](const USceneComponent& Component) { return Component.GetRelativeLocation(); },
         "GetRelativeRotation", [](const USceneComponent& Component) { return Component.GetRelativeRotation(); },
         "GetRelativeScale3D", [](const USceneComponent& Component) { return Component.GetRelativeScale3D(); },
-        "GetTransform", [](const USceneComponent& Component) { return Component.GetTransform(); },
+        // "GetTransform", [](const USceneComponent& Component) { return Component.GetTransform(); },
         "SetRelativeLocation", &USceneComponent::SetRelativeLocation,
         "SetRelativeRotation", &USceneComponent::SetRelativeRotation,
         "SetRelativeScale3D", &USceneComponent::SetRelativeScale3D,
-        "SetRelativeLocationAndRotation", &USceneComponent::SetRelativeLocationAndRotation,
-        "SetTransform", &USceneComponent::SetTransform,
-        "GetRelativeRotationQuat", &USceneComponent::GetRelativeRotationQuat,
+        // "SetRelativeLocationAndRotation", &USceneComponent::SetRelativeLocationAndRotation,
+        // "SetTransform", &USceneComponent::SetTransform,
+        // "GetRelativeRotationQuat", &USceneComponent::GetRelativeRotationQuat,
         "GetWorldLocation", &USceneComponent::GetWorldLocation,
         "GetWorldRotation", &USceneComponent::GetWorldRotation,
         "GetWorldScale3D", &USceneComponent::GetWorldScale3D,
-        "GetWorldMatrix", &USceneComponent::GetWorldMatrix,
+        // "GetWorldMatrix", &USceneComponent::GetWorldMatrix,
         "SetWorldLocation", &USceneComponent::SetWorldLocation,
         "SetWorldRotation", &USceneComponent::SetWorldRotation,
-        "SetWorldLocationAndRotation", &USceneComponent::SetWorldLocationAndRotation,
-        "SetWorldTransform", &USceneComponent::SetWorldTransform,
-        "GetAttachParent", &USceneComponent::GetAttachParent,
-        "GetAttachChildren", [](const USceneComponent& Component) { return sol::as_table(Component.GetAttachChildren()); },
+        // "SetWorldLocationAndRotation", &USceneComponent::SetWorldLocationAndRotation,
+        // "SetWorldTransform", &USceneComponent::SetWorldTransform,
+        // "GetAttachParent", &USceneComponent::GetAttachParent,
+        // "GetAttachChildren", [](const USceneComponent& Component) { return sol::as_table(Component.GetAttachChildren()); },
         "SetupAttachment", sol::overload(&USceneComponent::SetupAttachment,
             [](USceneComponent& Component, USceneComponent* Parent) { Component.SetupAttachment(Parent); }),
-        "DetachFromParent", sol::overload(&USceneComponent::DetachFromParent,
-            [](USceneComponent& Component) { Component.DetachFromParent(); }),
+        // "DetachFromParent", sol::overload(&USceneComponent::DetachFromParent,
+            // [](USceneComponent& Component) { Component.DetachFromParent(); }),
         "SetVisibility", sol::overload(
             sol::resolve<void(bool)>(&USceneComponent::SetVisibility),
             sol::resolve<void(bool, bool)>(&USceneComponent::SetVisibility)),
-        "SetHiddenInGame", sol::overload(
-            sol::resolve<void(bool)>(&USceneComponent::SetHiddenInGame),
-            sol::resolve<void(bool, bool)>(&USceneComponent::SetHiddenInGame)),
+        // "SetHiddenInGame", sol::overload(
+            // sol::resolve<void(bool)>(&USceneComponent::SetHiddenInGame),
+            // sol::resolve<void(bool, bool)>(&USceneComponent::SetHiddenInGame)),
         "CalcBounds", &USceneComponent::CalcBounds,
-        "GetCollisionRadius", &USceneComponent::GetCollisionRadius,
-        "SetCollisionRadiusOverride", &USceneComponent::SetCollisionRadiusOverride,
-        "MoveComponent", [](USceneComponent& Component, const FVector& Delta, const FRotator& Rotation, bool Sweep) {
-            FHitResult Hit;
-            bool Success = Component.MoveComponent(Delta, Rotation, Sweep, &Hit);
-            return std::make_tuple(Success, Hit);
-        },
+        // "GetCollisionRadius", &USceneComponent::GetCollisionRadius,
+        // "SetCollisionRadiusOverride", &USceneComponent::SetCollisionRadiusOverride,
+        // "MoveComponent", [](USceneComponent& Component, const FVector& Delta, const FRotator& Rotation, bool Sweep) {
+            // FHitResult Hit;
+            // bool Success = Component.MoveComponent(Delta, Rotation, Sweep, &Hit);
+            // return std::make_tuple(Success, Hit);
+        // },
         "TryMoveWithBlocking", [](USceneComponent& Component, const FVector& Delta, const FRotator& Rotation)
         {
             return Component.TryMoveWithBlocking(Delta, Rotation);
-        });
+        }
+    );
 
     State.new_usertype<UPrimitiveComponent>("UPrimitiveComponent", sol::no_constructor,
         sol::base_classes, sol::bases<USceneComponent, UActorComponent, UObject>(),
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "StaticClass", &UPrimitiveComponent::StaticClass,
         "Cast", &Cast<UPrimitiveComponent>,
         "OnComponentBeginOverlap", sol::readonly(&UPrimitiveComponent::OnComponentBeginOverlap),
-        "OnComponentEndOverlap", sol::readonly(&UPrimitiveComponent::OnComponentEndOverlap),
-        "OnComponentHit", sol::readonly(&UPrimitiveComponent::OnComponentHit),
-        "GetNumMaterials", &UPrimitiveComponent::GetNumMaterials,
-        "GetMaterial", &UPrimitiveComponent::GetMaterial,
-        "SetMaterial", &UPrimitiveComponent::SetMaterial,
+        // "OnComponentEndOverlap", sol::readonly(&UPrimitiveComponent::OnComponentEndOverlap),
+        // "OnComponentHit", sol::readonly(&UPrimitiveComponent::OnComponentHit),
+        // "GetNumMaterials", &UPrimitiveComponent::GetNumMaterials,
+        // "GetMaterial", &UPrimitiveComponent::GetMaterial,
+        // "SetMaterial", &UPrimitiveComponent::SetMaterial,
         "SetCastShadow", &UPrimitiveComponent::SetCastShadow,
-        "SetReceiveShadow", &UPrimitiveComponent::SetReceiveShadow,
-        "LineTraceComponent", [](UPrimitiveComponent& Component, const FRay& Ray) {
-            FHitResult Hit;
-            bool Success = Component.LineTraceComponent(Ray, Hit);
-            return std::make_tuple(Success, Hit);
-        },
+        // "SetReceiveShadow", &UPrimitiveComponent::SetReceiveShadow,
+        // "LineTraceComponent", [](UPrimitiveComponent& Component, const FRay& Ray) {
+            // FHitResult Hit;
+            // bool Success = Component.LineTraceComponent(Ray, Hit);
+            // return std::make_tuple(Success, Hit);
+        // },
         "SetCollisionEnabled", &UPrimitiveComponent::SetCollisionEnabled,
         "SetCollisionObjectType", &UPrimitiveComponent::SetCollisionObjectType,
         "SetCollisionResponseToChannel", &UPrimitiveComponent::SetCollisionResponseToChannel,
