@@ -44,7 +44,7 @@ public:
 	void ResetViewTarget();
 	bool RefreshViewTarget();
 	UCameraComponent* GetViewTargetCamera() const;
-	bool GetCameraPOV(FCameraPOV& OutPOV);
+	bool GetCameraPOV(FCameraPOV& OutPOV) const;
 	const FViewTarget& GetViewTarget() const { return ViewTarget; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
 	bool EvaluateCamera(float DeltaTime);

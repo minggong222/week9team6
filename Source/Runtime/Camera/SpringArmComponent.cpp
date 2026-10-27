@@ -69,8 +69,6 @@ bool USpringArmComponent::UpdateSpringArm(float DeltaTime, UCameraComponent* Cam
 
     const FVector CollisionLimitedLocation = ResolveCameraCollision(Pivot, DesiredLocation);
 
-    const FVector CurrentCameraLocation = Camera->GetWorldLocation();
-
     FVector FinalLocation;
 
     if (!bHasCameraState)
@@ -81,7 +79,7 @@ bool USpringArmComponent::UpdateSpringArm(float DeltaTime, UCameraComponent* Cam
     {
         const float Alpha = GetLagAlpha(CameraLagSpeed, DeltaTime);
 
-        FinalLocation = CurrentCameraLocation + (CollisionLimitedLocation - CurrentCameraLocation) * Alpha;
+        FinalLocation = PreviousCameraLocation + (CollisionLimitedLocation - PreviousCameraLocation) * Alpha;
     }
     else
     {
@@ -94,8 +92,6 @@ bool USpringArmComponent::UpdateSpringArm(float DeltaTime, UCameraComponent* Cam
 
     const FRotator TargetCameraRotation = TargetCameraQuat.ToFRotator();
 
-    const FRotator CurrentCameraRotation = Camera->GetWorldRotation();
-
     FRotator FinalRotation;
 
     if (!bHasCameraState)
@@ -105,7 +101,8 @@ bool USpringArmComponent::UpdateSpringArm(float DeltaTime, UCameraComponent* Cam
     else if (bEnableCameraRotationLag && DeltaTime > 0.0f)
     {
         const float Alpha = GetLagAlpha(CameraRotationLagSpeed, DeltaTime);
-        FinalRotation = InterpRotation(CurrentCameraRotation, TargetCameraRotation, Alpha);
+
+        FinalRotation = InterpRotation(PreviousCameraRotation, TargetCameraRotation, Alpha);
     }
     else
     {
@@ -113,6 +110,10 @@ bool USpringArmComponent::UpdateSpringArm(float DeltaTime, UCameraComponent* Cam
     }
 
     Camera->SetWorldLocationAndRotation(FinalLocation, FinalRotation, false);
+
+    PreviousCameraLocation = FinalLocation;
+    PreviousCameraRotation = FinalRotation;
+
     bHasCameraState = true;
     return true;
 }

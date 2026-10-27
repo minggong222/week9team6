@@ -56,6 +56,13 @@ private:
 
     // 회전 지연을 위한 카메라의 최초 상대 회전을 보관한다.
     UCameraComponent* CachedCamera = nullptr;
+
+    // 카메라의 초기 상대 회전을 보관
     FRotator CameraRotationOffset = FRotator(0.0f, 0.0f, 0.0f);
+
+    // 부모의 이동·회전에 영향을 받지 않는 이전 프레임의 최종 카메라 상태
+    FVector PreviousCameraLocation = FVector(0.0f, 0.0f, 0.0f);
+    FRotator PreviousCameraRotation = FRotator(0.0f, 0.0f, 0.0f);
+
     bool bHasCameraState = false;
 };

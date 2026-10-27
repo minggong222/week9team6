@@ -230,16 +230,15 @@ UCameraComponent* APlayerCameraManager::GetViewTargetCamera() const
     return ViewTarget.TargetCamera;
 }
 
-bool APlayerCameraManager::GetCameraPOV(FCameraPOV& OutPOV)
+bool APlayerCameraManager::GetCameraPOV(FCameraPOV& OutPOV) const
 {
-    if (!EvaluateCamera(0.0f))
+    if (!bHasFinalPOV || !FinalPOV.IsValid())
     {
         return false;
     }
 
     OutPOV = FinalPOV;
-
-    return OutPOV.IsValid();
+    return true;
 }
 
 bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
