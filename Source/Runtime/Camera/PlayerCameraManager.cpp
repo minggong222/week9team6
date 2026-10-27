@@ -6,6 +6,7 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "Components/ActorComponent.h"
+#include "Camera/SpringArmComponent.h"
 
 // ------------------------------------------------------------
 // FViewTarget
@@ -262,6 +263,12 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
         bHasFinalPOV = false;
         return false;
     }
+
+    if (USpringArmComponent* SpringArm = Cast<USpringArmComponent>(Camera->GetAttachParent()))
+    {
+        SpringArm->UpdateSpringArm(DeltaTime, Camera);
+    }
+
     // 1. 기본 카메라 상태
     FCameraPOV EvaluatedPOV = Camera->GetCameraPOV();
     if (!EvaluatedPOV.IsValid())
@@ -270,6 +277,7 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
         return false;
     }
     // 2. Spring Arm 평가
+    // 
     // 3. Camera Transition 평가
     // 4. Camera Modifier 적용
 

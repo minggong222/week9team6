@@ -775,7 +775,7 @@ bool UWorld::DestroyActor(AActor* Actor)
 }
 
 // 다른 World의 객체를 제외하고 Component 교차 중 최근접 결과를 선택한다.
-bool UWorld::SweepSingle(const FRay& WorldRay, float MaxDistance, float Radius, FHitResult& OutHit, AActor* IgnoreActor)
+bool UWorld::SweepSingle(const FRay& WorldRay, float MaxDistance, float Radius, FHitResult& OutHit, AActor* IgnoreActor, ECollisionChannel QueryChannel, bool bRespectCollisionResponse)
 {
 	OutHit = FHitResult(1.0f);
 	if (MaxDistance <= 0.0f || !std::isfinite(MaxDistance) || Radius < 0.0f || !std::isfinite(Radius)) return false;
@@ -794,6 +794,8 @@ bool UWorld::SweepSingle(const FRay& WorldRay, float MaxDistance, float Radius, 
 			if (!Component || !Component->IsShown(true) ||
 				!Component->GetOwner() || !Component->GetOwner()->GetActorEnableCollision() ||
 				Component->GetOwner() == IgnoreActor || Component->GetOwner()->GetWorld() != this)
+				return false;
+			if (bRespectCollisionResponse && (Component->GetCollisionEnabled() == ECollisionEnabled::NoCollision || Component->GetCollisionResponseToChannel(QueryChannel) != ECollisionResponse::Block))
 				return false;
 			if (!Proxy->GetMesh())
 			{
@@ -845,6 +847,50 @@ bool UWorld::SweepSingle(const FRay& WorldRay, float MaxDistance, float Radius, 
 			return true;
 		}, NearestT);
 	return OutHit.bBlockingHit;
+}
+
+bool UWorld::SweepCameraSphere(const FRay& WorldRay, float MaxDistance, float Radius, FHitResult& OutHit, AActor* IgnoreActor)
+{
+	OutHit = FHitResult(1.0f);
+
+	if (!std::isfinite(MaxDistance) || MaxDistance <= 0.0f || !std::isfinite(Radius) || Radius < 0.0f)
+	{
+		return false;
+	}
+
+	const FVector Direction = WorldRay.Direction.GetSafeNormal();
+
+	if (Direction.SizeSquared() <= EPSILON_1E_8)
+	{
+		return false;
+	}
+
+	const FRay NormalizedRay{ WorldRay.Origin, Direction };
+	const FVector End = WorldRay.Origin + Direction * MaxDistance;
+
+	FHitResult MeshHit(1.0f);
+
+	const bool bMeshHit = SweepSingle(NormalizedRay, MaxDistance, Radius, MeshHit, IgnoreActor, ECollisionChannel::WorldDynamic, true);
+
+	FHitResult ShapeHit(1.0f);
+
+	const bool bShapeHit = CollisionScene.SweepSphere(NormalizedRay.Origin, End, Radius, IgnoreActor, ECollisionChannel::WorldDynamic, ShapeHit);
+
+	if (!bMeshHit && !bShapeHit)
+	{
+		return false;
+	}
+
+	if (bShapeHit && (!bMeshHit || ShapeHit.Distance <= MeshHit.Distance))
+	{
+		OutHit = ShapeHit;
+	}
+	else
+	{
+		OutHit = MeshHit;
+	}
+
+	return true;
 }
 
 bool UWorld::LineTraceSingle(const FRay& WorldRay, FHitResult& OutHit,

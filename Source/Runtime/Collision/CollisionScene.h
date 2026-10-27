@@ -31,7 +31,8 @@ public:
 
     // Block으로 이동이 거부됐을 때 양쪽 Shape에 Hit 이벤트를 전달한다.
     void BroadcastHitEvent(UShapeComponent* MovedShape, UShapeComponent* OtherShape);
-
+    
+    bool SweepSphere(const FVector& Start, const FVector& End, float Radius, AActor* IgnoreActor, ECollisionChannel QueryChannel, FHitResult& OutHit);
 private:
     TArray<UShapeComponent*> Shapes;
 

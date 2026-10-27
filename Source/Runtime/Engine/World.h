@@ -85,7 +85,9 @@ public:
 	// 현재 World의 Component에 Ray를 전달하고 가장 가까운 유효 교차를 반환한다.
 	bool LineTraceSingle(const FRay& WorldRay, FHitResult& OutHit,
 		FBillboardTraceTransform ResolveBillboard = nullptr, const void* ViewContext = nullptr);
-	bool SweepSingle(const FRay& WorldRay, float MaxDistance, float Radius, FHitResult& OutHit, AActor* IgnoreActor = nullptr);
+	bool SweepSingle(const FRay& WorldRay, float MaxDistance, float Radius, FHitResult& OutHit, AActor* IgnoreActor = nullptr, ECollisionChannel QueryChannel = ECollisionChannel::WorldDynamic, bool bRespectCollisionResponse = false);
+
+	bool SweepCameraSphere(const FRay& WorldRay, float MaxDistance, float Radius, FHitResult& OutHit, AActor* IgnoreActor = nullptr);
 
 	void BeginPlay();
 	// 등록은 즉시, 초기화와 BeginPlay는 다음 시작 배치에서 실행한다.

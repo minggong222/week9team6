@@ -31,6 +31,131 @@ namespace
             A->GetCollisionResponseToChannel(B->GetCollisionObjectType()),
             B->GetCollisionResponseToChannel(A->GetCollisionObjectType()));
     }
+
+    // 점과 Sphere / Capsule / 회전된 Box 사이의 부호 있는 거리.
+    // OutNormal은 충돌 대상 표면에서 바깥을 향하는 방향이다.
+    float GetSingleDistanceToShape(const FVector& Point, UShapeComponent* Shape, FVector& OutNormal)
+    {
+        OutNormal = FVector(0.0f, 0.0f, 0.0f);
+        if (USphereComponent* Sphere = Cast<USphereComponent>(Shape))
+        {
+            const FVector Delta = Point - Sphere->GetWorldLocation();
+            const float Distance = Delta.Size();
+
+            if (Distance > EPSILON_1E_8)
+            {
+                OutNormal = Delta / Distance;
+            }
+
+            return Distance - Sphere->GetScaledSphereRadius();
+        }
+
+        if (UCapsuleComponent* Capsule = Cast<UCapsuleComponent>(Shape))
+        {
+            FVector Start, End;
+            Capsule->GetWorldCapsuleSegment(Start, End);
+
+            const FVector Segment = End - Start;
+            const float SegmentLengthSquared = Segment.SizeSquared();
+
+            float T = 0.0f;
+
+            if (SegmentLengthSquared > EPSILON_1E_8)
+            {
+                T = FMath::Clamp(FVector::Dot(Point - Start, Segment) / SegmentLengthSquared, 0.0f, 1.0f);
+            }
+            const FVector ClosestPoint = Start + Segment * T;
+            const FVector Delta = Point - ClosestPoint;
+            const float Distance = Delta.Size();
+
+            if (Distance > EPSILON_1E_8)
+            {
+                OutNormal = Delta / Distance;
+            }
+
+            return Distance - Capsule->GetScaledCapsuleRadius();
+        }
+
+        if (UBoxComponent* Box = Cast<UBoxComponent>(Shape))
+        {
+            const FVector Center = Box->GetWorldLocation();
+            const FQuat Rotation = Box->GetWorldRotation().Quaternion();
+            const FQuat InverseRotation = Rotation.UnitInverse();
+            const FVector Extent = Box->GetScaledBoxExtent();
+
+            const FVector LocalPoint = InverseRotation.RotateVector(Point - Center);
+            const FVector ClosestPoint(FMath::Clamp(LocalPoint.X, -Extent.X, Extent.X), FMath::Clamp(LocalPoint.Y, -Extent.Y, Extent.Y), FMath::Clamp(LocalPoint.Z, -Extent.Z, Extent.Z));
+
+            const FVector Delta = LocalPoint - ClosestPoint;
+            const float Distance = Delta.Size();
+
+            if (Distance > EPSILON_1E_8)
+            {
+                OutNormal = Rotation.RotateVector(Delta / Distance);
+                return Distance;
+            }
+
+            const float DX = Extent.X - std::abs(LocalPoint.X);
+            const float DY = Extent.Y - std::abs(LocalPoint.Y);
+            const float DZ = Extent.Z - std::abs(LocalPoint.Z);
+
+            FVector LocalNormal;
+            if (DX <= DY && DX <= DZ)
+            {
+                LocalNormal = FVector(LocalPoint.X < 0.0f ? -1.0f : 1.0f, 0.0f, 0.0f);
+                OutNormal = Rotation.RotateVector(LocalNormal);
+                return -DX;
+            }
+
+            if (DY <= DZ)
+            {
+                LocalNormal = FVector(
+                    0.0f, LocalPoint.Y < 0.0f ? -1.0f : 1.0f, 0.0f);
+                OutNormal = Rotation.RotateVector(LocalNormal);
+                return -DY;
+            }
+
+            LocalNormal = FVector(
+                0.0f, 0.0f, LocalPoint.Z < 0.0f ? -1.0f : 1.0f);
+            OutNormal = Rotation.RotateVector(LocalNormal);
+            return -DZ;
+        }
+        return FLT_MAX;
+    }
+
+    // 표면에 가까워지면 작은 허용 오차 안에서 최초 접촉을 판정함
+    bool SweepSphereAgainstShape(const FVector& Start, const FVector& Direction, float MaxDistance, float Radius, UShapeComponent* Shape, float& OutDistance, FVector& OutNormal)
+    {
+        constexpr int32 MaxIterations = 80;
+        constexpr float ContactTolerance = 0.01f;
+        constexpr float MinStep = 0.01f;
+
+        float Travel = 0.0f;
+
+        for (int32 Iteration = 0; Iteration < MaxIterations; ++Iteration)
+        {
+            const FVector Center = Start + Direction * Travel;
+            FVector Normal;
+
+            const float Separation = GetSingleDistanceToShape(Center, Shape, Normal) - Radius;
+
+            if (Separation <= ContactTolerance)
+            {
+                OutDistance = Travel;
+                OutNormal = Normal;
+                return true;
+            }
+
+            if (Travel >= MaxDistance)
+            {
+                break;
+            }
+
+            const float Step = std::max(Separation * 0.8f, MinStep);
+        }
+
+        return false;
+    }
 }
 
 void FCollisionScene::AddShape(UShapeComponent* Shape)
@@ -292,6 +417,88 @@ void FCollisionScene::BroadcastHitEvent(UShapeComponent* MovedShape, UShapeCompo
 
     OwnerA->bIsExecutingComponentCallback = bWasExecutingA;
     OwnerB->bIsExecutingComponentCallback = bWasExecutingB;
+}
+
+bool FCollisionScene::SweepSphere(const FVector& Start, const FVector& End, float Radius, AActor* IgnoreActor, ECollisionChannel QueryChannel, FHitResult& OutHit)
+{
+    OutHit = FHitResult(1.0f);
+    if (!std::isfinite(Radius) || Radius < 0.0f || !std::isfinite(Start.X) || !std::isfinite(Start.Y) || !std::isfinite(Start.Z) || !std::isfinite(End.X) || !std::isfinite(End.Y) || !std::isfinite(End.Z))
+    {
+        return false;
+    }
+
+    const FVector Delta = End - Start;
+    const float MaxDistance = Delta.Size();
+
+    const FVector Direction = MaxDistance > EPSILON_1E_8 ? Delta / MaxDistance : FVector::ZeroVector;
+
+    const FVector Extent(Radius);
+
+    const FBox SweepBounds{ FMath::Min(Start,End) - Extent, FMath::Max(Start, End) + Extent };
+
+    float NearestDistance = MaxDistance;
+    bool bFoundHit = false;
+
+    for (UShapeComponent* Shape : Shapes)
+    {
+        if (!Shape || !Shape->IsRegistered())
+        {
+            continue;
+        }
+
+        if (Shape->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+        {
+            continue;
+        }
+
+        AActor* Owner = Shape->GetOwner();
+
+        if (!Owner || Owner == IgnoreActor || !Owner->GetActorEnableCollision())
+        {
+            continue;
+        }
+
+        if (Shape->GetCollisionResponseToChannel(QueryChannel) != ECollisionResponse::Block)
+        {
+            continue;
+        }
+
+        if (!FCollisionGeometry::IntersectsAABB(SweepBounds, Shape->CalcBounds()))
+        {
+            continue;
+        }
+
+        float HitDistance = 0.0f;
+        FVector HitNormal;
+
+        if (!SweepSphereAgainstShape(Start, Direction, NearestDistance, Radius, Shape, HitDistance, HitNormal))
+        {
+            continue;
+        }
+
+        if (HitDistance > NearestDistance)
+        {
+            continue;
+        }
+
+        NearestDistance = HitDistance;
+
+        const FVector HitCenter = Start + Direction * HitDistance;
+
+        OutHit.Init(Start, End);
+        OutHit.bBlockingHit = true;
+        OutHit.Distance = HitDistance;
+        OutHit.Time = MaxDistance > EPSILON_1E_8 ? HitDistance / MaxDistance : 0.0f;
+        OutHit.Location = HitCenter;
+        OutHit.ImpactPoint = HitCenter - HitNormal * Radius;
+        OutHit.Normal = HitNormal;
+        OutHit.ImpactNormal = HitNormal;
+        OutHit.HitComponent = Shape;
+
+        bFoundHit = true;
+    }
+
+    return bFoundHit;
 }
 
 bool FCollisionScene::IntersectsShapes(UShapeComponent* A, UShapeComponent* B, int32* OutNarrowTests)
