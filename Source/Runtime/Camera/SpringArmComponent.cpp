@@ -11,10 +11,16 @@ namespace
 {
     float GetLagAlpha(float Speed, float DeltaTime)
     {
-        if (Speed <= 0.0f || DeltaTime <= 0.0f)
+        if (!std::isfinite(DeltaTime) || DeltaTime <= 0.0f)
         {
             return 0.0f;
         }
+
+        if (!std::isfinite(Speed) || Speed <= 0.0f)
+        {
+            return 1.0f;
+        }
+
         return 1.0f - std::exp(-Speed * DeltaTime);
     }
 

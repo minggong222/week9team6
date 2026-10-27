@@ -50,13 +50,13 @@ void LuaRegisterWorld(sol::state& State)
             return World.SetMainCameraComponent(Camera, BlendTime ? *BlendTime : 0.0f);
         },
         "StartCameraShake",
-        [](UWorld& World, float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency)
+        [](UWorld& World, float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency, sol::optional<int32> Priority)
         {
             APlayerController* PlayerController = World.GetPlayerController();
 
             APlayerCameraManager* CameraManager = PlayerController ? PlayerController->GetPlayerCameraManager() : nullptr;
 
-            return CameraManager && CameraManager->StartCameraShake(Duration, LocationAmplitude, RotationAmplitude, Frequency) != nullptr;
+            return CameraManager && CameraManager->StartCameraShake(Duration, LocationAmplitude, RotationAmplitude, Frequency, Priority ? *Priority : 0) != nullptr;
         }
     );
 }
