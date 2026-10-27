@@ -238,11 +238,11 @@ function TickComponent(Self, DeltaSeconds)
         State.TimeDilationF3WasDown = true
 
         local World = Actor:GetWorld()
-        local Current = World:GetTimeDilation()
+        local Current = World:GetGlobalTimeDilation()
 
         local Target = Current < 0.99 and 1.0 or 0.25
 
-        if World:SetTimeDilation(Target) then
+        if World:SetGlobalTimeDilation(Target) then
             print("[TimeDilationTest] " .. tostring(Target))
         end
     end

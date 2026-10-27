@@ -157,8 +157,6 @@ void UWorld::Tick(float DeltaTime)
 		return;
 	}
 
-	DeltaTime *= TimeDilation;
-
 	// 플레이 종료 또는 전체 월드 정리 중에는 게임 Tick을 실행하지 않는다.
 	if (!bBegunPlay || bIsEndingPlay || bIsClearingWorld)
 		return;
@@ -1202,13 +1200,14 @@ void UWorld::EndPlay()
 	}
 }
 
-void UWorld::SetGlobalTimeDilation(float Value)
+bool UWorld::SetGlobalTimeDilation(float Value)
 {
 	// 역방향 시간과 NaN/무한대는 허용하지 않는다. 0은 시간 진행 정지에 사용한다.
 	if (!std::isfinite(Value) || Value < 0.0f)
-		return;
+		return false;
 
-	GlobalTimeDilation = Value;
+	GlobalTimeDilation = std::clamp(Value, 0.01f, 10.0f);
+	return true;
 }
 
 void UWorld::SetPaused(bool bPaused)
@@ -1218,16 +1217,6 @@ void UWorld::SetPaused(bool bPaused)
 	bIsPaused = bPaused;
 	if (bIsPaused && PlayerController)
 		PlayerController->ClearInputState();
-}
-
-bool UWorld::SetTimeDilation(float InTimeDilation)
-{
-	if (!std::isfinite(InTimeDilation) || InTimeDilation <= 0.0f)
-	{
-		return false;
-	}
-	TimeDilation = std::clamp(InTimeDilation, 0.01f, 10.0f);
-	return true;
 }
 
 UWorld* UWorld::CreateWorld(const EWorldType InWorldType, bool bInformEngineOfWorld, FName WorldName)

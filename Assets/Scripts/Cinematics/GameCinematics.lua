@@ -92,7 +92,7 @@ function StopCinematics()
         Sequence.bPlaying = false
 
         if World then
-            World:SetTimeDilation(
+            World:SetGlobalTimeDilation(
                 Sequence.PreviousTimeDilation or 1.0
             )
 
@@ -194,9 +194,9 @@ function PlayCameraSequence(Duration)
         return false
     end
 
-    Sequence.PreviousTimeDilation = World:GetTimeDilation()
+    Sequence.PreviousTimeDilation = World:GetGlobalTimeDilation()
 
-    if not World:SetTimeDilation(0.35) then
+    if not World:SetGlobalTimeDilation(0.35) then
         -- 배율 변경에 실패하면 원래 카메라로 복귀
         World:SetMainCameraComponent(ReturnCamera, 0.0)
 
@@ -276,7 +276,7 @@ function TickComponent(Self, DeltaSeconds)
 
         Sequence.bPlaying = false
 
-        World:SetTimeDilation(
+        World:SetGlobalTimeDilation(
             Sequence.PreviousTimeDilation or 1.0
         )
 

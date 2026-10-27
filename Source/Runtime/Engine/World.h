@@ -52,7 +52,7 @@ public:
 
 	// 배율은 다음 월드 Tick부터 적용하며, 하위 Tick에는 계산된 게임 시간을 전달한다.
 	float GetGlobalTimeDilation() const { return GlobalTimeDilation; }
-	void SetGlobalTimeDilation(float Value);
+	bool SetGlobalTimeDilation(float Value);
 	float GetDeltaSeconds() const { return DeltaSeconds; }
 	// EngineTimer에서 전달받은 배율 적용 전 시간으로, 프레임 시간 제한이 포함될 수 있다.
 	float GetRealDeltaSeconds() const { return RealDeltaSeconds; }
