@@ -55,11 +55,6 @@ DECLARE_CYCLE_STAT("Gather Elements", STAT_GatherElements);
 DECLARE_CYCLE_STAT("Gather - LOD", STAT_GatherLOD);
 DECLARE_CYCLE_STAT("Gather - Submit", STAT_GatherSubmit);
 
-UWorld::~UWorld()
-{
-
-}
-
 FLuaManager* UWorld::GetLuaManager() const
 {
 	return OwningGameInstance ? OwningGameInstance->GetLuaManager() : nullptr;
