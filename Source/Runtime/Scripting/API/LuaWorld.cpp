@@ -22,6 +22,8 @@ void LuaRegisterWorld(sol::state& State)
         "GetMainCamera", &UWorld::GetMainCamera,
         "GetMainCameraComponent", &UWorld::GetMainCameraComponent,
         "GetPlayerCamera", &UWorld::GetPlayerCamera,
+        "GetTimeDilation", & UWorld::GetTimeDilation,
+        "SetTimeDilation", & UWorld::SetTimeDilation,
         "SetMainCameraComponent",
         [](UWorld& World, UCameraComponent* Camera, sol::optional<float> BlendTime)
         {

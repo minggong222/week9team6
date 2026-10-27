@@ -208,6 +208,39 @@ end
 function TickComponent(Self, DeltaSeconds)
     local Game = State.Game
     --------------------------------------------------------------------------------------
+    -- 임시 F3로 정상 속도와 슬로모션 전환
+    local bF3Down = Input.IsKeyPressed(EKeyCode.F3)
+
+    if bF3Down and not State.TimeDilationF3WasDown then
+        State.TimeDilationF3WasDown = true
+
+        local World = Actor:GetWorld()
+        local Current = World:GetTimeDilation()
+
+        local Target = Current < 0.99 and 1.0 or 0.25
+
+        if World:SetTimeDilation(Target) then
+            print("[TimeDilationTest] " .. tostring(Target))
+        end
+    end
+
+    if not bF3Down then
+        State.TimeDilationF3WasDown = false
+    end
+    -- 임시 F4: Lua 카메라 시퀀스 테스트
+    local bF4Down = Input.IsKeyPressed(EKeyCode.F4)
+
+    if bF4Down and not State.CineCameraF4WasDown then
+        State.CineCameraF4WasDown = true
+
+        if Refs.Cinematics then
+            Refs.Cinematics:Invoke("PlayCameraSequence", 3.0)
+        end
+    end
+
+    if not bF4Down then
+        State.CineCameraF4WasDown = false
+    end
     -- 임시 CineCameraActor 테스트: F5
     local bF5Down = Input.IsKeyPressed(EKeyCode.F5)
 
