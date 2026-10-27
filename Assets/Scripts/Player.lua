@@ -1,5 +1,5 @@
 local MoveDistance = 3.0
--- 맵 매니저가 있으면 해당 맵의 이동 경계를 우선 사용합니다.
+-- 맵 매니저가 있으면 해당 맵의 이동 경계를 우선 사용
 local MinY = -33
 local MaxY = 33
 local YawOffset = 180.0
@@ -9,23 +9,47 @@ local BounceDuration = 0.12 -- 나무에 부딪힌 뒤 출발 칸으로 돌아�
 local CollisionStep = 0.01 -- 프레임이 길어져도 점프 이동을 나눠 충돌 검사
 local TreeHitboxExtent = FVector.new(1.0, 1.0, 0.5)
 
-local bWasWDown = false
-local bWasSDown = false
-local bWasADown = false
-local bWasDDown = false
+-- 이동 상태와 연결 참조는 이 스크립트 소유. HotReload 시 유지
+State = { ResetRequested = false }
+Refs = {}
+State.bWasWDown = false
+State.bWasSDown = false
+State.bWasADown = false
+State.bWasDDown = false
 
-local bIsJumping = false
-local bIsReturning = false
-local JumpElapsed = 0.0
-local ReturnElapsed, CurrentJumpHeight, ReturnStartHeight = 0.0, 0.0, 0.0
-local ReturnStartLocation = FVector.new(0.0, 0.0, 0.0)
-local JumpStartLocation = FVector.new(0.0, 0.0, 0.0)
-local JumpDirection = FVector.new(0.0, 0.0, 0.0)
-local MeshBaseLocation = nil
-local MeshBaseRotation = nil
+State.bIsJumping = false
+State.bIsReturning = false
+State.JumpElapsed = 0.0
+State.ReturnElapsed, State.CurrentJumpHeight, State.ReturnStartHeight = 0.0, 0.0, 0.0
+State.ReturnStartLocation = FVector.new(0.0, 0.0, 0.0)
+State.JumpStartLocation = FVector.new(0.0, 0.0, 0.0)
+State.JumpDirection = FVector.new(0.0, 0.0, 0.0)
+State.MeshBaseLocation = nil
+State.MeshBaseRotation = nil
+
+function BindGame(GameManager)
+    Refs.Game = GameManager
+end
+
+function BindLevel(LevelManager)
+    Refs.Level = LevelManager
+end
+
+function IsJumping()
+    return State.bIsJumping
+end
+
+function RequestReset(Requested)
+    State.ResetRequested = Requested
+end
+
+local function PublishJumping(IsJumping)
+    local Manager = Refs.Game or Refs.Level
+    if Manager then Manager:Invoke("SetPlayerJumping", IsJumping) end
+end
 
 function InitializeComponent(Component)
-    -- 메시의 점프/회전과 분리해 지면 위 플레이어 몸통을 검사합니다.
+    -- 메시의 점프/회전과 분리한 지면 위 플레이어 몸통 검사
     local Hitbox = UBoxComponent.Cast(Actor:FindComponentByName("PlayerTreeHitbox"))
         or UBoxComponent.Cast(Actor:AddComponent(UClass.Find("UBoxComponent"), "PlayerTreeHitbox"))
     assert(Hitbox, "Could not create player tree hitbox")
@@ -75,33 +99,32 @@ local function FindStaticMeshComponent(TargetActor)
     return nil
 end
 
--- 진행 중인 점프를 취소하고 메시 위치를 복원한다.
+-- 진행 중인 점프 취소 및 메시 위치 복원
 local function ResetJump(MeshComponent)
-    bIsJumping, bIsReturning = false, false
-    local State = _G.CrossyGameState
-    if State then State.PlayerIsJumping = false end
-    JumpElapsed, ReturnElapsed, CurrentJumpHeight = 0.0, 0.0, 0.0
-    JumpDirection = FVector.new(0.0, 0.0, 0.0)
+    State.bIsJumping, State.bIsReturning = false, false
+    PublishJumping(false)
+    State.JumpElapsed, State.ReturnElapsed, State.CurrentJumpHeight = 0.0, 0.0, 0.0
+    State.JumpDirection = FVector.new(0.0, 0.0, 0.0)
 
-    if MeshComponent and MeshBaseLocation then
-        MeshComponent:SetRelativeLocation(MeshBaseLocation)
+    if MeshComponent and State.MeshBaseLocation then
+        MeshComponent:SetRelativeLocation(State.MeshBaseLocation)
     end
 end
 
--- 사망/재시작 시 진행 중인 점프까지 즉시 취소합니다.
+-- 사망/재시작 시 진행 중인 점프까지 즉시 취소
 function StopMovement()
     local Mesh = FindStaticMeshComponent(Actor)
     ResetJump(Mesh)
-    bWasWDown = Input.IsKeyDown(EKeyCode.W) or Input.IsKeyDown(EKeyCode.Up)
-    bWasSDown = Input.IsKeyDown(EKeyCode.S) or Input.IsKeyDown(EKeyCode.Down)
-    bWasADown = Input.IsKeyDown(EKeyCode.A) or Input.IsKeyDown(EKeyCode.Left)
-    bWasDDown = Input.IsKeyDown(EKeyCode.D) or Input.IsKeyDown(EKeyCode.Right)
+    State.bWasWDown = Input.IsKeyDown(EKeyCode.W) or Input.IsKeyDown(EKeyCode.Up)
+    State.bWasSDown = Input.IsKeyDown(EKeyCode.S) or Input.IsKeyDown(EKeyCode.Down)
+    State.bWasADown = Input.IsKeyDown(EKeyCode.A) or Input.IsKeyDown(EKeyCode.Left)
+    State.bWasDDown = Input.IsKeyDown(EKeyCode.D) or Input.IsKeyDown(EKeyCode.Right)
 end
 
--- 캐릭터 선택 완료 후 새 메시의 바닥 위치를 점프 기준으로 갱신합니다.
+-- 캐릭터 선택 완료 후 새 메시의 바닥 위치를 점프 기준으로 갱신
 function RefreshMeshBaseLocation()
     local Mesh = FindStaticMeshComponent(Actor)
-    MeshBaseLocation = Mesh and Mesh:GetRelativeLocation() or nil
+    State.MeshBaseLocation = Mesh and Mesh:GetRelativeLocation() or nil
     ResetJump(Mesh)
 end
 
@@ -119,9 +142,9 @@ function TickComponent(Component, DeltaSeconds)
 
     local MeshComponent = FindStaticMeshComponent(Actor)
 
-    if MeshComponent ~= nil and MeshBaseLocation == nil then
-        MeshBaseLocation = MeshComponent:GetRelativeLocation()
-        MeshBaseRotation = MeshComponent:GetRelativeRotation()
+    if MeshComponent ~= nil and State.MeshBaseLocation == nil then
+        State.MeshBaseLocation = MeshComponent:GetRelativeLocation()
+        State.MeshBaseRotation = MeshComponent:GetRelativeRotation()
     end
 
     local bWDown = Input.IsKeyDown(EKeyCode.W) or Input.IsKeyDown(EKeyCode.Up)
@@ -129,15 +152,15 @@ function TickComponent(Component, DeltaSeconds)
     local bADown = Input.IsKeyDown(EKeyCode.A) or Input.IsKeyDown(EKeyCode.Left)
     local bDDown = Input.IsKeyDown(EKeyCode.D) or Input.IsKeyDown(EKeyCode.Right)
 
-    local bWPressed = bWDown and not bWasWDown
-    local bSPressed = bSDown and not bWasSDown
-    local bAPressed = bADown and not bWasADown
-    local bDPressed = bDDown and not bWasDDown
+    local bWPressed = bWDown and not State.bWasWDown
+    local bSPressed = bSDown and not State.bWasSDown
+    local bAPressed = bADown and not State.bWasADown
+    local bDPressed = bDDown and not State.bWasDDown
 
-    bWasWDown = bWDown
-    bWasSDown = bSDown
-    bWasADown = bADown
-    bWasDDown = bDDown
+    State.bWasWDown = bWDown
+    State.bWasSDown = bSDown
+    State.bWasADown = bADown
+    State.bWasDDown = bDDown
 
     local PressCount = 0
 
@@ -157,31 +180,33 @@ function TickComponent(Component, DeltaSeconds)
         PressCount = PressCount + 1
     end
 
-    local State = _G.CrossyGameState
+    local Manager = Refs.Game or Refs.Level
+    local Phase = Manager and Manager:Invoke("GetPhase")
 
     -- 재시작 시 이전 점프를 취소하고 시작 방향 복원
-    if State and State.PlayerResetRequested then
-        State.PlayerResetRequested = false
+    if State.ResetRequested then
+        State.ResetRequested = false
+        if Manager then Manager:Invoke("AcknowledgePlayerReset") end
 
         ResetJump(MeshComponent)
 
-        if MeshComponent and MeshBaseRotation then
-            MeshComponent:SetRelativeRotation(MeshBaseRotation)
+        if MeshComponent and State.MeshBaseRotation then
+            MeshComponent:SetRelativeRotation(State.MeshBaseRotation)
         end
 
         return
     end
 
     -- 사망·클리어·캐릭터 선택 중에는 점프도 중단
-    if not State or State.Phase ~= "Playing" then
-        if bIsJumping then
+    if Phase ~= "Playing" then
+        if State.bIsJumping then
             ResetJump(MeshComponent)
         end
 
         return
     end
 
-    if not bIsJumping and PressCount == 1 then
+    if not State.bIsJumping and PressCount == 1 then
 
         local MoveDirection = FVector.new(0.0, 0.0, 0.0)
 
@@ -200,18 +225,17 @@ function TickComponent(Component, DeltaSeconds)
 
         if MoveDirection.Y ~= 0.0 then
             local TargetY = CurrentLocation.Y + MoveDirection.Y * MoveDistance
-            local MapBounds = _G.CrossyLevel or _G.CrossyMapTest
-            local AllowedMinY = MapBounds and MapBounds.MinY or MinY
-            local AllowedMaxY = MapBounds and MapBounds.MaxY or MaxY
+            local AllowedMinY, AllowedMaxY = MinY, MaxY
+            if Refs.Level then AllowedMinY, AllowedMaxY = Refs.Level:Invoke("GetMovementBounds") end
             bWithinBounds = TargetY >= AllowedMinY and TargetY <= AllowedMaxY
         end
 
         if bWithinBounds then
-            JumpStartLocation = RootComponent:GetWorldLocation()
-            JumpDirection = MoveDirection
-            JumpElapsed = 0.0
-            bIsJumping = true
-            State.PlayerIsJumping = true
+            State.JumpStartLocation = RootComponent:GetWorldLocation()
+            State.JumpDirection = MoveDirection
+            State.JumpElapsed = 0.0
+            State.bIsJumping = true
+            PublishJumping(true)
             Audio.PlaySFX("Audio/Move.wav")
 
             if MeshComponent ~= nil then
@@ -231,39 +255,39 @@ function TickComponent(Component, DeltaSeconds)
     end
 
 
-    -- 전진 점프 -> 충돌하면 복귀 -> 출발 칸에 착지. 복귀 중에도 새 이동은 받지 않습니다.
+    -- 전진 점프 -> 충돌 시 복귀 -> 출발 칸 착지. 복귀 중 새 이동 입력 차단
     local Remaining = DeltaSeconds
-    while bIsJumping and Remaining > 0 do
+    while State.bIsJumping and Remaining > 0 do
         local Step = math.min(Remaining, CollisionStep)
         Remaining = Remaining - Step
-        if bIsReturning then
-            ReturnElapsed = ReturnElapsed + Step
-            local Alpha = math.min(1.0, ReturnElapsed / BounceDuration)
+        if State.bIsReturning then
+            State.ReturnElapsed = State.ReturnElapsed + Step
+            local Alpha = math.min(1.0, State.ReturnElapsed / BounceDuration)
             if Alpha > 1.0 - 0.000001 then Alpha = 1.0 end
-            local Location = ReturnStartLocation + (JumpStartLocation - ReturnStartLocation) * Alpha
-            if Alpha >= 1.0 then Location = JumpStartLocation end
+            local Location = State.ReturnStartLocation + (State.JumpStartLocation - State.ReturnStartLocation) * Alpha
+            if Alpha >= 1.0 then Location = State.JumpStartLocation end
             if not RootComponent:TryMoveWithBlocking(Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation()) then
                 ResetJump(MeshComponent)
                 return
             end
-            CurrentJumpHeight = ReturnStartHeight * (1.0 - Alpha)
+            State.CurrentJumpHeight = State.ReturnStartHeight * (1.0 - Alpha)
             if Alpha >= 1.0 then ResetJump(MeshComponent) end
         else
-            JumpElapsed = JumpElapsed + Step
-            local Alpha = math.min(1.0, JumpElapsed / JumpDuration)
+            State.JumpElapsed = State.JumpElapsed + Step
+            local Alpha = math.min(1.0, State.JumpElapsed / JumpDuration)
             if Alpha > 1.0 - 0.000001 then Alpha = 1.0 end
-            local Location = JumpStartLocation + JumpDirection * (MoveDistance * Alpha)
+            local Location = State.JumpStartLocation + State.JumpDirection * (MoveDistance * Alpha)
             if RootComponent:TryMoveWithBlocking(Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation()) then
-                CurrentJumpHeight = 4.0 * JumpHeight * Alpha * (1.0 - Alpha)
+                State.CurrentJumpHeight = 4.0 * JumpHeight * Alpha * (1.0 - Alpha)
                 if Alpha >= 1.0 then ResetJump(MeshComponent) end
             else
-                bIsReturning, ReturnElapsed = true, 0.0
-                ReturnStartLocation = RootComponent:GetWorldLocation()
-                ReturnStartHeight = CurrentJumpHeight
+                State.bIsReturning, State.ReturnElapsed = true, 0.0
+                State.ReturnStartLocation = RootComponent:GetWorldLocation()
+                State.ReturnStartHeight = State.CurrentJumpHeight
             end
         end
-        if MeshComponent and MeshBaseLocation then
-            MeshComponent:SetRelativeLocation(MeshBaseLocation + FVector.new(0.0, 0.0, CurrentJumpHeight))
+        if MeshComponent and State.MeshBaseLocation then
+            MeshComponent:SetRelativeLocation(State.MeshBaseLocation + FVector.new(0.0, 0.0, State.CurrentJumpHeight))
         end
     end
 end

@@ -1,71 +1,69 @@
--- HotReload가 이관할 수 있도록 차량별 실행 상태를 스크립트 환경의 전역 변수로 둡니다.
-Direction = FVector.new(0.0, 1.0, 0.0)
-StartLocation = FVector.new(0.0, 0.0, 0.0)
-TotalDistance = 20.0
-Speed = 5.0
-Distance = 0.0
-bActive = false
-Car = nil
-LevelManager = nil
+-- 차량 이동 상태와 풀·매니저 참조는 이 스크립트에서만 보관
+State = {}
+Refs = {}
+State.Direction = FVector.new(0.0, 1.0, 0.0)
+State.StartLocation = FVector.new(0.0, 0.0, 0.0)
+State.TotalDistance = 20.0
+State.Speed = 5.0
+State.Distance = 0.0
+State.bActive = false
 
-function SetCar(InCar, InLevelManager)
-    -- Size는 추후 Collision Box 연결에 사용할 차량 설정으로 보관합니다.
-    Car = InCar
-    LevelManager = InLevelManager
+function SetCar(InCar, TrafficManager, LevelManager, Player, PlayerScript)
+    Refs.Car, Refs.Traffic, Refs.Level = InCar, TrafficManager, LevelManager
+    Refs.Player, Refs.PlayerScript = Player, PlayerScript
 end
 
 function SetSpeed(InSpeed)
-    Speed = math.max(0.0, InSpeed)
+    State.Speed = math.max(0.0, InSpeed)
 end
 
 function SetStartLocation(InLocation)
-    StartLocation = FVector.new(InLocation)
-    Distance = 0.0
-    Actor:GetRootComponent():SetWorldLocation(StartLocation, false)
+    State.StartLocation = FVector.new(InLocation)
+    State.Distance = 0.0
+    Actor:GetRootComponent():SetWorldLocation(State.StartLocation, false)
 end
 
 function SetDirection(IsLeft)
     local RootComponent = Actor:GetRootComponent()
 
     if (IsLeft) then
-        Direction = FVector.new(0.0, 1.0, 0.0)
+        State.Direction = FVector.new(0.0, 1.0, 0.0)
         RootComponent:SetWorldRotation(FRotator.new(0.0, 270.0, 0.0), false)
     else
-        Direction = FVector.new(0.0, -1.0, 0.0)
+        State.Direction = FVector.new(0.0, -1.0, 0.0)
         RootComponent:SetWorldRotation(FRotator.new(0.0, 90.0, 0.0), false)
     end
 end
 
 function IsActive()
-    return bActive
+    return State.bActive
 end
 
 function Deactivate()
-    bActive = false
+    State.bActive = false
     Actor:SetActorEnableCollision(false)
     Actor:GetRootComponent():SetVisibility(false, true)
 
-    if LevelManager then
-        LevelManager:Invoke("ReturnCar", Actor)
+    if Refs.Traffic then
+        Refs.Traffic:Invoke("ReturnCar", Actor)
     end
 end
 
 function Activate(Location, InDirection, InSpeed, TravelDistance)
-    Direction = InDirection:GetSafeNormal()
-    TotalDistance = math.max(0.0, TravelDistance)
+    State.Direction = InDirection:GetSafeNormal()
+    State.TotalDistance = math.max(0.0, TravelDistance)
     SetSpeed(InSpeed)
     SetStartLocation(Location)
 
-    bActive = true
+    State.bActive = true
     Actor:GetRootComponent():SetVisibility(true, true)
     Actor:SetActorEnableCollision(true)
 end
 
 local function CheckPlayerCollision(Delta)
-    local GameState = _G.CrossyGameState
-    -- 이동 중의 메시 외곽이 먼저 닿아도 죽이지 않고, 착지한 몸통 위치에서 판정한다.
-    if GameState and GameState.PlayerIsJumping then return end
-    local Player = Actor:GetWorld():GetPlayerPawn()
+    -- 이동 중 메시 외곽 접촉은 제외하고 착지한 몸통 위치에서 사망 판정
+    if Refs.PlayerScript and Refs.PlayerScript:Invoke("IsJumping") then return end
+    local Player = Refs.Player
     if not Player then
         return
     end
@@ -82,8 +80,8 @@ local function CheckPlayerCollision(Delta)
         return
     end
 
-    -- 메시에는 Shape 충돌 이벤트가 없으므로 이동 구간과 플레이어 경계를 검사합니다.
-    -- 선분과 확장된 AABB의 교차로 빠른 차량이 한 프레임에 통과하는 경우도 처리합니다.
+    -- 메시에는 Shape 충돌 이벤트가 없으므로 이동 구간과 플레이어 경계 검사
+    -- 선분과 확장된 AABB의 교차로 빠른 차량이 한 프레임에 통과하는 경우도 처리
     local EnterTime, ExitTime = 0.0, 1.0
     for _, Axis in ipairs({ "X", "Y", "Z" }) do
         local Min = PlayerBounds.Min[Axis] - CarBounds.Max[Axis]
@@ -104,28 +102,26 @@ local function CheckPlayerCollision(Delta)
         end
     end
 
-    if GameState and GameState.GameOver then
-        GameState.GameOver()
+    if Refs.Level:Invoke("IsGameManaged") then
+        Refs.Level:Invoke("RequestGameOver")
     end
 end
 
 function TickComponent(Self, DeltaSeconds)
-    local GameState = _G.CrossyGameState
-    if not bActive or not GameState
-        or (GameState.Phase ~= "Playing" and GameState.Phase ~= "Dead") then
-        return
+    if not State.bActive or not Refs.Level then return end
+    local Phase = Refs.Level:Invoke("GetPhase")
+    if Phase ~= "Playing" and Phase ~= "Dead" then return end
+
+    local NextDistance = math.min(State.Distance + State.Speed * DeltaSeconds, State.TotalDistance)
+    -- 게임 오버 후에는 이동만 유지하고 플레이어 충돌 판정 생략
+    if Phase == "Playing" then
+        CheckPlayerCollision(State.Direction * (NextDistance - State.Distance))
     end
 
-    local NextDistance = math.min(Distance + Speed * DeltaSeconds, TotalDistance)
-    -- 게임 오버 후에는 이동만 유지하고 플레이어 충돌 판정은 생략합니다.
-    if GameState.Phase == "Playing" then
-        CheckPlayerCollision(Direction * (NextDistance - Distance))
-    end
+    State.Distance = NextDistance
+    Actor:GetRootComponent():SetWorldLocation(State.StartLocation + State.Direction * State.Distance, false)
 
-    Distance = NextDistance
-    Actor:GetRootComponent():SetWorldLocation(StartLocation + Direction * Distance, false)
-
-    if Distance >= TotalDistance then
+    if State.Distance >= State.TotalDistance then
         Deactivate()
     end
 end

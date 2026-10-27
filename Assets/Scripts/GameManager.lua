@@ -1,482 +1,275 @@
+-- 게임 규칙과 시스템 간 호출 순서 관리
+local GamePhase = { Selecting = "SelectingCharacter", Ready = "Ready", Playing = "Playing", Dead = "Dead", Clear = "Clear" }
+local Config = { CellSize = 3.0, GoalRow = 150 }
+
+-- 전역 테이블은 기존 외부 호출과의 호환용. 게임 단계·점수 변경은 이 매니저 담당
+State = { Game = _G.CrossyGameState or { Phase = GamePhase.Ready, Score = 0, MaxRow = 0 } }
+Refs = {}
+_G.CrossyGameState = State.Game
 print("[GameManager] SCRIPT LOADED")
 
--- 게임 진행 상태
-local GamePhase = {
-    Selecting = "SelectingCharacter",
-    Ready = "Ready",
-    Playing = "Playing",
-    Dead = "Dead",
-    Clear = "Clear"
-}
+-- 기존 씬 연결 유지 및 분리한 스크립트의 동일 Actor 연결
+local function AttachScript(Name, Path)
+    local Script = ULuaComponent.Cast(Actor:FindComponentByName(Name))
+        or ULuaComponent.Cast(Actor:AddComponent(ULuaComponent.StaticClass(), Name))
+    assert(Script, "Could not create script component: " .. Name)
 
--- 다른 Lua 스크립트와 공유하는 게임 상태
-_G.CrossyGameState = _G.CrossyGameState or {
-    Phase = GamePhase.Ready,
-    Score = 0,
-    MaxRow = 0
-}
-
-local GameState = _G.CrossyGameState
-
--- 실행 상태는 HotReload가 보존하는 스크립트 환경의 전역 변수로 둡니다.
-Player = nil
-StartPosition = nil
-PlayerMesh = nil
-PlayerMeshStartScale = nil
-PlayerMeshStartLocation, PlayerMeshStartRotation, PlayerScript = nil, nil, nil
-ScoreText = nil
-HUDTitle, HUDDetail, HUDHint = nil, nil, nil
-Camera = nil
-
--- 화면 높이에 대한 글자 크기. 실행 중 전체 배율은 CrossyGameState.HUDScale로 조절한다.
-local HUDStyle = { Scale = 1.0, Score = 0.105, Title = 0.032, Name = 0.052, Hint = 0.023 }
-local GameplayCamera = { Pitch = 40.0, Yaw = -35.0, Width = 36.0, Distance = 32.0, LookAhead = 5.0 }
-
-PlayerHitbox = nil
-BeginOverlapHandle = nil
-
--- origin/main의 캐릭터 선택 목록. 프리뷰와 실제 플레이 메시를 같은 비율로 맞춥니다.
-local CharacterOptions = {
-    { Name = "Beaver", Path = "Models/OBJ format/animal-beaver.obj" },
-    { Name = "Bee", Path = "Models/OBJ format/animal-bee.obj" },
-    { Name = "Bunny", Path = "Models/OBJ format/animal-bunny.obj" },
-    { Name = "Cat", Path = "Models/OBJ format/animal-cat.obj" },
-    { Name = "Caterpillar", Path = "Models/OBJ format/animal-caterpillar.obj" },
-    { Name = "Chick", Path = "Models/OBJ format/animal-chick.obj" },
-    { Name = "Cow", Path = "Models/OBJ format/animal-cow.obj" },
-    { Name = "Crab", Path = "Models/OBJ format/animal-crab.obj" },
-    { Name = "Deer", Path = "Models/OBJ format/animal-deer.obj" },
-    { Name = "Dog", Path = "Models/OBJ format/animal-dog.obj" },
-    { Name = "Elephant", Path = "Models/OBJ format/animal-elephant.obj" },
-    { Name = "Fish", Path = "Models/OBJ format/animal-fish.obj" },
-    { Name = "Fox", Path = "Models/OBJ format/animal-fox.obj" },
-    { Name = "Giraffe", Path = "Models/OBJ format/animal-giraffe.obj" },
-    { Name = "Hog", Path = "Models/OBJ format/animal-hog.obj" },
-    { Name = "Koala", Path = "Models/OBJ format/animal-koala.obj" },
-    { Name = "Lion", Path = "Models/OBJ format/animal-lion.obj" },
-    { Name = "Monkey", Path = "Models/OBJ format/animal-monkey.obj" },
-    { Name = "Panda", Path = "Models/OBJ format/animal-panda.obj" },
-    { Name = "Parrot", Path = "Models/OBJ format/animal-parrot.obj" },
-    { Name = "Penguin", Path = "Models/OBJ format/animal-penguin.obj" },
-    { Name = "Pig", Path = "Models/OBJ format/animal-pig.obj" },
-    { Name = "Polar", Path = "Models/OBJ format/animal-polar.obj" },
-    { Name = "Tiger", Path = "Models/OBJ format/animal-tiger.obj" },
-    { Name = "Hitori", Path = "Models/OBJ format/animal-hitori.obj" },
-}
-SelectedCharacterIndex = 1
-CharacterPreviewActors = {}
-local CharacterRowX, CharacterSpacing, CharacterSize = -200.0, 5.0, 2.0
-local CameraMoveSpeed = 8.0
-GameplayCameraLocation, GameplayCameraRotation = nil, nil
-
-local function FitCharacterMesh(Mesh, Owner)
-    Mesh:SetRelativeLocation(FVector.new(0, 0, 0))
-    Mesh:SetRelativeScale3D(FVector.new(1, 1, 1))
-    local Bounds, Position = Mesh:CalcBounds(), Owner:GetActorLocation()
-    local Size = math.max(Bounds.Max.X - Bounds.Min.X, Bounds.Max.Y - Bounds.Min.Y)
-    assert(Size > 0, "Character has no horizontal bounds")
-    local Scale = CharacterSize / Size
-    Mesh:SetRelativeScale3D(FVector.new(Scale, Scale, Scale))
-    Mesh:SetRelativeLocation(FVector.new(
-        -(Bounds.Min.X + Bounds.Max.X - 2 * Position.X) * Scale / 2,
-        -(Bounds.Min.Y + Bounds.Max.Y - 2 * Position.Y) * Scale / 2,
-        -(Bounds.Min.Z - Position.Z) * Scale))
-    return Mesh:GetRelativeScale3D()
+    local NeedsLoad = Script:GetScriptPath() ~= Path or not Script:GetLoaded()
+    assert(Script:SetScriptPath(Path), "Could not find script: " .. Path)
+    Script:InitializeLua()
+    if NeedsLoad then assert(Script:LoadLua(), "Could not load script: " .. Path) end
+    Script:SetComponentTickEnabled(false)
+    return Script
 end
 
-local function GetCharacterRowY(Index)
-    return (Index - (#CharacterOptions + 1) / 2) * CharacterSpacing
-end
-
-local function GetSelectionCameraLocation()
-    return FVector.new(CharacterRowX - 8, GetCharacterRowY(SelectedCharacterIndex), 8.0)
-end
-
-local function CreateHUDText(Name)
-    local Text = UTextRenderComponent.Cast(Actor:FindComponentByName(Name))
-        or UTextRenderComponent.Cast(Actor:AddComponent(UTextRenderComponent.StaticClass(), Name))
-    if Text then
-        Text:SetRelativeScale3D(FVector.new(1, 1, 1))
-        Text:SetCollisionEnabled(ECollisionEnabled.NoCollision)
-        Text:SetCastShadow(false)
-        Text:SetVisibility(false)
-    end
-    return Text
-end
-
--- 좌표는 화면 비율(왼쪽/아래 0, 오른쪽/위 1), 크기는 화면 높이 비율이다.
--- 직교/원근 투영과 창 종횡비가 바뀌어도 같은 화면 비율을 유지한다.
+-- HUD에 표시할 값만 전달. HUD의 다른 시스템 직접 조회 방지
 local function UpdateHUD()
-    if not ScoreText or not Camera then return end
-    local Distance = 2.0
-    local Aspect = math.max(Camera:GetAspectRatio(), 0.1)
-    local Height = Camera:GetIsOrthogonal() and Camera:GetOrthoWidth() / Aspect
-        or 2 * Distance * math.tan(math.rad(Camera:GetFieldOfView()) / 2)
-    local Width = Height * Aspect
-    local Rotation = Camera:GetWorldRotation()
-    local Q = Rotation:Quaternion()
-    local Center = Camera:GetWorldLocation() + Q:GetForwardVector() * Distance
-    local Scale = math.max(0.5, math.min(1.5, GameState.HUDScale or HUDStyle.Scale))
-
-    local function Place(Component, Text, Size, X, Y)
-        if not Component then return end
-        if Component:GetText() ~= Text then Component:SetText(Text) end
-        Component:SetTextSize(Height * Size * Scale)
-        Component:SetWorldLocation(Center + Q:GetRightVector() * ((X - 0.5) * Width)
-            + Q:GetUpVector() * ((Y - 0.5) * Height), false)
-        Component:SetWorldRotation(Rotation, false)
-        Component:SetVisibility(Text ~= "")
-    end
-
-    if GameState.Phase == GamePhase.Selecting then
-        local Option = CharacterOptions[SelectedCharacterIndex]
-        Place(HUDTitle, "CHOOSE YOUR CHARACTER", HUDStyle.Title, 0.5, 0.88)
-        Place(ScoreText, "<  " .. Option.Name:upper() .. "  >", HUDStyle.Name, 0.5, 0.25)
-        Place(HUDDetail, string.format("%02d / %02d", SelectedCharacterIndex, #CharacterOptions), HUDStyle.Hint, 0.5, 0.18)
-        Place(HUDHint, "LEFT / RIGHT : SELECT     ENTER : PLAY", HUDStyle.Hint, 0.5, 0.09)
-    elseif GameState.Phase == GamePhase.Playing then
-        Place(HUDTitle, "SCORE", HUDStyle.Hint, 0.13, 0.92)
-        Place(ScoreText, string.format("%03d", GameState.Score or 0), HUDStyle.Score, 0.13, 0.81)
-        Place(HUDDetail, "", HUDStyle.Hint, 0.5, 0.5)
-        Place(HUDHint, "BACKSPACE : CHARACTERS", HUDStyle.Hint, 0.5, 0.06)
-    elseif GameState.Phase == GamePhase.Dead or GameState.Phase == GamePhase.Clear then
-        Place(HUDTitle, GameState.Phase == GamePhase.Dead and "GAME OVER" or "GAME CLEAR", 0.065, 0.5, 0.72)
-        Place(ScoreText, string.format("%03d", GameState.Score or 0), HUDStyle.Score, 0.5, 0.55)
-        Place(HUDDetail, "FINAL SCORE", HUDStyle.Hint, 0.5, 0.48)
-        Place(HUDHint, "R : RETRY\nBACKSPACE : CHARACTERS", HUDStyle.Hint, 0.5, 0.34)
+    local Game = State.Game
+    if Game.Phase == GamePhase.Selecting then
+        local Name, Index, Count = Refs.Selection:Invoke("GetSelection")
+        Refs.HUD:Invoke("ShowSelection", Name, Index, Count, Game.HUDScale)
+    elseif Game.Phase == GamePhase.Playing then
+        Refs.HUD:Invoke("ShowScore", Game.Score, Game.HUDScale)
+    elseif Game.Phase == GamePhase.Dead or Game.Phase == GamePhase.Clear then
+        Refs.HUD:Invoke("ShowResult", Game.Phase, Game.Score, Game.HUDScale)
     else
-        ScoreText:SetVisibility(false)
-        if HUDTitle then HUDTitle:SetVisibility(false) end
-        if HUDDetail then HUDDetail:SetVisibility(false) end
-        if HUDHint then HUDHint:SetVisibility(false) end
+        Refs.HUD:Invoke("Hide")
     end
 end
 
-local function ApplyGameplayCamera()
-    if not Camera then return end
-    local Rotation = FRotator.new(GameplayCamera.Pitch, GameplayCamera.Yaw, 0)
-    Camera:SetRelativeRotation(Rotation)
-    Camera:SetRelativeLocation(FVector.new(GameplayCamera.LookAhead, 0, 0)
-        - Rotation:Quaternion():GetForwardVector() * GameplayCamera.Distance)
-    Camera:SetIsOrthogonal(true)
-    Camera:SetOrthoWidth(GameplayCamera.Width)
+function BindLevel(LevelManager)
+    Refs.Level = LevelManager
 end
 
-local function ApplyCharacterSelection()
-    for Index, Entry in pairs(CharacterPreviewActors) do
-        Entry.Mesh:SetRelativeScale3D(Entry.BaseScale * (Index == SelectedCharacterIndex and 1.2 or 1.0))
-    end
-    GameState.PreviewCharacter = CharacterOptions[SelectedCharacterIndex].Name
-    if GameState.Phase == GamePhase.Selecting then
-        UpdateHUD()
-    end
+function GetPhase()
+    return State.Game.Phase
 end
 
-local function CreateCharacterPreviews()
-    local World = Actor:GetWorld()
-    for Index, Option in ipairs(CharacterOptions) do
-        local Pose = FTransform.new()
-        Pose.Location = FVector.new(CharacterRowX, GetCharacterRowY(Index), 0)
-        local Preview = World:SpawnActor(UClass.Find("AStaticMeshActor"), "CharacterPreview_" .. Index, Pose)
-        assert(Preview, "Could not create character preview")
-        Preview:SetActorEnableCollision(false)
-        local Mesh = UStaticMeshComponent.Cast(Preview:FindComponentByName("UStaticMeshComponent"))
-        local Asset = UAssetManager:GetAssetByPath(Option.Path)
-        if Mesh and Asset then
-            Mesh:SetStaticMesh(Asset)
-            CharacterPreviewActors[Index] = { Actor = Preview, Mesh = Mesh, BaseScale = FitCharacterMesh(Mesh, Preview) }
-        else
-            Preview:Destroy()
-            print("[CharacterSelect] Missing preview: " .. Option.Path)
-        end
-    end
-    ApplyCharacterSelection()
+-- Player가 소유한 이동 상태를 호환용 게임 정보에도 반영
+function SetPlayerJumping(IsJumping)
+    State.Game.PlayerIsJumping = IsJumping
 end
 
-local CellSize = 3.0
-local GoalRow = 150  -- 실제 맵의 마지막 행에 맞게 수정
+function AcknowledgePlayerReset()
+    State.Game.PlayerResetRequested = false
+end
 
-local function StartGame()
-    GameState.Phase = GamePhase.Playing
-    GameState.Score = 0
-    GameState.MaxRow = 0
-    GameState.PlayerResetRequested = false
-    GameState.GameOverRequested = false
-    GameState.ClearRequested = false
+local function RequestPlayerReset(Requested)
+    State.Game.PlayerResetRequested = Requested
+    if Refs.PlayerScript then Refs.PlayerScript:Invoke("RequestReset", Requested) end
+end
 
+function StartGame()
+    local Game = State.Game
+    Game.Phase = GamePhase.Playing
+    Game.Score, Game.MaxRow = 0, 0
+    Game.GameOverRequested, Game.ClearRequested = false, false
+    RequestPlayerReset(false)
     UpdateHUD()
     print("Game Started")
 end
 
-local function EnterSelectedCharacter()
-    local Option = CharacterOptions[SelectedCharacterIndex]
-    -- 강조 표시한 프리뷰와 같은 메시를 확정해 선택 화면/실제 캐릭터를 일치시킵니다.
-    local Preview = CharacterPreviewActors[SelectedCharacterIndex]
-    local Asset = Preview and Preview.Mesh:GetStaticMesh() or UAssetManager:GetAssetByPath(Option.Path)
-    if not PlayerMesh or not Asset then print("[CharacterSelect] Cannot select " .. Option.Name); return end
-    if PlayerScript then PlayerScript:Invoke("StopMovement") end
-    PlayerMesh:SetStaticMesh(Asset)
-    FitCharacterMesh(PlayerMesh, Player)
-    PlayerMeshStartScale, PlayerMeshStartLocation = PlayerMesh:GetRelativeScale3D(), PlayerMesh:GetRelativeLocation()
-    PlayerMeshStartRotation = PlayerMesh:GetRelativeRotation()
-    if PlayerScript then PlayerScript:Invoke("RefreshMeshBaseLocation") end
-    GameState.SelectedCharacter = Option.Name
-    GameState.SelectedCharacterIndex = SelectedCharacterIndex
-    for _, Entry in pairs(CharacterPreviewActors) do Entry.Actor:GetRootComponent():SetVisibility(false, true) end
-    ApplyGameplayCamera()
-    StartGame()
-    print("[CharacterSelect] Confirmed " .. Option.Name .. " -> Playing")
-end
-
 function GameOver()
-    if GameState.Phase ~= GamePhase.Playing then
-        return
-    end
+    -- 같은 프레임의 여러 충돌도 한 번만 처리
+    if State.Game.Phase ~= GamePhase.Playing then return end
+    State.Game.Phase = GamePhase.Dead
 
-    GameState.Phase = GamePhase.Dead
-
-    if PlayerScript then PlayerScript:Invoke("StopMovement") end
-
-    if PlayerMesh and PlayerMeshStartScale then
-        local Scale = PlayerMesh:GetRelativeScale3D()
-
-        Scale.Z = PlayerMeshStartScale.Z * 0.25
-
-        PlayerMesh:SetRelativeScale3D(Scale)
-    end
-
-    Audio.PlaySFX("Audio/Collision.wav")
-
+    if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
+    Refs.HitReaction:Invoke("PlayHitReaction")
+    Refs.Cinematics:Invoke("PlayDeath")
     UpdateHUD()
     print("Game Over!")
 end
 
 local function GameClear()
-    if GameState.Phase ~= GamePhase.Playing then
-        return
-    end
-
-    GameState.Phase = GamePhase.Clear
-
+    if State.Game.Phase ~= GamePhase.Playing then return end
+    State.Game.Phase = GamePhase.Clear
     UpdateHUD()
     print("Game Clear!")
 end
 
 local function ResetRun()
-    -- 플레이어 위치와 크기 복원
-    GameState.Phase = GamePhase.Ready
-    if PlayerScript then PlayerScript:Invoke("StopMovement") end
-    -- 플레이어를 시작 위치로 복귀
-    if Player and StartPosition then
-        Player:GetRootComponent():SetWorldLocation(StartPosition, false)
+    State.Game.Phase = GamePhase.Ready
+    if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
+    if Refs.Player and State.StartPosition then
+        Refs.Player:GetRootComponent():SetWorldLocation(State.StartPosition, false)
     end
 
-    if PlayerMesh and PlayerMeshStartScale then
-        PlayerMesh:SetRelativeScale3D(PlayerMeshStartScale)
-        PlayerMesh:SetRelativeLocation(PlayerMeshStartLocation)
-        PlayerMesh:SetRelativeRotation(PlayerMeshStartRotation)
-    end
-    -- 무한 맵의 차량/기차/회수 행도 같은 시작 상태로 되돌립니다.
-    local Level = _G.CrossyLevel
-    if Level then Level.Reset(true) end
-    GameState.Score, GameState.MaxRow = 0, 0
-    GameState.GameOverRequested, GameState.ClearRequested = false, false
-    GameState.PlayerResetRequested = true
+    Refs.HitReaction:Invoke("ResetPlayerPose")
+    if Refs.Level then Refs.Level:Invoke("ResetLevel", true) end
+    State.Game.Score, State.Game.MaxRow = 0, 0
+    State.Game.GameOverRequested, State.Game.ClearRequested = false, false
+    RequestPlayerReset(true)
 end
 
 local function Restart()
-    GameState.RestartCount = (GameState.RestartCount or 0) + 1
+    State.Game.RestartCount = (State.Game.RestartCount or 0) + 1
     ResetRun()
     StartGame()
-    GameState.PlayerResetRequested = true
+    RequestPlayerReset(true)
 end
 
 local function ReturnToCharacterSelection()
     ResetRun()
-    GameState.Phase = GamePhase.Selecting
-    for _, Entry in pairs(CharacterPreviewActors) do Entry.Actor:GetRootComponent():SetVisibility(true, true) end
-    ApplyCharacterSelection()
-    if Camera then
-        Camera:SetIsOrthogonal(true)
-        Camera:SetOrthoWidth(12.0)
-        Camera:SetWorldLocation(GetSelectionCameraLocation(), false)
-        Camera:SetWorldRotation(GameplayCameraRotation, false)
-    end
+    State.Game.Phase = GamePhase.Selecting
+    Refs.Selection:Invoke("ShowPreviews")
+    State.Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
+    local Target = Refs.Selection:Invoke("GetSelectionCameraLocation")
+    Refs.Camera:Invoke("ShowSelectionCamera", Target)
     UpdateHUD()
 end
 
--- 플레이어와 자동차의 겹침을 감지한다.
-function OnPlayerOverlap(OtherComponent)
-    if GameState.Phase ~= GamePhase.Playing or GameState.PlayerIsJumping or not OtherComponent then
+local function EnterSelectedCharacter()
+    local Name, Index = Refs.Selection:Invoke("GetSelection")
+    local Asset = Refs.Selection:Invoke("GetSelectedAsset")
+    if not Refs.PlayerMesh or not Asset then
+        print("[CharacterSelect] Cannot select " .. Name)
         return
     end
 
-    if OtherComponent:GetName() == "CarHitbox"
-        and not GameState.GameOverRequested then
+    if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
+    Refs.Selection:Invoke("ApplySelectedCharacter", Asset)
+    Refs.HitReaction:Invoke("CapturePose")
+    if Refs.PlayerScript then Refs.PlayerScript:Invoke("RefreshMeshBaseLocation") end
 
-        GameState.GameOverRequested = true
+    State.Game.SelectedCharacter, State.Game.SelectedCharacterIndex = Name, Index
+    Refs.Selection:Invoke("HidePreviews")
+    Refs.Camera:Invoke("ApplyGameplayCamera")
+    StartGame()
+    print("[CharacterSelect] Confirmed " .. Name .. " -> Playing")
+end
+
+function OnPlayerOverlap(OtherComponent)
+    local IsJumping = Refs.PlayerScript and Refs.PlayerScript:Invoke("IsJumping")
+    if State.Game.Phase ~= GamePhase.Playing or IsJumping or not OtherComponent then return end
+    if OtherComponent:GetName() == "CarHitbox" and not State.Game.GameOverRequested then
+        State.Game.GameOverRequested = true
     end
 end
 
 function BeginPlay(Self)
-    -- 외부에 보관되는 콜백도 리로드된 최신 함수를 호출하도록 연결합니다.
-    GameState.GameOver = function() Self:Invoke("GameOver") end
+    Refs.HUD = AttachScript("CrossyHUD", "Scripts/UI/GameHUD.lua")
+    Refs.Selection = AttachScript("CrossyCharacterSelection", "Scripts/Character/CharacterSelection.lua")
+    Refs.Camera = AttachScript("CrossyGameCamera", "Scripts/Camera/GameCamera.lua")
+    Refs.HitReaction = AttachScript("CrossyPlayerHitReaction", "Scripts/Effects/PlayerHitReaction.lua")
+    Refs.Cinematics = AttachScript("CrossyGameCinematics", "Scripts/Cinematics/GameCinematics.lua")
+    Refs.Player = Actor:GetWorld():GetPlayerPawn()
 
-    GameState.ManagedByGameManager, GameState.EnableTraffic = true, true
-    Player = Actor:GetWorld():GetPlayerPawn()
-
-    if Player then
-        StartPosition = Player:GetActorLocation()
-        PlayerMesh = UStaticMeshComponent.Cast(Player:FindComponentByName("StaticMeshComponent"))
-
-        if PlayerMesh then
-            PlayerMeshStartScale = PlayerMesh:GetRelativeScale3D()
-            PlayerMeshStartLocation = PlayerMesh:GetRelativeLocation()
-            PlayerMeshStartRotation = PlayerMesh:GetRelativeRotation()
-        else
-            print("[GameManager] Player StaticMeshComponent not found")
-        end
-        for _, Component in ipairs(Player:GetComponents()) do
+    if Refs.Player then
+        State.StartPosition = Refs.Player:GetActorLocation()
+        Refs.PlayerMesh = UStaticMeshComponent.Cast(Refs.Player:FindComponentByName("StaticMeshComponent"))
+        if not Refs.PlayerMesh then print("[GameManager] Player StaticMeshComponent not found") end
+        for _, Component in ipairs(Refs.Player:GetComponents()) do
             local Script = ULuaComponent.Cast(Component)
-            if Script and Script:GetScriptPath() == "Scripts/Player.lua" then PlayerScript = Script end
+            if Script and Script:GetScriptPath() == "Scripts/Player.lua" then Refs.PlayerScript = Script end
         end
-        Player:SetActorEnableCollision(true)
+        if Refs.PlayerScript then Refs.PlayerScript:Invoke("BindGame", Self) end
+        Refs.Player:SetActorEnableCollision(true)
 
-        PlayerHitbox = UPrimitiveComponent.Cast(Player:FindComponentByName("PlayerHitbox"))
-
-        if PlayerHitbox then
-            PlayerHitbox:SetCollisionResponseToAllChannels(ECollisionResponse.Overlap)
-            BeginOverlapHandle = PlayerHitbox.OnComponentBeginOverlap:Add(function(OtherComponent)
+        Refs.PlayerHitbox = UPrimitiveComponent.Cast(Refs.Player:FindComponentByName("PlayerHitbox"))
+        if Refs.PlayerHitbox then
+            Refs.PlayerHitbox:SetCollisionResponseToAllChannels(ECollisionResponse.Overlap)
+            State.BeginOverlapHandle = Refs.PlayerHitbox.OnComponentBeginOverlap:Add(function(OtherComponent)
                 Self:Invoke("OnPlayerOverlap", OtherComponent)
             end)
-
             print("[GameManager] Collision ready")
         else
             print("[GameManager] PlayerHitbox not found")
         end
     end
 
-    ScoreText = CreateHUDText("ScoreText")
-    HUDTitle, HUDDetail, HUDHint = CreateHUDText("HUDTitle"), CreateHUDText("HUDDetail"), CreateHUDText("HUDHint")
-    -- ATextRenderActor 생성자가 만든 기본 텍스트가 씬의 ScoreText와 중복된다.
-    local DefaultText = UTextRenderComponent.Cast(Actor:FindComponentByName("TextRenderComponent"))
-    if DefaultText then DefaultText:SetVisibility(false) end
-    Camera = Actor:GetWorld():GetPlayerCamera()
-    if Camera then GameplayCameraLocation, GameplayCameraRotation = Camera:GetWorldLocation(), Camera:GetWorldRotation() end
+    local Camera = Actor:GetWorld():GetPlayerCamera()
+    Refs.HUD:Invoke("Initialize", Camera)
+    Refs.Camera:Invoke("Initialize", Camera)
+    Refs.Selection:Invoke("Initialize", Refs.Player, Refs.PlayerMesh)
+    Refs.HitReaction:Invoke("Initialize", Refs.PlayerMesh)
+    Refs.Cinematics:Invoke("PlayStart")
 
-    if ScoreText then
-        ScoreText:SetText("")
-        ScoreText:SetVisibility(false)
-    else
-        print("[GameManager] ScoreText not found in scene")
-    end
-
-    if not Audio.PlayBGM("Audio/CrossyBGM.wav") then
-        print("[GameManager] Failed to start BGM")
-    end
-
+    -- 두 매니저의 BeginPlay 순서와 무관한 연결 및 기존 공개 인터페이스 유지
+    State.Game.Manager = Self
+    State.Game.GameOver = function() Self:Invoke("GameOver") end
+    State.Game.ManagedByGameManager, State.Game.EnableTraffic = true, true
     local Level = _G.CrossyLevel
-    if Level then Level.EnableTraffic() end
-    GameState.Phase, GameState.Score, GameState.MaxRow = GamePhase.Selecting, 0, 0
-    GameState.GameOverRequested, GameState.ClearRequested = false, false
-    CreateCharacterPreviews()
-    if Camera and GameplayCameraLocation then
-        Camera:SetIsOrthogonal(true)
-        Camera:SetOrthoWidth(12.0)
-        Camera:SetWorldLocation(GetSelectionCameraLocation(), false)
-        Camera:SetWorldRotation(GameplayCameraRotation, false)
+    if Level and Level.Manager then
+        BindLevel(Level.Manager)
+        Level.Manager:Invoke("BindGame", Self)
+        Level.Manager:Invoke("EnableTraffic")
     end
+
+    State.Game.Phase, State.Game.Score, State.Game.MaxRow = GamePhase.Selecting, 0, 0
+    State.Game.GameOverRequested, State.Game.ClearRequested = false, false
+    Refs.Selection:Invoke("CreatePreviews")
+    State.Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
+    local Target = Refs.Selection:Invoke("GetSelectionCameraLocation")
+    Refs.Camera:Invoke("ShowSelectionCamera", Target)
     UpdateHUD()
 end
 
 function TickComponent(Self, DeltaSeconds)
-    if GameState.Phase ~= GamePhase.Selecting and Input.IsKeyPressed(EKeyCode.Backspace) then
+    local Game = State.Game
+    if Game.Phase ~= GamePhase.Selecting and Input.IsKeyPressed(EKeyCode.Backspace) then
         ReturnToCharacterSelection()
         return
     end
-    if GameState.Phase == GamePhase.Selecting then
-        local Change = 0
-        if Input.IsKeyPressed(EKeyCode.Left) or Input.IsKeyPressed(EKeyCode.A) then Change = -1
-        elseif Input.IsKeyPressed(EKeyCode.Right) or Input.IsKeyPressed(EKeyCode.D) then Change = 1 end
-        if Change ~= 0 then
-            SelectedCharacterIndex = (SelectedCharacterIndex - 1 + Change) % #CharacterOptions + 1
-            ApplyCharacterSelection()
+
+    if Game.Phase == GamePhase.Selecting then
+        local Changed, Confirmed = Refs.Selection:Invoke("HandleInput")
+        if Changed then
+            Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
+            UpdateHUD()
         end
-        if Input.IsKeyPressed(EKeyCode.Enter) or Input.IsKeyPressed(EKeyCode.Space) then EnterSelectedCharacter(); return end
-        if Camera and GameplayCameraLocation then
-            local Current, Target = Camera:GetWorldLocation(), GetSelectionCameraLocation()
-            Camera:SetWorldLocation(Current + (Target - Current) * math.min(1, DeltaSeconds * CameraMoveSpeed), false)
+        if Confirmed then
+            EnterSelectedCharacter()
+            return
         end
+
+        local Target = Refs.Selection:Invoke("GetSelectionCameraLocation")
+        Refs.Camera:Invoke("UpdateSelectionCamera", DeltaSeconds, Target)
         UpdateHUD()
         return
     end
 
-    -- K키로 게임 오버 테스트
-    if GameState.Phase == GamePhase.Playing and Input.IsKeyPressed(EKeyCode.K) then
-        GameState.GameOverRequested = true
-    end
-
-    -- 외부 충돌 이벤트에서 전달한 사망 요청 처리
-    if GameState.GameOverRequested then
-        GameState.GameOverRequested = false
+    -- K키 사망 요청과 외부 충돌 요청을 같은 경로로 처리
+    if Game.Phase == GamePhase.Playing and Input.IsKeyPressed(EKeyCode.K) then Game.GameOverRequested = true end
+    if Game.GameOverRequested then
+        Game.GameOverRequested = false
         GameOver()
     end
+    if Input.IsKeyPressed(EKeyCode.R) then Restart() end
 
-    -- 선택 완료 후에는 진행 중에도 R키로 같은 캐릭터로 재시작합니다.
-    if Input.IsKeyPressed(EKeyCode.R) then
-        Restart()
-    end
+    if Game.Phase == GamePhase.Playing and Refs.Player and State.StartPosition then
+        local Position = Refs.Player:GetActorLocation()
+        local HighestRow, IsEndless, Step = 0, false, Config.CellSize
+        if Refs.Level then HighestRow, IsEndless, Step = Refs.Level:Invoke("GetProgress") end
+        local Row = math.max(0, math.floor((Position.X - State.StartPosition.X) / Step + 0.0001))
 
-    if GameState.Phase == GamePhase.Playing and Player and StartPosition then
-        local Position = Player:GetActorLocation()
-        local Level = _G.CrossyLevel
-        local Step = Level and Level.CellSize or CellSize
-        local Row = math.max(0, math.floor((Position.X - StartPosition.X) / Step + 0.0001))
-
-        -- P키로 현재 위치와 진행 행 확인
         if Input.IsKeyPressed(EKeyCode.P) then
-            print("Start X: " .. StartPosition.X)
+            print("Start X: " .. State.StartPosition.X)
             print("Current X: " .. Position.X)
             print("Current Y: " .. Position.Y)
             print("Row: " .. Row)
         end
 
-        -- 가장 멀리 전진한 행을 점수로 사용
-        -- 최대 전진 행으로 점수를 관리한다. 무한 맵이 제공하는 행도 반영한다.
-        local LevelRow = Level and Level.IsEndless and Level.HighestRow or 0
-        local NewScore = math.max(GameState.Score or 0, GameState.MaxRow or 0, Row, LevelRow or 0)
-        if NewScore > (GameState.Score or 0) then
-            print("Score: " .. NewScore)
-        end
-        GameState.MaxRow = NewScore
-        GameState.Score = NewScore
-
-        -- 마지막 행에 도달하면 클리어 요청
-        if not (Level and Level.IsEndless) and Row >= GoalRow then
-            GameState.ClearRequested = true
-        end
+        local NewScore = math.max(Game.Score or 0, Game.MaxRow or 0, Row, IsEndless and HighestRow or 0)
+        if NewScore > (Game.Score or 0) then print("Score: " .. NewScore) end
+        Game.MaxRow, Game.Score = NewScore, NewScore
+        if not IsEndless and Row >= Config.GoalRow then Game.ClearRequested = true end
     end
 
-    -- 맵 도착 판정 또는 외부 이벤트의 클리어 요청 처리
-    if GameState.ClearRequested then
-        GameState.ClearRequested = false
+    if Game.ClearRequested then
+        Game.ClearRequested = false
         GameClear()
     end
-
-    -- 외부 LevelManager가 점수를 변경하더라도 표시를 매 프레임 동기화한다.
     UpdateHUD()
 end
 
 function EndPlay(Self)
-    Audio.StopBGM()
-    -- PIE 종료 시 등록한 콜백을 해제한다.
-    if PlayerHitbox and BeginOverlapHandle then
-        PlayerHitbox.OnComponentBeginOverlap:Remove(BeginOverlapHandle)
+    Refs.Cinematics:Invoke("StopCinematics")
+    if Refs.PlayerHitbox and State.BeginOverlapHandle then
+        Refs.PlayerHitbox.OnComponentBeginOverlap:Remove(State.BeginOverlapHandle)
     end
-
-    BeginOverlapHandle = nil
-    PlayerHitbox = nil
-    for _, Entry in pairs(CharacterPreviewActors) do Entry.Actor:Destroy() end
-    CharacterPreviewActors = {}
-    if _G.CrossyGameState == GameState then _G.CrossyGameState = nil end
+    State.BeginOverlapHandle = nil
+    Refs.PlayerHitbox = nil
+    Refs.Selection:Invoke("DestroyPreviews")
+    if _G.CrossyGameState == State.Game then _G.CrossyGameState = nil end
 end
