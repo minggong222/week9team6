@@ -2,7 +2,10 @@
 
 #include "GameFramework/Actor.h"
 #include "CameraViewInfo.h"
+#include "Camera/CameraModifier.h"
 
+#include <memory>
+#include <vector>
 class APlayerController;
 class UCameraComponent;
 class UWorld;
@@ -48,6 +51,11 @@ public:
 	const FViewTarget& GetViewTarget() const { return ViewTarget; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
 	bool EvaluateCamera(float DeltaTime);
+
+	FCameraModifier* AddCameraModifier(TUniquePtr<FCameraModifier> Modifier);
+	bool RemoveCameraModifier(FCameraModifier* Modifier);
+	void ClearCameraModifiers();
+	FCameraShakeModifier* StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency);
 private:
 	APlayerController* PlayerController = nullptr;
 	FViewTarget ViewTarget;
@@ -64,4 +72,6 @@ private:
 
 	// 현재 카메라 전환이 진행 중인지 여부
 	bool bIsTransitioning = false;
+
+	std::vector<TUniquePtr<FCameraModifier>> CameraModifiers;
 };

@@ -207,6 +207,7 @@ end
 
 function TickComponent(Self, DeltaSeconds)
     local Game = State.Game
+    --------------------------------------------------------------------------------------
     -- 임시 Camera Transition 테스트: F6
     if Input.IsKeyPressed(EKeyCode.F6) then
         local World = Actor:GetWorld()
@@ -240,6 +241,19 @@ function TickComponent(Self, DeltaSeconds)
 
         return
     end
+        -- 임시 Camera Modifier 테스트: F7
+    if Input.IsKeyPressed(EKeyCode.F7) then
+        local World = Actor:GetWorld()
+
+        if World:StartCameraShake(2.0, 120.0, 50.0, 8.0) then
+            print("[CameraModifierTest] Camera shake started")
+        else
+            print("[CameraModifierTest] Failed to start camera shake")
+        end
+
+        return
+    end
+    --------------------------------------------------------------------------------------
     if Game.Phase ~= GamePhase.Selecting and Input.IsKeyPressed(EKeyCode.Backspace) then
         ReturnToCharacterSelection()
         return
