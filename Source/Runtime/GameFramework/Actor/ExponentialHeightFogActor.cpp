@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Render/Material.h"
 #include "ExponentialHeightFogActor.h"
 #include "Asset/AssetManager.h"
 

@@ -2,17 +2,17 @@
 
 #include "UObject/Object.h"
 #include "UObject/Class.h"
-#include "GameFramework/Actor.h"
 #include "Collision/CollisionScene.h"
-#include "Components/PrimitiveComponent.h"
 #include "Math/Transform.h"
-#include "Render/Renderer.h"
+#include "Containers/Queue.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Render/RenderPacket.h"
+#include "Render/MeshRenderData.h"
 #include "PathTracker.h"
 #include "Math/Frustum.h"
 #include "Engine/Scene.h"
-#include "Camera/CameraActor.h"
 #include "Engine/EngineTypes.h"
-#include "Render/SceneRenderData.h"
+#include "Render/RenderStats.h"
 
 class ULevel;
 class UGameInstance;
@@ -20,6 +20,11 @@ class FLuaManager;
 class UBillboardComponent;
 class APawn;
 class APlayerController;
+class AActor;
+class ACameraActor;
+class UActorComponent;
+class UCameraComponent;
+class FRenderer;
 
 struct FViewContext;
 

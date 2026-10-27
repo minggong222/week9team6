@@ -1,6 +1,8 @@
 #include "EnginePCH.h"
 #include "Math/MathUtility.h"
 #include "Mesh.h"
+#include "Material.h"
+#include "MeshRenderData.h"
 #include "Renderer.h"
 #include "Asset/AssetManager.h"
 #include "Engine/PrimitiveSceneProxy.h"

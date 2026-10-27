@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "GameFramework/Actor.h"
 #include "LuaComponent.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"

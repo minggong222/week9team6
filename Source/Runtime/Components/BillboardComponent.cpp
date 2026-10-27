@@ -1,4 +1,7 @@
 #include "EnginePCH.h"
+#include "Camera/CameraActor.h"
+#include "Render/Mesh.h"
+#include "Render/Material.h"
 #include "Math/MathUtility.h"
 #include "BillboardComponent.h"
 
@@ -178,4 +181,9 @@ void UBillboardComponent::Serialize(FStructuredArchive::FRecord Record)
 	// 불러오기에 실패하면(null) 생성자가 넣어 둔 기본 머티리얼을 유지한다
 	if (Record.GetUnderlyingArchive().IsLoading() && Loaded)
 		Material = Loaded;
+}
+
+const FStaticMeshData* UBillboardComponent::GetMeshData() const
+{
+	return QuadMesh ? &QuadMesh->GetMeshData() : nullptr;
 }

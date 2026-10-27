@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Render/Mesh.h"
 #include "Editor/Gizmo/GizmoRenderer.h"
 
 #include "Render/GeometryGenerator.h"

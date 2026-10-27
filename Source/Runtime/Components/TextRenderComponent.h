@@ -2,6 +2,7 @@
 
 #include "BillboardComponent.h"
 #include "Text/Font.h"
+#include "Render/StaticMeshData.h"
 
 class UTextRenderComponent : public UPrimitiveComponent
 {

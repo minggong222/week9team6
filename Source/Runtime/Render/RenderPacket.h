@@ -1,15 +1,15 @@
 #pragma once
 #include "Math/MathUtility.h"
 #include "Math/Transform.h"
-#include "Mesh.h"
-#include "Shader.h"
-#include "Material.h"
+#include "Containers/Array.h"
 #include <array>
 #include <utility>
 #include <algorithm>
-#include <bit>
+#include <vector>
 
 class FPrimitiveSceneProxy;
+class UStaticMesh;
+class UMaterial;
 inline constexpr uint32 InvalidObjectSlot = ~0u;
 
 struct FRenderPacket
@@ -99,18 +99,7 @@ class FRenderQueue : public TArray<FRenderPacket>
 	uint32 FirstTranslucentIndex = 0;
 
 	// 패킷 정렬 키 생성
-	static uint64 MakeSortKey(const FRenderPacket& Packet)
-	{
-		if (Packet.Material->PSOType != EPSOType::StaticMesh_Opaque)
-		{
-			const uint64 DistanceBits = static_cast<uint64>(std::bit_cast<uint32>(Packet.CameraToParticleDistance));
-			return (1ull << 63) | (~DistanceBits & 0xFFFFFFFFull);
-		}
-
-		return (static_cast<uint64>(Packet.Material->SortID) << 47)
-			| (static_cast<uint64>(Packet.Mesh->SortID) << 31)
-			| (static_cast<uint64>(Packet.LODIndex & 0x3) << 29);
-	}
+	static uint64 MakeSortKey(const FRenderPacket& Packet);
 
 public:
 	FRenderQueue() = default;

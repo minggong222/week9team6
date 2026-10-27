@@ -1,17 +1,20 @@
 #pragma once
 
 #include "UObject/Object.h"
-#include "Components/PrimitiveComponent.h"
+#include "Containers/Array.h"
+#include "Math/Transform.h"
+#include "Math/Box.h"
 
 #include "UObject/Class.h"
 #include "UObject/UObjectGlobals.h"
-#include "Containers/Set.h"
 #include "Engine/EngineBaseTypes.h"
 #include <Core/EngineLog.h>
 #include <Core/Delegates/Delegate.h>
 
 class UWorld;
 class ULevel;
+class UActorComponent;
+class USceneComponent;
 
 class AActor : public UObject
 {

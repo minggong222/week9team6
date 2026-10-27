@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Render/Material.h"
 #include "Render/MeshPassProcessor.h"
 #include "Render/SceneRenderData.h"
 #include "Render/SceneView.h"

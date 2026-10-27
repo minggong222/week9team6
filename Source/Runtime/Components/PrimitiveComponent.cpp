@@ -1,5 +1,6 @@
 #include "EnginePCH.h"
 #include "PrimitiveComponent.h"
+#include "Render/StaticMeshData.h"
 #include "../Render/Renderer.h"
 #include "Asset/AssetManager.h"
 #include "Render/RenderCommand.h"
@@ -47,6 +48,12 @@ UPrimitiveComponent::~UPrimitiveComponent()
 void UPrimitiveComponent::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+FBox UPrimitiveComponent::CalcLocalBounds() const
+{
+	const FStaticMeshData* Data = GetMeshData();
+	return Data ? Data->AABB : Super::CalcLocalBounds();
 }
 
 void UPrimitiveComponent::SubmitToRenderQueue(FRenderQueue& RenderQueue, const FViewContext& ViewContext)
