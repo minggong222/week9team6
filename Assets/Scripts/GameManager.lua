@@ -208,6 +208,69 @@ end
 function TickComponent(Self, DeltaSeconds)
     local Game = State.Game
     --------------------------------------------------------------------------------------
+    -- 임시 CineCameraActor 테스트: F5
+    local bF5Down = Input.IsKeyPressed(EKeyCode.F5)
+
+    -- 키를 누르고 있는 동안 매 프레임 토글되는 것을 방지한다.
+    if bF5Down and not State.CineCameraF5WasDown then
+        State.CineCameraF5WasDown = true
+
+        local World = Actor:GetWorld()
+
+        if not State.CineCameraTestActor then
+            -- CineCameraActor 생성
+            local CineClass = UClass.Find("ACineCameraActor")
+
+            if not CineClass then
+                print("[CineCameraTest] ACineCameraActor class not found")
+            else
+                local Spawned = World:SpawnActor(
+                    CineClass,
+                    "CineCameraActor_Test"
+                )
+
+                if Spawned then
+                    State.CineCameraTestActor =
+                        ACineCameraActor.Cast(Spawned)
+
+                    State.CineCameraFocalLength = 35.0
+                else
+                    print("[CineCameraTest] SpawnActor failed")
+                end
+            end
+        else
+            -- 35mm와 85mm를 번갈아 적용
+            if State.CineCameraFocalLength == 35.0 then
+                State.CineCameraFocalLength = 85.0
+            else
+                State.CineCameraFocalLength = 35.0
+            end
+        end
+
+        local Cine = State.CineCameraTestActor
+
+        if Cine then
+            Cine:SetSensorWidth(36.0)
+            Cine:SetFocalLength(State.CineCameraFocalLength)
+
+            local Camera = Cine:GetCameraComponent()
+
+            -- CineCameraActor의 카메라를 현재 뷰 타깃으로 설정
+            World:SetMainCameraComponent(Camera, 0.0)
+
+            print(
+                "[CineCameraTest] FocalLength = "
+                .. Cine:GetFocalLength()
+                .. ", FOV = "
+                .. Camera:GetFieldOfView()
+            )
+        end
+    end
+
+    -- 키를 뗐을 때 다음 입력을 받을 수 있도록 초기화
+    if not bF5Down then
+        State.CineCameraF5WasDown = false
+    end
     -- 임시 Camera Transition 테스트: F6
     if Input.IsKeyPressed(EKeyCode.F6) then
         local World = Actor:GetWorld()
