@@ -14,6 +14,8 @@
 #include "Asset/LOD/StaticMeshLODSelector.h"
 #include "Render/SkyLightEnvironment.h"
 #include "Engine/SceneManagement.h"
+#include "Camera/PlayerCameraManager.h"
+#include "GameFramework/PlayerController.h"
 
 #include <cmath>
 #include <algorithm>
@@ -26,6 +28,14 @@ DECLARE_CYCLE_STAT("Gather Elements", STAT_GatherElements);
 
 namespace
 {
+	struct FCameraOverlayConstants
+	{
+		FVector4 FadeColor;
+		float LetterBoxHeight = 0.0f;
+		float Padding[3]{};
+	};
+	static_assert(sizeof(FCameraOverlayConstants) == 32);
+
 	std::atomic<uint32> GCascadeCount{ 4 };
 	std::atomic<float> GCascadeLogRatio{ 0.8f };
 
@@ -590,6 +600,50 @@ bool FSceneRenderer::AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Render
 	return true;
 }
 
+bool FSceneRenderer::AddCameraOverlayPass(FRenderGraphBuilder& Graph, FRenderer* Renderer, FRenderGraphTextureRef Color)
+{
+	APlayerController* Controller = World ? World->GetPlayerController() : nullptr;
+	APlayerCameraManager* CameraManager = Controller ? Controller->GetPlayerCameraManager() : nullptr;
+	if (!CameraManager)
+	{
+		return true;
+	}
+
+	FCameraOverlayConstants Constants{};
+	Constants.FadeColor = CameraManager->GetFadeColor().ToVector4();
+	Constants.FadeColor.W *= CameraManager->GetFadeAmount();
+	Constants.LetterBoxHeight = CameraManager->GetLetterBoxHeight();
+	if (Constants.FadeColor.W <= 0.0f && Constants.LetterBoxHeight <= 0.0f)
+	{
+		return true;
+	}
+
+	FPipelineState* Pipeline = FRenderResourceManager::GetPSO(EPSOType::CameraOverlay);
+	if (!Pipeline || !Pipeline->Shader || !Pipeline->Shader->VertexShader || !Pipeline->Shader->PixelShader)
+	{
+		return false;
+	}
+	if (!RenderData.CameraOverlayCB)
+	{
+		RenderData.CameraOverlayCB = RenderCommand::CreateConstantBuffer(sizeof(FCameraOverlayConstants));
+	}
+	if (!RenderData.CameraOverlayCB || !RenderData.CameraOverlayCB->GetBuffer())
+	{
+		return false;
+	}
+
+	// FXAA의 최종 출력에 합성하며 같은 텍스처를 SRV로 다시 읽지 않는다.
+	return Graph.AddRasterPass(MakeViewportPass("CameraOverlay", Color), [this, Renderer, Pipeline, Constants]
+		{
+			RenderCommand::UpdateBufferData(RenderData.CameraOverlayCB.get(), &Constants, sizeof(Constants));
+			Renderer->BindPixelConstant(0, RenderData.CameraOverlayCB.get());
+			RenderCommand::BindPipelineState(*Pipeline);
+			RenderCommand::BindVertexBuffer(nullptr);
+			RenderCommand::Draw(3);
+			Renderer->BindPixelConstant(0, nullptr);
+		});
+}
+
 bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Renderer,
 	FSceneViewTargets& Targets, const FSceneRenderOptions& Options, FSkyboxRenderer* Skybox,
 	const FScenePassCallbacks& Callbacks) // 뷰포트에 그려져야 되는 패스들을 옵션에 따라 정해진 순서로 Graph에 등록
@@ -696,6 +750,7 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 		Pass.ReadTextures = { Depth };
 		if (!Graph.AddRasterPass(std::move(Pass), Callbacks.CascadeVisualization)) return false;
 	}
+	if (!Options.bShowWorldNormal && !AddCameraOverlayPass(Graph, Renderer, FinalColor)) return false;
 	if (!AddOverlayPass(Graph, "EditorLines", FinalColor, Depth, Overlay.EditorLines) ||
 		!AddOverlayPass(Graph, "EditorGrid", FinalColor, Depth, Overlay.EditorGrid) ||
 		!AddOverlayPass(Graph, "EditorOutline", FinalColor, Depth, Overlay.EditorOutline) ||
