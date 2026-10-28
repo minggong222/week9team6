@@ -3,7 +3,8 @@ local Config = {
     Speed = 50.0, WaitMin = 3.0, WaitMax = 6.0, WarningTime = 1.0,
     BlinkDuration = 1.0, BlinkInterval = 0.25,
     SignalSpacing = 12.0, SignalOffsetX = -1.4, SignalIntensity = 6.0,
-    PassSoundRange = 18.0, PassSoundLead = 6.0, PassSoundVolume = 0.75,
+    PassSoundRange = 18.0, PassSoundLead = 30.0, PassSoundVolume = 0.70,
+    WarningSoundVolume = 0.50,
     Types = {
         { Name = "bullet", Path = "Models/Crossy/Trains/crossy-train-long.obj" },
         { Name = "city", Path = "Models/Crossy/Trains/crossy-train-city.obj" },
@@ -205,8 +206,17 @@ function Update(DeltaSeconds)
                 end
             end
 
+            local WasWarning = Row.TrainWarning
             Row.TrainWarning = (Row.TrainActive or Row.TrainWait <= Config.WarningTime)
                 and Row.WarningElapsed < Config.BlinkDuration
+            if Row.TrainWarning and not WasWarning then
+                local Bounds = Row.Train:CalcBounds()
+                local Distance = math.abs((Bounds.Min.X + Bounds.Max.X) * 0.5 - Refs.Player:GetActorLocation().X)
+                if Distance < Config.PassSoundRange then
+                    local Attenuation = 1 - Distance / Config.PassSoundRange
+                    Audio.PlaySFX("Audio/bell_deng_ge_deng_v2.wav", Config.WarningSoundVolume * Attenuation * Attenuation)
+                end
+            end
             local On = Row.TrainWarning and math.floor(Row.WarningElapsed / Config.BlinkInterval) % 2 == 0
             SetRailSignals(Row, true, On)
         end
