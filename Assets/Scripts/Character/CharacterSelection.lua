@@ -16,7 +16,7 @@ function Initialize(Player, PlayerMesh)
 end
 
 -- 원본 크기와 원점 차이에 따른 가로·세로 최대 크기 및 바닥 높이 보정
-local function FitCharacterMesh(Mesh, Owner)
+local function FitCharacterMesh(Mesh, Owner, MeshPath)
     Mesh:SetRelativeLocation(FVector.new(0, 0, 0))
     Mesh:SetRelativeScale3D(FVector.new(1, 1, 1))
 
@@ -26,10 +26,15 @@ local function FitCharacterMesh(Mesh, Owner)
 
     local Scale = Config.Size / Size
     Mesh:SetRelativeScale3D(FVector.new(Scale, Scale, Scale))
-    Mesh:SetRelativeLocation(FVector.new(
+    local Location = FVector.new(
         -(Bounds.Min.X + Bounds.Max.X - 2 * Position.X) * Scale / 2,
         -(Bounds.Min.Y + Bounds.Max.Y - 2 * Position.Y) * Scale / 2,
-        -(Bounds.Min.Z - Position.Z) * Scale))
+        -(Bounds.Min.Z - Position.Z) * Scale)
+    -- 히토리는 꽁지를 포함한 경계 대신 몸통에 둔 원점을 수평 기준으로 유지한다.
+    if MeshPath == "Models/OBJ format/animal-hitori.obj" then
+        Location.X, Location.Y = 0, 0
+    end
+    Mesh:SetRelativeLocation(Location)
     return Mesh:GetRelativeScale3D()
 end
 
@@ -65,7 +70,7 @@ function CreatePreviews()
         local Asset = UAssetManager:GetAssetByPath(Option.Path)
         if Mesh and Asset then
             Mesh:SetStaticMesh(Asset)
-            State.Previews[Index] = { Actor = Preview, Mesh = Mesh, BaseScale = FitCharacterMesh(Mesh, Preview) }
+            State.Previews[Index] = { Actor = Preview, Mesh = Mesh, BaseScale = FitCharacterMesh(Mesh, Preview, Option.Path) }
         else
             Preview:Destroy()
             print("[CharacterSelect] Missing preview: " .. Option.Path)
@@ -98,7 +103,7 @@ end
 
 function ApplySelectedCharacter(Asset)
     Refs.PlayerMesh:SetStaticMesh(Asset)
-    FitCharacterMesh(Refs.PlayerMesh, Refs.Player)
+    FitCharacterMesh(Refs.PlayerMesh, Refs.Player, CharacterOptions[State.SelectedIndex].Path)
 end
 
 function ShowPreviews()

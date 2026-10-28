@@ -35,6 +35,7 @@ function PlayHitReaction(Direction, Distance, MinY, MaxY)
     end
     if Refs.Mesh and State.Scale then
         State.SquashStartZ = Refs.Mesh:GetRelativeScale3D().Z
+        State.SquashBottomZ = Refs.Mesh:CalcBounds().Min.Z
         State.SquashElapsed = 0
     end
 end
@@ -60,6 +61,10 @@ function Update(DeltaSeconds)
     local Scale = Refs.Mesh:GetRelativeScale3D()
     Scale.Z = State.SquashStartZ + (State.Scale.Z * Config.SquashRatio - State.SquashStartZ) * SmoothAlpha
     Refs.Mesh:SetRelativeScale3D(Scale)
+    -- 원점 높이와 무관하게 압축 전 발바닥 높이를 유지한다.
+    local Location = Refs.Mesh:GetWorldLocation()
+    Location.Z = Location.Z + State.SquashBottomZ - Refs.Mesh:CalcBounds().Min.Z
+    Refs.Mesh:SetWorldLocation(Location, false)
 
     if Alpha >= 1 then State.SquashElapsed = nil end
 end
