@@ -233,13 +233,13 @@ void UGameEngine::RenderGameFrame()
 	Options.VignetteIntensity = SceneView.VignetteIntensity;
 	Options.bDrawPrimitives = true;
 	Options.bCacheShadows = true;
-	Options.PcfMode = EPcfMode::Sample8;
+	Options.PcfMode = EPcfMode::Sample16;
 	Options.RenderingPath = ERenderingPath::Forward;
-	Options.LightingModel = ELightingModel::Gouraud;
+	Options.LightingModel = ELightingModel::Lambert;
 	Options.LightCullingMode = ELightCullingMode::Tiled;
 
-	Options.DirectionalShadowMapSize = 1024;
-	Options.PointShadowMapSize = 512;
+	Options.DirectionalShadowMapSize = 2048;
+	Options.PointShadowMapSize = 2048;
 	Options.SpotShadowMapSize = 512;
 
 	FSceneRenderer SceneRenderer(World, SceneView, GameViewport.GetRenderData());
