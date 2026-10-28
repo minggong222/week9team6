@@ -212,7 +212,7 @@ function Update(DeltaSeconds)
 
                 Position.Y = NextY
                 Row.Train:SetRelativeLocation(Position)
-                if bHit then Refs.Level:Invoke("RequestGameOver", "기차와 충돌했습니다.") end
+                if bHit then Refs.Level:Invoke("RequestGameOver", "기차와 충돌했습니다.", FVector.new(0, Sign, 0)) end
 
                 if Sign * NextY >= Limit then
                     Row.TrainActive = false

@@ -193,7 +193,11 @@ ConfigManager.Characters = {
     { Name = "Tiger", Path = "Models/OBJ format/animal-tiger.obj" },
 }
 
-ConfigManager.HitReaction = { SquashRatio = 0.05, SquashDuration = 0.12 }
+ConfigManager.HitReaction = {
+    SquashRatio = 0.05,
+    SquashDuration = 0.12,
+    KnockbackDuration = 1.0
+}
 
 ConfigManager.Player = {
     MoveDistance = 3.0,
@@ -238,7 +242,7 @@ ConfigManager.Cinematics = {
     },
     HitStop = {
         Scale = 0,
-        Hold = 0.25,
+        Hold = 0.5,
         Recovery = 1.5
     }
 }

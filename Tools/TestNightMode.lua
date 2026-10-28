@@ -241,6 +241,54 @@ assert(math.abs(ReactionMesh.Scale.Z - 0.05) < 0.000001)
 Reaction.ResetPlayerPose()
 assert(ReactionMesh.Scale.Z == 1)
 
+-- 피격 이동은 실제 시간으로 정확히 한 칸이며 가장자리·경계 사망은 이동하지 않는다.
+local KnockbackRoot = { Position = Vector(6, 0, 0) }
+function KnockbackRoot:GetWorldLocation() return self.Position end
+function KnockbackRoot:SetWorldLocation(Value) self.Position = Value end
+Reaction.Initialize(ReactionMesh, { GetRootComponent = function() return KnockbackRoot end })
+Reaction.PlayHitReaction(Vector(0, 1, 0), 3, -24, 24)
+Reaction.Update(Defaults.HitReaction.KnockbackDuration / 2)
+assert(KnockbackRoot.Position.Y > 0 and KnockbackRoot.Position.Y < 3)
+Reaction.Update(Defaults.HitReaction.KnockbackDuration)
+assert(KnockbackRoot.Position.Y == 3)
+Reaction.ResetPlayerPose()
+
+for _, Direction in ipairs({ -1, 1 }) do
+    KnockbackRoot.Position = Vector(6, 0, 0)
+    Reaction.PlayHitReaction(Vector(0, Direction, 0), 3, -24, 24)
+    Reaction.Update(Defaults.HitReaction.KnockbackDuration / 2)
+    assert(math.abs(KnockbackRoot.Position.Y) > 0 and math.abs(KnockbackRoot.Position.Y) < 3)
+    Reaction.Update(Defaults.HitReaction.KnockbackDuration)
+    assert(KnockbackRoot.Position.X == 6 and KnockbackRoot.Position.Y == Direction * 3)
+    Reaction.ResetPlayerPose()
+end
+-- 가장자리에서 안쪽으로 맞으면 한 칸 이동하고, 바깥쪽으로 맞으면 유지한다.
+for _, Edge in ipairs({ -24, 24 }) do
+    local Direction = Edge < 0 and 1 or -1
+    KnockbackRoot.Position = Vector(6, Edge, 0)
+    Reaction.PlayHitReaction(Vector(0, Direction, 0), 3, -24, 24)
+    Reaction.Update(Defaults.HitReaction.KnockbackDuration)
+    assert(KnockbackRoot.Position.Y == Edge + Direction * 3)
+    Reaction.ResetPlayerPose()
+end
+for _, Edge in ipairs({ -24, 24, -23, 23 }) do
+    KnockbackRoot.Position = Vector(6, Edge, 0)
+    Reaction.PlayHitReaction(Vector(0, Edge < 0 and -1 or 1, 0), 3, -24, 24)
+    Reaction.Update(1)
+    assert(KnockbackRoot.Position.Y == Edge)
+    Reaction.ResetPlayerPose()
+end
+KnockbackRoot.Position = Vector(6, 0, 0)
+Reaction.PlayHitReaction(nil, 3, -24, 24)
+Reaction.Update(1)
+assert(KnockbackRoot.Position.Y == 0)
+Reaction.PlayHitReaction(Vector(0, 1, 0), 3, -24, 24)
+Reaction.Update(0.01)
+Reaction.ResetPlayerPose()
+KnockbackRoot.Position = Vector(0, 0, 0)
+Reaction.Update(1)
+assert(KnockbackRoot.Position.Y == 0)
+
 -- 선택 화면 입력으로 난이도·조명이 전환되고 Shake가 한 번 실행되는지 확인한다.
 Lighting.Refs.Layout = Layout
 local ResetCount, ShakeCount = 0, 0
