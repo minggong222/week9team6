@@ -2,6 +2,45 @@
 local Config = dofile("Assets/Scripts/ConfigManager.lua").Map
 State = { Rows = {}, RandomState = 1, LastRow = 0, SafeColumn = 0, ReusedRows = 0 }
 Refs = {}
+State.TreeMeshesByHitbox, State.TreeEffects = {}, {}
+
+local function RestoreTreeHit(Mesh)
+    local Effect = State.TreeEffects[Mesh]
+    if not Effect then return end
+    Mesh:SetRelativeScale3D(Effect.Scale)
+    Mesh:SetRelativeRotation(Effect.Rotation)
+    State.TreeEffects[Mesh] = nil
+end
+
+function PlayTreeHit(BlockingComponent)
+    local Mesh = State.TreeMeshesByHitbox[BlockingComponent:GetName()]
+    if not Mesh then return end
+    -- 연속 충돌에서도 원래 자세를 기준으로 다시 시작한다.
+    RestoreTreeHit(Mesh)
+    State.TreeEffects[Mesh] = {
+        Elapsed = 0, Scale = Mesh:GetRelativeScale3D(), Rotation = Mesh:GetRelativeRotation()
+    }
+end
+
+function UpdateTreeHits(DeltaSeconds)
+    local Settings = Config.HitSquash
+    for Mesh, Effect in pairs(State.TreeEffects) do
+        Effect.Elapsed = Effect.Elapsed + DeltaSeconds
+        local Alpha = math.min(1, Effect.Elapsed / Settings.Duration)
+        if Alpha >= 1 then
+            RestoreTreeHit(Mesh)
+        else
+            local Scale = 1 - (1 - Settings.Scale) * math.sin(math.pi * Alpha)
+            local Angle = Settings.ShakeAngle * math.sin(math.pi * Alpha)
+            local Phase = Effect.Elapsed * Settings.ShakeFrequency * 2 * math.pi
+            local Base, Rotation = Effect.Scale, Effect.Rotation
+            -- 메시만 변형해 충돌 박스와 안전 경로는 흔들리지 않게 한다.
+            Mesh:SetRelativeScale3D(FVector.new(Base.X * Scale, Base.Y * Scale, Base.Z * Scale))
+            Mesh:SetRelativeRotation(FRotator.new(Rotation.Pitch + math.sin(Phase) * Angle,
+                Rotation.Yaw, Rotation.Roll + math.sin(Phase * 1.3) * Angle))
+        end
+    end
+end
 
 local function GetSettings()
     return Refs.Layout.NightMode and Config.Night or Config.Day
@@ -92,7 +131,11 @@ end
 local function RecycleMapRow(Row)
     Row.Active = false
 
-    for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision) end
+    for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do
+        local Mesh = State.TreeMeshesByHitbox[Hitbox:GetName()]
+        if Mesh then RestoreTreeHit(Mesh) end
+        Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision)
+    end
     if Row.Floor then
         Row.Floor:SetVisibility(false, true)
         for _, Wall in ipairs(Row.Walls) do Wall:SetVisibility(false, true) end
@@ -162,6 +205,9 @@ local function CaptureMapPool()
             Hitbox:SetCollisionResponseToChannel(ECollisionChannel.Pawn, ECollisionResponse.Block)
             Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision)
             Row.TreeHitboxes[Index] = Hitbox
+            local Mesh = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapTreeMesh_" .. Slot .. "_" .. Index))
+            assert(Mesh, "Missing tree mesh")
+            State.TreeMeshesByHitbox[Name] = Mesh
         end
         State.Rows[Slot] = Row
     end
@@ -214,6 +260,7 @@ function GetReusedRows()
 end
 
 function ReleaseCollisions()
+    for Mesh in pairs(State.TreeEffects) do RestoreTreeHit(Mesh) end
     for _, Row in ipairs(State.Rows) do
         for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do
             Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision)

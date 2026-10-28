@@ -1,6 +1,11 @@
 -- 맵·교통·기차의 생성·회수 순서 및 게임 매니저 연결 관리
 local Config = dofile("Assets/Scripts/ConfigManager.lua").Level
-State = { HighestRow = 0, Seed = Config.InitialSeed, TrafficRandomState = 1, RailSlots = {} }
+-- 엔진이 초기화한 Lua 난수에서 실행별 시드를 얻는다. 파생 시드의 오프셋 범위도 확보한다.
+local function NewRunSeed()
+    return math.random(1, 2147378917)
+end
+
+State = { HighestRow = 0, Seed = NewRunSeed(), TrafficRandomState = 1, RailSlots = {} }
 State.LightingProfile = Config.NightMode and "Night" or "Day"
 Refs = { Lights = { Sky = {}, Sun = {}, Car = {}, Train = {} } }
 
@@ -197,7 +202,7 @@ function ResetLevel(NewSeed)
     -- 차량 반환 -> 각 시스템의 행 정리 -> 난수 초기화 -> 행 생성 순서 유지
     Refs.Traffic:Invoke("DeactivateCars")
     for _, Row in ipairs(Refs.Map:Invoke("GetRows")) do RecycleRow(Row.Id, false) end
-    if NewSeed then State.Seed = State.Seed + 1 end
+    if NewSeed then State.Seed = NewRunSeed() end
     State.HighestRow = 0
     State.TrafficRandomState = (State.Seed + 104729) % 2147483647
     Refs.Map:Invoke("ResetGeneration", State.Seed)
@@ -314,8 +319,13 @@ function BeginPlay(Self)
     State.Initialized = true
 end
 
+function PlayTreeHit(BlockingComponent)
+    if State.Initialized then Refs.Map:Invoke("PlayTreeHit", BlockingComponent) end
+end
+
 function TickComponent(Self, DeltaSeconds)
     if not State.Initialized then return end
+    Refs.Map:Invoke("UpdateTreeHits", Actor:GetWorld():GetRealDeltaSeconds())
     if State.Game.EnableTraffic and not Refs.Traffic:Invoke("IsEnabled") then EnableTraffic() end
 
     -- GameManager가 없는 maptest는 기존처럼 자체 재시작·점수 처리

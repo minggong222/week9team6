@@ -31,7 +31,7 @@ ConfigManager.Level = {
     HalfWidth = 24.0,
     BoundaryWidth = 0.3,
     RoadHalfWidth = 34.0,
-    InitialSeed = 20261026
+    PreviewSeed = 20261026 -- 씬 생성 도구 전용. 실제 플레이는 엔진 난수를 사용한다.
 }
 
 ConfigManager.Game = { CellSize = ConfigManager.Level.CellSize, GoalRow = 150 }
@@ -112,6 +112,12 @@ ConfigManager.Train = {
 }
 
 ConfigManager.Map = {
+    HitSquash = {
+        Scale = 0.9,
+        Duration = 0.25,
+        ShakeAngle = 6,
+        ShakeFrequency = 4
+    },
     Day = {
         RoadChance = 0.60,
         RailChance = 0.05,

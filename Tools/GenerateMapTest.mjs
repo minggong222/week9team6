@@ -17,7 +17,7 @@ const configText = execFileSync(join(root, 'Source/ThirdParty/luajit/luajit.exe'
     local C = dofile("Assets/Scripts/ConfigManager.lua")
     local L, T = C.Level, C.Train
     local M = L.NightMode and C.Map.Night or C.Map.Day
-    print(L.CellSize, L.RowsBehind, L.RowsAhead, L.InitialSeed, L.HalfWidth, L.BoundaryWidth,
+    print(L.CellSize, L.RowsBehind, L.RowsAhead, L.PreviewSeed, L.HalfWidth, L.BoundaryWidth,
         M.RoadChance, M.TreesPerRow, M.RailChance, T.SignalSpacing, T.SignalOffsetX)
     print(table.concat(M.TreeWeights, ","))
     print(math.max(C.Map.Day.TreesPerRow, C.Map.Night.TreesPerRow))

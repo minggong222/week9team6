@@ -6,6 +6,7 @@ local function Component()
         self.Parent = Parent
         Parent.Children[#Parent.Children + 1] = self
     end
+    function C:GetName() return self.Name or "" end
     function C:SetRelativeLocation(V) self.Position = V end
     function C:GetRelativeLocation() return self.Position end
     function C:SetRelativeRotation(V) self.Rotation = V end
@@ -66,6 +67,17 @@ Independent.Level.Lighting.Day.Car.Intensity = 99
 assert(Defaults.Level.Lighting.Day.Car.Intensity == 0)
 
 local Random = 0
+-- 엔진이 제공하는 math.random을 실제 플레이 시드의 입력으로 사용하는지 확인한다.
+local SeedCalls = 0
+Base.math = setmetatable({ random = function(Min, Max)
+    SeedCalls = SeedCalls + 1
+    assert(Min == 1 and Max < 2147483647 - 104729)
+    return 12345 + SeedCalls
+end }, { __index = math })
+local FirstRun = Load("LevelManager.lua")
+local SecondRun = Load("LevelManager.lua")
+assert(FirstRun.State.Seed == 12346 and SecondRun.State.Seed == 12347)
+Base.math = nil
 local Lighting = Load("LevelManager.lua")
 assert(Lighting.State.LightingProfile == "Day", "Default mode must be Day")
 Lighting.TickComponent({}, 0) -- 초기화 전 Tick은 다른 상태에 접근하지 않는다.
@@ -80,11 +92,11 @@ local Layout = { NightMode = true, HasMapPool = true, RoadHalfWidth = 34,
 local Traffic = Load('World/TrafficManager.lua')
 Traffic.Initialize({}, Level, {}, nil, Layout)
 local _, Speed = Traffic.PrepareRow(1, 1, 'road')
-assert(math.abs(Speed - 10.8) < 0.0001)
+assert(math.abs(Speed - Defaults.Traffic.Night.MinSpeed) < 0.0001)
 Random = 1
 _, Speed = Traffic.PrepareRow(1, 1, 'road')
-assert(Speed == 27)
-assert(Traffic.State.Lanes[1].NextSpawnTime == 1.75)
+assert(Speed == Defaults.Traffic.Night.MaxSpeed)
+assert(Traffic.State.Lanes[1].NextSpawnTime == Defaults.Traffic.Night.MaxSpawnInterval)
 
 -- 차량 풀을 실제로 생성해 모든 차체에 전조등이 부착되는지 확인한다.
 local Cars = {}
@@ -152,7 +164,7 @@ Train.Update(Train.GetLaneInfo(1).SecondsUntilSpawn)
 assert(Light.Visible == true and RightLight.Visible == true)
 Train.Update(100)
 assert(Light.Visible == false and RightLight.Visible == false)
-assert(Train.GetLaneInfo(1).SecondsUntilSpawn == 2.25)
+assert(Train.GetLaneInfo(1).SecondsUntilSpawn == math.max(Defaults.Train.Night.WarningTime, Defaults.Train.Night.WaitMin))
 Train.RemoveRow(1)
 Train.SpawnRail(1, 20, false)
 assert(Components.NightTrainLight_1_1 == Light and Components.NightTrainLight_1_2 == RightLight and Light.Position.Y == 10)
@@ -330,11 +342,14 @@ Components.MapFloor_1 = MapComponent()
 for Index = 1, 5 do
     Components["MapTree_1_" .. Index] = MapComponent()
     Components["MapTreeHitbox_1_" .. Index] = MapComponent()
+    Components["MapTreeHitbox_1_" .. Index].Name = "MapTreeHitbox_1_" .. Index
+    Components["MapTreeMesh_1_" .. Index] = MapComponent()
 end
 Components.MapTreeMesh_1_1 = MapComponent()
 Components.MapTreeMesh_1_1:SetStaticMesh("tree-template")
 function Actor:AddComponent(_, Name)
     Components[Name] = MapComponent()
+    Components[Name].Name = Name
     return Components[Name]
 end
 local Map = Load("World/MapGenerator.lua")
@@ -358,7 +373,21 @@ MapLayout.NightMode = true
 Map.ResetGeneration(1)
 Id, Index, Kind = Map.GenerateNextRow(3, 3)
 assert(Kind == "grass" and Map.GetRows()[1].TreeCount == 8)
+local Hitbox = Components.MapTreeHitbox_1_1
+local HitMesh = Components.MapTreeMesh_1_1
+HitMesh.Scale, HitMesh.Rotation = Vector(2, 3, 4), { Pitch = 5, Yaw = 10, Roll = 15 }
+Map.PlayTreeHit(Hitbox)
+Map.UpdateTreeHits(MapConfig.Map.HitSquash.Duration / 2)
+assert(math.abs(HitMesh.Scale.X - 1.8) < 0.000001 and math.abs(HitMesh.Scale.Z - 3.6) < 0.000001)
+assert(HitMesh.Rotation.Pitch ~= 5 or HitMesh.Rotation.Roll ~= 15)
+Map.PlayTreeHit(Hitbox)
+Map.UpdateTreeHits(MapConfig.Map.HitSquash.Duration)
+assert(HitMesh.Scale.X == 2 and HitMesh.Scale.Z == 4 and HitMesh.Rotation.Roll == 15)
+Map.PlayTreeHit(Hitbox)
+Map.UpdateTreeHits(0.05)
+
 Map.RecycleRow(Id, false)
+assert(HitMesh.Scale.X == 2 and HitMesh.Rotation.Pitch == 5)
 MapConfig.Map.Night.RailChance = 1
 Map.ResetGeneration(1)
 Id, Index, Kind = Map.GenerateNextRow(3, 3)
