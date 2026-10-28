@@ -1,9 +1,18 @@
 -- HUD에 표시할 값만 전달받아 사용. 게임 단계·캐릭터 목록의 직접 조회 제외
 local Config = { Scale = 1.0, Score = 0.105, Title = 0.032, Name = 0.052, Hint = 0.023 }
+local ScorePulse = { Duration = 0.20, Amount = 0.2, Elapsed = 0.20 }
+local GameOverSwing = { Period = 2.0, Angle = 7.0, Elapsed = 0, Active = false }
 Refs = {}
 
 function BeginPlay(Self)
+    Refs.Self = Self
     Self:SetComponentTickEnabled(false)
+end
+
+local function ResetScorePulse()
+    ScorePulse.Score = nil
+    ScorePulse.Elapsed = ScorePulse.Duration
+    if Refs.Self then Refs.Self:SetComponentTickEnabled(false) end
 end
 
 local function CreateHUDText(Name)
@@ -66,6 +75,8 @@ local function BeginLayout(HUDScale, ViewCamera)
 end
 
 function ShowSelection(Name, Index, Count, HUDScale)
+    GameOverSwing.Active = false
+    ResetScorePulse()
     local Place = BeginLayout(HUDScale)
     if not Place then return end
 
@@ -76,20 +87,59 @@ function ShowSelection(Name, Index, Count, HUDScale)
 end
 
 function ShowScore(Score, HUDScale)
+    GameOverSwing.Active = false
     local Place = BeginLayout(HUDScale)
     if not Place then return end
 
+    Score = Score or 0
+    if ScorePulse.Score and Score > ScorePulse.Score then
+        -- 연속 득점 시에도 원래 크기 기준으로 연출을 다시 시작한다.
+        ScorePulse.Elapsed = 0
+        if Refs.Self then Refs.Self:SetComponentTickEnabled(true) end
+    elseif ScorePulse.Score and Score < ScorePulse.Score then
+        ResetScorePulse()
+    end
+    ScorePulse.Score, ScorePulse.HUDScale = Score, HUDScale
+
+    local Progress = math.min(ScorePulse.Elapsed / ScorePulse.Duration, 1)
+    local Scale = 1 + ScorePulse.Amount * math.sin(math.pi * Progress)
     Place(Refs.HUDTitle, "SCORE", Config.Hint, 0.13, 0.92)
-    Place(Refs.ScoreText, string.format("%03d", Score or 0), Config.Score, 0.13, 0.81)
+    Place(Refs.ScoreText, string.format("%03d", Score), Config.Score * Scale, 0.13, 0.81)
     Place(Refs.HUDDetail, "", Config.Hint, 0.5, 0.5)
     Place(Refs.HUDHint, (Score or 0) == 0 and "BACKSPACE : CHARACTERS     C : CREDITS" or "", 0.020, 0.5, 0.06)
 end
 
+function TickComponent(Self, DeltaSeconds)
+    if GameOverSwing.Active then
+        local RealDeltaSeconds = Actor:GetWorld():GetRealDeltaSeconds()
+        GameOverSwing.Elapsed = (GameOverSwing.Elapsed + RealDeltaSeconds) % GameOverSwing.Period
+        ShowResult("Dead", GameOverSwing.Score, GameOverSwing.HUDScale)
+        return
+    end
+
+    ScorePulse.Elapsed = math.min(ScorePulse.Elapsed + DeltaSeconds, ScorePulse.Duration)
+    ShowScore(ScorePulse.Score, ScorePulse.HUDScale)
+    if ScorePulse.Elapsed >= ScorePulse.Duration then Self:SetComponentTickEnabled(false) end
+end
+
 function ShowResult(Phase, Score, HUDScale)
+    ResetScorePulse()
+    local IsGameOver = Phase == "Dead"
+    if IsGameOver and not GameOverSwing.Active then GameOverSwing.Elapsed = 0 end
+    GameOverSwing.Active = IsGameOver
+    GameOverSwing.Score, GameOverSwing.HUDScale = Score, HUDScale
+    if Refs.Self then Refs.Self:SetComponentTickEnabled(IsGameOver) end
+
     local Place = BeginLayout(HUDScale)
     if not Place then return end
 
-    Place(Refs.HUDTitle, Phase == "Dead" and "GAME OVER" or "GAME CLEAR", 0.065, 0.5, 0.72)
+    Place(Refs.HUDTitle, IsGameOver and "GAME OVER" or "GAME CLEAR", 0.08, 0.5, 0.72)
+    if IsGameOver and Refs.HUDTitle then
+        -- 카메라의 시선 축을 기준으로 기울여 화면 중앙에서 좌우로 흔들리게 한다.
+        local Rotation = Refs.Camera:GetWorldRotation()
+        local Angle = -GameOverSwing.Angle * math.cos(2 * math.pi * GameOverSwing.Elapsed / GameOverSwing.Period)
+        Refs.HUDTitle:SetWorldRotation(FRotator.new(Rotation.Pitch, Rotation.Yaw, Rotation.Roll + Angle), false)
+    end
     Place(Refs.ScoreText, string.format("%03d", Score or 0), Config.Score, 0.5, 0.55)
     Place(Refs.HUDDetail, "FINAL SCORE", Config.Hint, 0.5, 0.48)
     Place(Refs.HUDHint, Phase == "Dead" and "R : RETRY\n\nBACKSPACE : CHARACTERS\n\nC : CREDITS" or "R : RETRY",
@@ -97,6 +147,8 @@ function ShowResult(Phase, Score, HUDScale)
 end
 
 function ShowCredits(HUDScale, Camera)
+    GameOverSwing.Active = false
+    ResetScorePulse()
     local Place = BeginLayout(HUDScale, Camera)
     if not Place then return end
 
@@ -107,6 +159,8 @@ function ShowCredits(HUDScale, Camera)
 end
 
 function Hide()
+    GameOverSwing.Active = false
+    ResetScorePulse()
     if not Refs.ScoreText or not Refs.Camera then return end
     Refs.ScoreText:SetVisibility(false)
     if Refs.HUDTitle then Refs.HUDTitle:SetVisibility(false) end

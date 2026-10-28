@@ -1,6 +1,6 @@
 -- 카메라 효과와 음향 연출 진입점. 게임 규칙과 상태 전환은 GameManager 담당
 local Black = FColor.new(0, 0, 0, 255)
-local FadeDuration = 0.3
+local FadeDuration = 0.15
 local LetterBoxHeight = 0.08
 local LetterBoxDuration = 0.25
 State = {}
@@ -31,6 +31,15 @@ function PlayStart()
 end
 
 function PlayDeath()
+    local World = Actor:GetWorld()
+    local CameraManager = World:GetPlayerCameraManager()
+    if CameraManager then
+        CameraManager:StartCameraZoom(0.9, 0.25, 0.15)
+        CameraManager:StartCameraShake(0.35, 1.5, 1.25, 8.0)
+    end
+
+    World:PlayHitStop(0, 0.25, 1.5)
+
     Audio.PlaySFX("Audio/Splat.wav")
 end
 
@@ -55,9 +64,10 @@ function PlayRestart()
     return FadeDuration
 end
 
-function StopEffects()
+function StopEffects(KeepZoom)
     local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
     if CameraManager then
+        if not KeepZoom then CameraManager:StopCameraZoom() end
         CameraManager:StopCameraFade()
         CameraManager:StopLetterBox()
     end
@@ -79,10 +89,9 @@ function Update(Phase)
     elseif Phase == "SelectingCharacter" then
         CameraManager:StartCameraFade(FromAlpha, 0, FadeDuration, Black)
         CameraManager:SetLetterBox(LetterBoxHeight, LetterBoxDuration)
-    elseif Phase == "Credits" then
-        CameraManager:SetLetterBox(LetterBoxHeight, LetterBoxDuration)
     else
-        StopEffects()
+        -- 사망 화면 갱신은 PlayDeath 직후이므로 진행 중인 줌을 유지한다.
+        StopEffects(Phase == "Dead")
     end
     State.Phase = Phase
 end

@@ -1,5 +1,6 @@
 #include "EnginePCH.h"
 #include "PlayerCameraManager.h"
+#include "CameraZoomModifier.h"
 
 #include "Camera/CameraComponent.h"
 #include "Camera/CameraActor.h"
@@ -394,6 +395,10 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime, float ModifierDeltaTi
 
         if (Modifier->IsFinished())
         {
+            if (Modifier == ActiveZoomModifier)
+            {
+                ActiveZoomModifier = nullptr;
+            }
             It = CameraModifiers.erase(It);
             continue;
         }
@@ -510,13 +515,40 @@ bool APlayerCameraManager::RemoveCameraModifier(FCameraModifier* Modifier)
     {
         return false;
     }
+    if (Modifier == ActiveZoomModifier)
+    {
+        ActiveZoomModifier = nullptr;
+    }
     CameraModifiers.erase(It);
     return true;
 }
 
 void APlayerCameraManager::ClearCameraModifiers()
 {
+    ActiveZoomModifier = nullptr;
     CameraModifiers.clear();
+}
+
+bool APlayerCameraManager::StartCameraZoom(float Scale, float ZoomInDuration, float ZoomOutDuration, int32 Priority)
+{
+    auto Modifier = MakeUnique<FCameraZoomModifier>();
+    Modifier->SetPriority(Priority);
+    Modifier->Start(Scale, ZoomInDuration, ZoomOutDuration);
+    if (Modifier->IsFinished())
+    {
+        return false;
+    }
+
+    // 반복 호출 시 배율이 중첩되지 않도록 이전 줌만 교체한다.
+    StopCameraZoom();
+    ActiveZoomModifier = Modifier.get();
+    AddCameraModifier(std::move(Modifier));
+    return true;
+}
+
+void APlayerCameraManager::StopCameraZoom()
+{
+    RemoveCameraModifier(ActiveZoomModifier);
 }
 
 FCameraShakeModifier* APlayerCameraManager::StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency, int32 Priority)
