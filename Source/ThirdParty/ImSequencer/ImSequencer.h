@@ -48,11 +48,6 @@ namespace ImSequencer
       virtual int GetFrameMin() const = 0;
       virtual int GetFrameMax() const = 0;
       virtual int GetItemCount() const = 0;
-      // Optional display metadata; frame-based editing remains unchanged.
-      virtual float GetFramesPerSecond() const { return 0.0f; }
-      virtual int GetPlaybackStart() const { return GetFrameMin(); }
-      virtual int GetPlaybackEnd() const { return GetFrameMax(); }
-      virtual float GetCurrentFrame() const { return -1.0f; }
 
       virtual void BeginEdit(int /*index*/) {}
       virtual void EndEdit() {}

@@ -1,46 +1,67 @@
 #pragma once
 
 #include "Editor/EditorUI/EditorPanel.h"
+#include "Sequencer/SequencePlayer.h"
 #include "ThirdParty/ImSequencer/ImSequencer.h"
 #include <vector>
+#include <string>
+#include <filesystem>
+
+class APlayerCameraManager;
+
+struct FSequencerTimeTransform
+{
+    float VisibleStartTime = 0.0f;
+    float PixelsPerSecond = 1.0f;
+    float TimelineX = 0.0f;
+    float TimeToX(float Time) const { return TimelineX + (Time - VisibleStartTime) * PixelsPerSecond; }
+    float XToTime(float X) const { return VisibleStartTime + (X - TimelineX) / PixelsPerSecond; }
+};
 
 // Adapter data for the editor preview, not a runtime Sequence Asset.
 struct FSequencerPreviewData : ImSequencer::SequenceInterface
 {
-    struct FItem { int Type; int Start; int End; };
-    std::vector<FItem> Items = { { 0, 0, 30 }, { 1, 0, 150 } };
+    struct FItem
+    {
+        int Type = 0;
+        int Start = 0;
+        int End = 0;
+        std::string Name;
+        int Id = 0;
+        int TrackIndex = -1; // Editor metadata index; points to the source track.
+        int SectionIndex = -1;
+        int TrackId = 0;
+    };
+    std::vector<FItem> Items;
+    int FirstFrame = -15;
     int LastFrame = 150;
-    int PlaybackStartFrame = 0;
-    int PlaybackEndFrame = 150;
-    float DisplayFrame = 0.0f;
-    float GetFramesPerSecond() const override { return 30.0f; }
-    int GetPlaybackStart() const override { return PlaybackStartFrame; }
-    int GetPlaybackEnd() const override { return PlaybackEndFrame; }
-    float GetCurrentFrame() const override { return DisplayFrame; }
-    int GetFrameMin() const override { return 0; }
+    bool bHasGeometry = false;
+    float PixelsPerFrame = 1.0f;
+    float ZeroFrameX = 0.0f;
+    float TimelineLeft = 0.0f;
+    float TimelineRight = 0.0f;
+    struct FRowGeometry { float Top = 0; float Bottom = 0; float ClipTop = 0; float ClipBottom = 0; };
+    std::vector<FRowGeometry> Rows;
+    float PendingScroll = 0.0f;
+    size_t GetCustomHeight(int) override { return 18; }
+    void CustomDraw(int Index, ImDrawList* DrawList, const ImRect& Rect, const ImRect&, const ImRect& Clip, const ImRect&) override;
+    void CustomDrawCompact(int Index, ImDrawList* DrawList, const ImRect& Rect, const ImRect& Clip) override;
+    int GetFrameMin() const override { return FirstFrame; }
     int GetFrameMax() const override { return LastFrame; }
     int GetItemCount() const override { return static_cast<int>(Items.size()); }
     int GetItemTypeCount() const override { return 2; }
     const char* GetItemTypeName(int Type) const override { return Type == 0 ? "Fade" : "Camera"; }
-    const char* GetItemLabel(int Index) const override { return GetItemTypeName(Items[Index].Type); }
+    // Labels are drawn by the panel; the library still owns row layout and scrolling.
+    const char* GetItemLabel(int /*Index*/) const override { return ""; }
     void Get(int Index, int** Start, int** End, int* Type, unsigned int* Color) override;
-    void Add(int Type) override;
-    void Del(int Index) override;
-    void Duplicate(int Index) override
-    {
-        if (Index >= 0 && Index < GetItemCount())
-        {
-            const FItem Item = Items[Index];
-            Items.push_back(Item);
-        }
-    }
 };
 
-// UI state only. Sequence Asset and Sequence Player will be connected later.
+// The panel owns UI state and forwards playback operations to the runtime player.
 class FSequencerPanel : public IEditorPanel
 {
 public:
-    bool Init() override { return true; }
+    bool Init() override;
+    void SetCameraManagerProvider(std::function<APlayerCameraManager*()> Provider);
     void Tick(float DeltaTime) override;
     void OnRender() override;
     const char* GetPanelName() const override { return "Sequencer"; }
@@ -48,21 +69,65 @@ public:
 private:
     void SetInitialDock();
     void DrawToolbar();
+    void NewSequence();
+    void OpenSequenceDialog(bool bSave);
+    bool SaveSequenceJson(const std::filesystem::path& Path);
+    bool LoadSequenceJson(const std::filesystem::path& Path);
+    std::filesystem::path SequencePath;
+    std::string FileError;
     void DrawTimeline();
     void DrawTransportBar();
-    void TogglePlayback(int Direction);
+    void SyncSequence();
+    void RebuildItemsFromSequence(int TrackId = -1, int SectionId = -1);
+    void DrawContextMenu();
+    int ContextTrackId = 0;
+    bool bTimelineContext = false;
+    float ContextTime = 0.0f;
+    FSequenceSection* GetSelectedSection();
+    void AddKey(float Time);
+    void DeleteSelectedKey();
+    void EditSelectedKey(float Time, float Value);
+    void DrawKeys();
+    void DrawTrackKeyControls(int RowIndex, float Left, float Right);
+    void SetCurrentFadeValue(float Value);
+    std::optional<float> FindAdjacentKey(int Direction);
+    void JumpToKey(int Direction);
+    std::optional<float> SelectedKeyTime;
+    bool bDraggingKey = false;
+    float KeyDragStartX = 0.0f;
+    float KeyDragStartTime = 0.0f;
+    void AddTrack(int Type);
+    void DeleteTrack(int TrackIndex);
+    std::vector<FSequenceSection>& GetSections(int TrackIndex);
+    int GetSelectedTrackIndex() const;
+    void NotifySequenceEdited();
+    void DrawTimelineOverlay(const ImVec2& Origin, const ImVec2& Size);
+    void DrawTrackList(const ImVec2& Origin, const ImVec2& Size);
+    FSequencerTimeTransform TimeTransform;
+    float TrackListWidth = 300.0f;
+    bool bDraggingTrackBoundary = false;
+    int DraggedTimelineHandle = 0; // 0: none, 1: playhead, 2: start, 3: end
 
-    float CurrentTime = 0.0f;
-    float Duration = 5.0f;
-    bool bPreviewPlaying = false;
-    int PlaybackDirection = 1;
-    bool bLoop = false;
-    float PlaybackStart = 0.0f;
-    float PlaybackEnd = 5.0f;
+    FSequencePlayer Player;
+    std::shared_ptr<FSequence> PreviewSequence = std::make_shared<FSequence>();
+    // Names/IDs are editor metadata. Camera data stays here until camera playback exists.
+    struct FEditorTrack
+    {
+        int Id = 0;
+        int Type = 0;
+        std::string Name;
+        int RuntimeTrackIndex = -1;
+        std::vector<int> SectionIds;
+        std::vector<FSequenceSection> PlaceholderSections;
+    };
+    std::vector<FEditorTrack> EditorTracks;
+    int NextEditorId = 1;
+    float CachedFrameRate = 0.0f;
+    std::function<APlayerCameraManager*()> CameraManagerProvider;
+    bool bPreviewRequested = false;
     bool bInitialDockPending = true;
     int SelectedTrack = -1;
     FSequencerPreviewData PreviewData;
     int FirstVisibleFrame = 0;
     bool bExpanded = true;
-    static constexpr int FramesPerSecond = 30;
 };

@@ -63,14 +63,14 @@ namespace ImSequencer
       int cy = (int)(io.MousePos.y);
       static float framePixelWidth = 10.f;
       static float framePixelWidthTarget = 10.f;
-      int legendWidth = int(ImMax(120.f, ImMin(200.f, ImGui::GetContentRegionAvail().x * 0.3f)));
+      int legendWidth = 200;
 
       static int movingEntry = -1;
       static int movingPos = -1;
       static int movingPart = -1;
       int delEntry = -1;
       int dupEntry = -1;
-      int ItemHeight = int(ImMax(20.f, ImGui::GetTextLineHeight() + 8.f));
+      int ItemHeight = 20;
 
       bool popupOpened = false;
       int sequenceCount = sequence->GetItemCount();
@@ -223,17 +223,7 @@ namespace ImSequencer
             modFrameCount *= 2;
             frameStep *= 2;
          };
-         const float fps = sequence->GetFramesPerSecond();
-         if (fps > 0.0f)
-         {
-            const float rawSeconds = 100.0f / (framePixelWidth * fps);
-            const float magnitude = powf(10.0f, floorf(log10f(rawSeconds)));
-            const float normalized = rawSeconds / magnitude;
-            const float seconds = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
-            modFrameCount = ImMax(1, int(roundf(seconds * fps)));
-            frameStep = ImMax(1, modFrameCount / 5);
-         }
-         int halfModFrameCount = ImMax(1, modFrameCount / 2);
+         int halfModFrameCount = modFrameCount / 2;
 
          auto drawLine = [&](int i, int regionHeight) {
             bool baseIndex = ((i % modFrameCount) == 0) || (i == sequence->GetFrameMax() || i == sequence->GetFrameMin());
@@ -249,11 +239,10 @@ namespace ImSequencer
                draw_list->AddLine(ImVec2((float)px, canvas_pos.y + (float)ItemHeight), ImVec2((float)px, canvas_pos.y + (float)regionHeight - 1), 0x30606060, 1);
             }
 
-            if (baseIndex && px >= (canvas_pos.x + legendWidth))
+            if (baseIndex && px > (canvas_pos.x + legendWidth))
             {
                char tmps[512];
-               if (fps > 0.0f) ImFormatString(tmps, IM_ARRAYSIZE(tmps), "%.2f", i / fps);
-               else ImFormatString(tmps, IM_ARRAYSIZE(tmps), "%d", i);
+               ImFormatString(tmps, IM_ARRAYSIZE(tmps), "%d", i);
                draw_list->AddText(ImVec2((float)px + 3.f, canvas_pos.y), 0xFFBBBBBB, tmps);
             }
 
@@ -477,49 +466,18 @@ namespace ImSequencer
             }
          }
 
-         draw_list->PopClipRect();
-         draw_list->PopClipRect();
-
-         // Range boundaries and playhead cover the full timeline, including empty rows.
-         const float timelineLeft = canvas_pos.x + legendWidth;
-         const float timelineRight = canvas_pos.x + canvas_size.x;
-         const float timelineBottom = childFramePos.y + childFrameSize.y;
-         draw_list->PushClipRect(ImVec2(timelineLeft, canvas_pos.y), ImVec2(timelineRight, timelineBottom), true);
-         auto frameX = [&](float frame) { return timelineLeft + (frame - firstFrameUsed) * framePixelWidth; };
-         const float markerSize = ImMin(8.f, ItemHeight * 0.3f);
-         auto drawBoundary = [&](int frame, bool start) {
-            const float x = frameX(float(frame));
-            const ImU32 color = start ? IM_COL32(75, 190, 90, 255) : IM_COL32(220, 45, 50, 255);
-            const float direction = start ? 1.f : -1.f;
-            draw_list->AddLine(ImVec2(x, canvas_pos.y), ImVec2(x, timelineBottom), color, 1.5f);
-            draw_list->AddTriangleFilled(ImVec2(x, canvas_pos.y), ImVec2(x + direction * markerSize, canvas_pos.y), ImVec2(x, canvas_pos.y + markerSize), color);
-            draw_list->AddTriangleFilled(ImVec2(x, timelineBottom), ImVec2(x + direction * markerSize, timelineBottom), ImVec2(x, timelineBottom - markerSize), color);
-         };
-         drawBoundary(sequence->GetPlaybackStart(), true);
-         drawBoundary(sequence->GetPlaybackEnd(), false);
-         if (currentFrame)
+         // cursor
+         if (currentFrame && firstFrame && *currentFrame >= *firstFrame && *currentFrame <= sequence->GetFrameMax())
          {
-            const float displayFrame = MovingCurrentFrame || sequence->GetCurrentFrame() < 0.f
-               ? float(*currentFrame) : sequence->GetCurrentFrame();
-            const float x = frameX(displayFrame);
-            if (x >= timelineLeft && x <= timelineRight)
-            {
-               const float halfWidth = markerSize * 1.2f;
-               const float tipY = canvas_pos.y + ItemHeight;
-               const ImU32 red = IM_COL32(255, 60, 65, 255);
-               draw_list->AddLine(ImVec2(x, tipY), ImVec2(x, timelineBottom), IM_COL32(235, 235, 235, 255), 1.5f);
-               draw_list->AddRectFilled(ImVec2(x - halfWidth, canvas_pos.y), ImVec2(x + halfWidth, tipY - markerSize), red);
-               draw_list->AddTriangleFilled(ImVec2(x - halfWidth, tipY - markerSize), ImVec2(x + halfWidth, tipY - markerSize), ImVec2(x, tipY), red);
-               char label[64];
-               if (fps > 0.f) ImFormatString(label, IM_ARRAYSIZE(label), "%.4f", displayFrame / fps);
-               else ImFormatString(label, IM_ARRAYSIZE(label), "%d", *currentFrame);
-               const ImVec2 labelSize = ImGui::CalcTextSize(label);
-               float labelX = x + halfWidth + 4.f;
-               if (labelX + labelSize.x > timelineRight) labelX = x - halfWidth - labelSize.x - 4.f;
-               draw_list->AddRectFilled(ImVec2(labelX - 2.f, canvas_pos.y), ImVec2(labelX + labelSize.x + 2.f, canvas_pos.y + labelSize.y), IM_COL32(30, 30, 30, 245));
-               draw_list->AddText(ImVec2(labelX, canvas_pos.y), IM_COL32(255, 255, 255, 255), label);
-            }
+            static const float cursorWidth = 8.f;
+            float cursorOffset = contentMin.x + legendWidth + (*currentFrame - firstFrameUsed) * framePixelWidth + framePixelWidth / 2 - cursorWidth * 0.5f;
+            draw_list->AddLine(ImVec2(cursorOffset, canvas_pos.y), ImVec2(cursorOffset, contentMax.y), 0xA02A2AFF, cursorWidth);
+            char tmps[512];
+            ImFormatString(tmps, IM_ARRAYSIZE(tmps), "%d", *currentFrame);
+            draw_list->AddText(ImVec2(cursorOffset + 10, canvas_pos.y + 2), 0xFF2A2AFF, tmps);
          }
+
+         draw_list->PopClipRect();
          draw_list->PopClipRect();
 
          for (auto& customDraw : customDraws)
