@@ -208,6 +208,7 @@ FSceneView FGameViewportClient::CalcSceneView(const FRect& InViewRect)
 	OutView.FarClip = POV.FarClip;
 	OutView.OrthoWidth = POV.OrthoWidth;
 	OutView.ColorGradingGamma = POV.ColorGradingGamma;
+	OutView.VignetteIntensity = POV.VignetteIntensity;
 	OutView.PerspectiveBlend = POV.PerspectiveBlend;
 	OutView.bIsPerspective = POV.bIsPerspective;
 	OutView.bIsWireframe = false;

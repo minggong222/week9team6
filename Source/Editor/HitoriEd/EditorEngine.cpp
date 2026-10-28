@@ -858,6 +858,7 @@ void UEditorEngine::BuildSceneRenderOptions(FEditorViewportClient* ViewClient, b
 	Options.bEnableFXAA = SettingsPanel->GetSettings().bEnableFXAA;
 	Options.bEnableGammaCorrection = SettingsPanel->GetSettings().bEnableGammaCorrection;
 	Options.ColorGradingGamma = SettingsPanel->GetSettings().ColorGradingGamma;
+	Options.VignetteIntensity = SettingsPanel->GetSettings().VignetteIntensity;
 	Options.bCacheShadows = SettingsPanel->GetSettings().bCacheShadows;
 	Options.PcfMode = SettingsPanel->GetSettings().PcfMode;
 	Options.RenderingPath = SettingsPanel->GetSettings().RenderingPath;
@@ -883,6 +884,7 @@ void UEditorEngine::RenderGameFrame(FGameViewportClient* GameClient, const FScen
 
 	FSceneRenderOptions Options = RenderOptions;
 	Options.ColorGradingGamma = SceneView.ColorGradingGamma;
+	Options.VignetteIntensity = SceneView.VignetteIntensity;
 
 	FSceneViewTargets& Targets = GameClient->GetViewTargets();
 	const bool bRendered = RenderScene(Targets, SceneView, SceneRenderer, GameClient->GetWorld(), Options,

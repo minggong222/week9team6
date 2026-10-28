@@ -14,6 +14,7 @@
 #include "GameFramework/Pawn.h"
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 // 종료 시 렌더·에디터·뷰포트 설정을 함께 저장한다.
 FSettingsPanel::~FSettingsPanel()
 {
@@ -102,6 +103,9 @@ void FSettingsPanel::OnRender()
 		ImGui::SetTooltip("Preview override for editor viewports only; not saved with the scene.\n"
 			"PIE / Standalone use Gamma from the active CameraComponent.");
 	}
+	ImGui::SliderFloat("Editor Preview Vignette", &Settings.VignetteIntensity, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Editor preview only. PIE / Standalone use Vignette Intensity from the active camera.\n0.0 disables the effect.");
 
 	//////////////////////////////////////////////////////////
 
@@ -190,6 +194,7 @@ bool FSettingsPanel::SaveSettings() const
 	File << "EnableFXAA=" << Settings.bEnableFXAA << "\n";
 	File << "EnableGammaCorrection=" << Settings.bEnableGammaCorrection << "\n";
 	File << "ColorGradingGamma=" << Settings.ColorGradingGamma << "\n";
+	File << "VignetteIntensity=" << Settings.VignetteIntensity << "\n";
 	File << "LightCullingMode=" << (Settings.LightCullingMode == ELightCullingMode::Off ? "Off" : Settings.LightCullingMode == ELightCullingMode::Tiled ? "Tiled" : "Clustered") << "\n";
 	File << "RenderingPath=" << (Settings.RenderingPath == ERenderingPath::Forward ? "Forward" : "Deferred") << "\n";
 	File << "LightingModel=" << (Settings.LightingModel == ELightingModel::Gouraud ? "Gouraud" :
@@ -362,6 +367,11 @@ bool FSettingsPanel::LoadSettings()
 				else if (Key == "CameraRotateSensitivity") Settings.MouseSensitivity = std::stof(ValueStr);
 				else if (Key == "GridSpacing") Settings.GridSpacing = std::stoi(ValueStr);
 				else if (Key == "ColorGradingGamma") Settings.ColorGradingGamma = std::stof(ValueStr);
+				else if (Key == "VignetteIntensity")
+				{
+					const float Intensity = std::stof(ValueStr);
+					Settings.VignetteIntensity = std::isfinite(Intensity) ? std::clamp(Intensity, 0.0f, 1.0f) : 0.0f;
+				}
 				else if (Key == "Horizontal") Settings.MultipleViewportsHorizontal = std::stof(ValueStr);
 				else if (Key == "Vertical") Settings.MultipleViewportsVertical = std::stof(ValueStr);
 				else if (Key == "Layout") Settings.bMultipleViewportsSingle = ValueStr == "Single";

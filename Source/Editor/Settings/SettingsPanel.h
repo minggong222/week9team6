@@ -37,6 +37,7 @@ struct FEditorSettings
 	float MouseSensitivity = 1.0f;
 	int32 GridSpacing = 1;
 	float ColorGradingGamma = 1.0f;
+	float VignetteIntensity = 0.0f;
 	float MultipleViewportsHorizontal = 0.5f;
 	float MultipleViewportsVertical = 0.5f;
 	bool bMultipleViewportsSingle = false;

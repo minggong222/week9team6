@@ -230,6 +230,7 @@ void UGameEngine::RenderGameFrame()
 
 	FSceneRenderOptions Options;
 	Options.ColorGradingGamma = SceneView.ColorGradingGamma;
+	Options.VignetteIntensity = SceneView.VignetteIntensity;
 	Options.bDrawPrimitives = true;
 	Options.bCacheShadows = true;
 	Options.PcfMode = EPcfMode::Sample8;

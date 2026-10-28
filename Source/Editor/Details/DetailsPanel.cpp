@@ -611,7 +611,12 @@ namespace
 		const FString Label = "##" + Property.Name;
 
 		const bool bCameraGamma = Property.Name == "ColorGradingGamma" && Object->IsA(UCameraComponent::StaticClass());
-		const char* DisplayName = bCameraGamma ? "Game Gamma" : Property.Name.c_str();
+		const bool bCameraVignette = Property.Name == "VignetteIntensity" && Object->IsA(UCameraComponent::StaticClass());
+		const char* DisplayName = Property.Name.c_str();
+		if (bCameraGamma)
+			DisplayName = "Game Gamma";
+		else if (bCameraVignette)
+			DisplayName = "Game Vignette Intensity";
 
 		// 패널이 넓으면 라벨 | 값을 한 줄에, 좁거나 라벨이 길면 라벨 아래 줄에 값을 놓는다.
 		const float StartX = ImGui::GetCursorPosX();
@@ -642,6 +647,13 @@ namespace
 					ImGui::SetTooltip("Saved with the scene; used by the active camera in PIE / Standalone.\n"
 						"1.0 is neutral. Game scripts may override this value.");
 				}
+			}
+			else if (bCameraVignette)
+			{
+				bChanged = ImGui::SliderFloat(Label.c_str(), static_cast<float*>(ValuePtr), 0.0f, 1.0f,
+					"%.2f", ImGuiSliderFlags_AlwaysClamp);
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip("Saved with the scene; used by the active camera in PIE / Standalone.\n0.0 disables the effect.");
 			}
 			else
 			{
