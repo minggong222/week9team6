@@ -40,6 +40,7 @@ function PlayDeath()
     World:PlayHitStop(Config.HitStop.Scale, Config.HitStop.Hold, Config.HitStop.Recovery)
 
     Audio.PlaySFX("Audio/Splat.wav")
+    return Config.HitStop.Hold
 end
 
 function FadeIn(Duration, Color)

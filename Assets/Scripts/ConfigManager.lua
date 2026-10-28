@@ -121,7 +121,7 @@ ConfigManager.Map = {
     Day = {
         RoadChance = 0.50,
         RailChance = 0.05,
-        RiverChance = 0.10,
+        RiverChance = 0.30,
 
         TreesPerRow = 5,
         TreeWeights = { 5, 15, 20, 30, 20, 10 }
@@ -225,6 +225,7 @@ ConfigManager.Characters = {
 }
 
 ConfigManager.HitReaction = {
+    Drowning = { Duration = 0.6, Depth = 3.0 },
     SquashRatio = 0.05,
     SquashDuration = 0.12,
     KnockbackDuration = 0.75
@@ -297,12 +298,16 @@ ConfigManager.River = {
 
     -- 연속된 강물 행 개수
     MinRows = 1,
-    MaxRows = 2,
+    MaxRows = 3,
 
     -- 통나무 설정
-    LogsPerRow = 3,
-    MinSpeed = 1.5,
-    MaxSpeed = 3.0,
+    LogsPerRow = 5,
+    MaxInitialLogsPerRow = 4,
+    MinSpawnDelay = 1.5,
+    MaxSpawnDelay = 5.5,
+    MinLogGap = 0.8,
+    MinSpeed = 3.5,
+    MaxSpeed = 9.0,
 
     -- 실제 모델 크기에 맞춰 설정
     LogScale = { X = 5.0, Y = 5.0, Z = 6.0 },
@@ -318,8 +323,9 @@ ConfigManager.River = {
     -- 플레이어가 올라탔을 때 가라앉는 거리
     LogSinkOffset = 0.15,
 
-    -- 월드 좌표 기준의 통나무 반길이
-    LogHalfLength = 2.0,
+    -- 월드 좌표 기준의 랜덤 반길이 범위 (전체 길이 2.5~6.0)
+    MinLogHalfLength = 1.25,
+    MaxLogHalfLength = 4.0,
 
     -- 플레이어 중심에서 좌우로 인정할 너비
     PlayerHalfWidth = 0.7,

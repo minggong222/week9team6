@@ -100,16 +100,21 @@ function StartGame()
     print("Game Started")
 end
 
-function GameOver(HitDirection)
+function GameOver(HitDirection, DeathType)
     -- 같은 프레임의 여러 충돌도 한 번만 처리
     if State.Game.Phase ~= GamePhase.Playing then return end
     State.Game.Phase = GamePhase.Dead
 
     if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
-    local MinY, MaxY
-    if Refs.Level then MinY, MaxY = Refs.Level:Invoke("GetMovementBounds") end
-    Refs.HitReaction:Invoke("PlayHitReaction", HitDirection, Config.CellSize, MinY, MaxY)
-    Refs.Cinematics:Invoke("PlayDeath")
+    if DeathType == "Drowning" then
+        local Hold = Refs.Cinematics:Invoke("PlayDeath")
+        Refs.HitReaction:Invoke("PlayDrowning", Hold)
+    else
+        local MinY, MaxY
+        if Refs.Level then MinY, MaxY = Refs.Level:Invoke("GetMovementBounds") end
+        Refs.HitReaction:Invoke("PlayHitReaction", HitDirection, Config.CellSize, MinY, MaxY)
+        Refs.Cinematics:Invoke("PlayDeath")
+    end
     UpdateScreen()
     print("Game Over!")
 end

@@ -154,10 +154,10 @@ local function StopPlayerMovement()
     if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
 end
 
-function RequestGameOver(Reason, HitDirection)
+function RequestGameOver(Reason, HitDirection, DeathType)
     if GetPhase() ~= "Playing" then return end
     if Refs.Game then
-        Refs.Game:Invoke("GameOver", HitDirection)
+        Refs.Game:Invoke("GameOver", HitDirection, DeathType)
     else
         State.Game.Phase = "Dead"
         StopPlayerMovement()

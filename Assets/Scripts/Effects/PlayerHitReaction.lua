@@ -39,8 +39,32 @@ function PlayHitReaction(Direction, Distance, MinY, MaxY)
     end
 end
 
+-- HitStop 대기는 실제 시간으로 계산해 시간이 멈춘 상태에서도 끝나도록 한다.
+function PlayDrowning(Hold)
+    State.Knockback, State.SquashElapsed = nil, nil
+    if not Refs.Mesh then return end
+    assert(Hold >= 0 and Config.Drowning.Duration > 0 and Config.Drowning.Depth > 0,
+        "Invalid drowning settings")
+    State.Drowning = { Elapsed = 0, Hold = Hold, Start = Refs.Mesh:GetRelativeLocation() }
+end
+
 -- 압축과 Knockback은 HitStop·슬로모션에 영향을 받지 않는 실제 시간을 사용한다.
 function Update(DeltaSeconds)
+    local Drowning = State.Drowning
+    if Drowning then
+        Drowning.Elapsed = Drowning.Elapsed + DeltaSeconds
+        if Drowning.Elapsed <= Drowning.Hold then return end
+        local Alpha = math.min(1, (Drowning.Elapsed - Drowning.Hold) / Config.Drowning.Duration)
+        local Progress = Alpha * Alpha * (3 - 2 * Alpha)
+        Refs.Mesh:SetRelativeLocation(FVector.new(Drowning.Start.X, Drowning.Start.Y,
+            Drowning.Start.Z - Config.Drowning.Depth * Progress))
+        if Alpha >= 1 then
+            Refs.Mesh:SetVisibility(false)
+            State.Drowning = nil
+        end
+        return
+    end
+
     local Knockback = State.Knockback
     if Knockback then
         Knockback.Elapsed = math.min(Knockback.Elapsed + DeltaSeconds, Config.KnockbackDuration)
@@ -65,6 +89,8 @@ function Update(DeltaSeconds)
 end
 
 function ResetPlayerPose()
+    State.Drowning = nil
+    if Refs.Mesh then Refs.Mesh:SetVisibility(true) end
     State.Knockback = nil
     State.SquashElapsed = nil
     if Refs.Mesh and State.Scale then
