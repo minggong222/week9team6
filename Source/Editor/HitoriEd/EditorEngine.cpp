@@ -974,7 +974,7 @@ void UEditorEngine::RenderSceneText(UWorld* TargetWorld, const FSceneView& Scene
 			Text->GetOwner()->GetWorld() != TargetWorld)
 			continue;
 		TextRenderer->OnRender(Text->GetText(), Text->GetWorldMatrix(), Text->GetTextSize(),
-			*Text->GetFont(), SceneView.ViewProjectionMatrix);
+			*Text->GetFont(), SceneView.ViewProjectionMatrix, Text->GetTextColor());
 	}
 }
 

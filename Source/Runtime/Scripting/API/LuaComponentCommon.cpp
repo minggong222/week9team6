@@ -59,6 +59,7 @@ void LuaRegisterComponentCommon(sol::state& State)
         // "GetFont", &UTextRenderComponent::GetFont,
         // "SetFont", &UTextRenderComponent::SetFont,
         // "GetTextSize", &UTextRenderComponent::GetTextSize,
-        "SetTextSize", &UTextRenderComponent::SetTextSize
+        "SetTextSize", &UTextRenderComponent::SetTextSize,
+        "SetTextColor", &UTextRenderComponent::SetTextColor
     );
 }

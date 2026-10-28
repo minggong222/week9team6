@@ -20,6 +20,7 @@ struct MSDFData
 	// MSDF 텍스트의 화면 픽셀 크기와 정렬용 여유 값을 담는다.
 	float ScreenPx;
 	FVector Pad = FVector();
+    FVector4 Color = FVector4(1, 1, 1, 1);
 };
 
 class FTextRenderer
@@ -32,7 +33,7 @@ public:
 		const UFont& Atlas, UCameraComponent* CameraComponent);
 	// View별 ViewProjection을 직접 사용해 텍스트를 해당 View에 렌더한다.
 	void OnRender(const FString& Text, const FMatrix& WorldMatrix, float TextSize,
-		const UFont& Atlas, const FMatrix& ViewProjection);
+		const UFont& Atlas, const FMatrix& ViewProjection, const FVector4& Color = FVector4(1, 1, 1, 1));
 
 	// 항상 카메라를 향하게 그린다 (에디터 UUID 라벨 등)
 	void OnRenderBillboard(const FString& Text, const FVector& WorldPos, float TextSize,

@@ -46,7 +46,7 @@ ConfigManager.Traffic = {
     Night = {
         MinSpeed = 16.0,
         MaxSpeed = 30.0,
-        MinSpawnInterval = 0.5,
+        MinSpawnInterval = 0.35,
         MaxSpawnInterval = 2.5
     },
     Headlight = {
@@ -119,7 +119,7 @@ ConfigManager.Map = {
         ShakeFrequency = 4
     },
     Day = {
-        RoadChance = 0.60,
+        RoadChance = 0.50,
         RailChance = 0.05,
         TreesPerRow = 5,
         TreeWeights = { 5, 15, 20, 30, 20, 10 }
@@ -150,6 +150,16 @@ ConfigManager.Camera = {
 }
 
 ConfigManager.HUD = {
+    PlayingScoreSize = 0.075,
+    ScoreColumns = {
+        Playing = { Score = 0.13, HiScore = 0.27 },
+        Result = { Score = 0.43, HiScore = 0.57 }
+    },
+    RainbowPeriod = 3.0,
+    RecordColors = {
+        { 255, 179, 186 }, { 255, 223, 186 }, { 255, 255, 186 },
+        { 186, 255, 201 }, { 186, 225, 255 }, { 210, 190, 255 }, { 255, 190, 235 }
+    },
     ScorePulseDuration = 0.15,
     ScorePulseAmount = 0.25,
     GameOverSwingPeriod = 2.0,
