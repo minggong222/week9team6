@@ -41,7 +41,7 @@ ConfigManager.Traffic = {
         MinSpeed = 6.0,
         MaxSpeed = 20.0,
         MinSpawnInterval = 0.5,
-        MaxSpawnInterval = 2.5
+        MaxSpawnInterval = 3.0
     },
     Night = {
         MinSpeed = 16.0,
@@ -121,15 +121,15 @@ ConfigManager.Map = {
     Day = {
         RoadChance = 0.50,
         RailChance = 0.05,
-        RiverChance = 0.15,
+        RiverChance = 0.10,
 
         TreesPerRow = 5,
         TreeWeights = { 5, 15, 20, 30, 20, 10 }
     },
     Night = {
         RoadChance = 0.50,
-        RailChance = 0.10,
-        RiverChance = 0.20,
+        RailChance = 0.12,
+        RiverChance = 0.15,
 
         TreesPerRow = 7,
         TreeWeights = { 5, 10, 15, 15, 20, 15, 15, 5 }
@@ -148,15 +148,16 @@ ConfigManager.Camera = {
     Distance = 32.0,
     LookAhead = 5.0,
     MoveSpeed = 8.0,
-    SelectionWidth = 12.0,
+    SelectionWidth = 16.6667,
     DayGamma = 1.0, 
     NightGamma = 1.7
 }
 
 ConfigManager.HUD = {
+    SelectionScale = 0.8,
     PlayingScoreSize = 0.075,
     ScoreColumns = {
-        Playing = { Score = 0.13, HiScore = 0.27 },
+        Playing = { Score = 0.12, HiScore = 0.22 },
         Result = { Score = 0.43, HiScore = 0.57 }
     },
     RainbowPeriod = 3.0,
@@ -189,7 +190,12 @@ ConfigManager.Selection = {
     },
     Background = {
         Mesh = "Models/Crossy/Selection/background.obj", Distance = 40, SizeMargin = 1.5,
-        Day = { Color = { 170, 225, 255 } }, Night = { Color = { 20, 25, 50 } }
+        Day = {
+            Color = { 58, 177, 224 }
+        },
+        Night = {
+            Color = { 20, 25, 50 }
+        }
     },
     RowX = -200.0,
     Spacing = 5.0,
@@ -292,10 +298,10 @@ ConfigManager.River = {
         LogsPerRow = 5,
         MaxInitialLogsPerRow = 4,
         MinSpawnDelay = 1.5,
-        MaxSpawnDelay = 4.5,
+        MaxSpawnDelay = 3.5,
         MinLogGap = 0.8,
         MinSpeed = 4.5,
-        MaxSpeed = 12.0,
+        MaxSpeed = 10.0,
         MinLogHalfLength = 1.25,
         MaxLogHalfLength = 4.0,
         PlayerHalfWidth = 0.7,
@@ -305,13 +311,13 @@ ConfigManager.River = {
         MaxRows = 4,
         LogsPerRow = 4,
         MaxInitialLogsPerRow = 3,
-        MinSpawnDelay = 1.5,
-        MaxSpawnDelay = 4.5,
+        MinSpawnDelay = 1.0,
+        MaxSpawnDelay = 2.5,
         MinLogGap = 0.8,
-        MinSpeed = 5.5,
-        MaxSpeed = 18.0,
-        MinLogHalfLength = 1.25,
-        MaxLogHalfLength = 3.0,
+        MinSpeed = 7.0,
+        MaxSpeed = 20.0,
+        MinLogHalfLength = 1.0,
+        MaxLogHalfLength = 2.5,
         PlayerHalfWidth = 0.7,
     },
     -- 물 에셋이 작은 타일이면 "Tile",

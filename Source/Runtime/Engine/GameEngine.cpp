@@ -234,7 +234,7 @@ void UGameEngine::RenderGameFrame()
 	Options.bDrawPrimitives = true;
 	Options.bCacheShadows = true;
 	Options.PcfMode = EPcfMode::Sample8;
-	Options.RenderingPath = ERenderingPath::Deferred;
+	Options.RenderingPath = ERenderingPath::Forward;
 	Options.LightingModel = ELightingModel::Gouraud;
 	Options.LightCullingMode = ELightCullingMode::Tiled;
 

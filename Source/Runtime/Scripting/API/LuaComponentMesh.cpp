@@ -35,14 +35,21 @@ void LuaRegisterComponentMesh(sol::state& State)
         "SetStaticMesh", &UStaticMeshComponent::SetStaticMesh,
         "GetStaticMesh", &UStaticMeshComponent::GetStaticMesh,
         "SetUnlitColor", [](UStaticMeshComponent& Mesh, const FColor& Color) {
-            UMaterial* Material = Mesh.GetOverrideMaterial(0);
-            if (!Material || !Material->bIsInstance)
-                Material = UMaterial::CreateInstance(Mesh.GetMaterial(0));
-            if (!Material) throw sol::error("SetUnlitColor requires a mesh material");
-
+            const int32 SlotCount = Mesh.GetNumMaterials();
+            if (SlotCount == 0) throw sol::error("SetUnlitColor requires a mesh material");
             const FLinearColor Linear(Color);
-            Material->BaseColor = FVector4(Linear.R, Linear.G, Linear.B, Linear.A);
-            Material->bUnlit = true;
-            Mesh.SetMaterial(0, Material);
+
+            // OBJ의 0번은 기본 재질일 수 있으므로 실제 면이 사용하는 모든 슬롯에 적용한다.
+            for (int32 Slot = 0; Slot < SlotCount; ++Slot)
+            {
+                UMaterial* Material = Mesh.GetOverrideMaterial(Slot);
+                if (!Material || !Material->bIsInstance)
+                    Material = UMaterial::CreateInstance(Mesh.GetMaterial(Slot));
+                if (!Material) throw sol::error("SetUnlitColor requires a mesh material");
+
+                Material->BaseColor = FVector4(Linear.R, Linear.G, Linear.B, Linear.A);
+                Material->bUnlit = true;
+                Mesh.SetMaterial(Slot, Material);
+            }
         });
 }
