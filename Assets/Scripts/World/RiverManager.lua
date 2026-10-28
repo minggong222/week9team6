@@ -181,6 +181,7 @@ function Initialize(Self, Level, Player, PlayerScript, Layout)
 end
 
 function ResetRandom(Seed)
+    Audio.StopLoop(Config.StreamSound)
     State.RandomState = Seed % 2147483647
 
     if State.RandomState <= 0 then
@@ -329,6 +330,7 @@ function ResolveLanding(Position)
                     + GetSettings().PlayerHalfWidth then
 
                 State.RidingLog = Log
+                Audio.PlaySFX(Config.LandingSound, Config.LandingSoundVolume)
 
                 -- 플레이어를 통나무 상단에 맞춘다.
                 Root:SetWorldLocation(FVector.new(
@@ -365,6 +367,21 @@ function Update(DeltaSeconds)
     end
     State.ElapsedTime = State.ElapsedTime + DeltaSeconds
     local Phase = Refs.Level:Invoke("GetPhase")
+
+    local Volume = 0
+    if Phase == "Playing" and Refs.Player then
+        local PlayerX = Refs.Player:GetActorLocation().X
+        local Range = Refs.Layout.CellSize * Config.StreamAudibleRows
+        for _, Lane in ipairs(State.Slots) do
+            if Lane.Active then
+                local RiverX = Refs.Layout.Origin.X + Lane.Index * Refs.Layout.CellSize
+                local Attenuation = math.max(0, 1 - math.abs(PlayerX - RiverX) / Range)
+                Volume = math.max(Volume, Config.StreamSoundVolume * Attenuation * Attenuation)
+            end
+        end
+    end
+    if Volume > 0 then Audio.PlayLoop(Config.StreamSound, Volume)
+    else Audio.StopLoop(Config.StreamSound) end
 
     for _, Lane in ipairs(State.Slots) do
         if Lane.Active then
@@ -496,6 +513,7 @@ function Update(DeltaSeconds)
 end
 
 function Shutdown()
+    Audio.StopLoop(Config.StreamSound)
     State.RidingLog = nil
 
     for _, Lane in ipairs(State.Slots) do

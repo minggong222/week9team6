@@ -87,10 +87,16 @@ namespace
             return true;
         }
 
-        bool PlaySFX(const FString& Path, float Volume)
+        bool PlaySFX(const FString& Path, float Volume, bool Loop = false)
         {
             if (!std::isfinite(Volume) || Volume < 0.0f || Volume > 1.0f)
                 return false;
+
+            if (Loop)
+            {
+                const auto Found = LoopVoices.find(Path);
+                if (Found != LoopVoices.end()) return SUCCEEDED(Found->second->SetVolume(Volume));
+            }
 
             if (!Initialize())
                 return false;
@@ -117,6 +123,7 @@ namespace
             Buffer.pAudioData = Clip->Data.data();
             Buffer.Flags = XAUDIO2_END_OF_STREAM;
 
+            if (Loop) Buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
             if (FAILED(Voice->SubmitSourceBuffer(&Buffer)))
             {
                 Voice->DestroyVoice();
@@ -129,8 +136,18 @@ namespace
                 return false;
             }
 
-            EffectVoices.push_back(Voice);
+            if (Loop) LoopVoices.emplace(Path, Voice);
+            else EffectVoices.push_back(Voice);
             return true;
+        }
+
+        void StopLoop(const FString& Path)
+        {
+            const auto Found = LoopVoices.find(Path);
+            if (Found == LoopVoices.end()) return;
+            Found->second->Stop(0);
+            Found->second->DestroyVoice();
+            LoopVoices.erase(Found);
         }
 
         void StopBGM()
@@ -146,6 +163,7 @@ namespace
 
         void StopSFX()
         {
+            while (!LoopVoices.empty()) StopLoop(LoopVoices.begin()->first);
             for (IXAudio2SourceVoice* Voice : EffectVoices)
             {
                 if (!Voice)
@@ -337,6 +355,7 @@ namespace
 
         std::unordered_map<FString, std::unique_ptr<FWaveClip>> WaveCache;
         std::vector<IXAudio2SourceVoice*> EffectVoices;
+        std::unordered_map<FString, IXAudio2SourceVoice*> LoopVoices;
     };
 
     FAudioSystem& GetAudioSystem()
@@ -364,9 +383,21 @@ namespace
     {
         GetAudioSystem().StopSFX();
     }
+
+    bool PlayLoop(const FString& Path, sol::optional<float> Volume)
+    {
+        return GetAudioSystem().PlaySFX(Path, Volume.value_or(1.0f), true);
+    }
+
+    void StopLoop(const FString& Path)
+    {
+        GetAudioSystem().StopLoop(Path);
+    }
 }
 
 void LuaRegisterAudio(sol::state& State)
 {
     State.create_named_table("Audio", "PlayBGM", &PlayBGM, "StopBGM", &StopBGM, "PlaySFX", &PlaySFX, "StopSFX", &StopSFX);
+    State["Audio"]["PlayLoop"] = &PlayLoop;
+    State["Audio"]["StopLoop"] = &StopLoop;
 }

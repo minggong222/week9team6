@@ -121,7 +121,7 @@ ConfigManager.Map = {
     Day = {
         RoadChance = 0.50,
         RailChance = 0.05,
-        RiverChance = 0.30,
+        RiverChance = 0.15,
 
         TreesPerRow = 5,
         TreeWeights = { 5, 15, 20, 30, 20, 10 }
@@ -281,6 +281,11 @@ ConfigManager.Cinematics = {
 }
 
 ConfigManager.River = {
+    LandingSound = "Audio/Plonk.wav",
+    LandingSoundVolume = 0.8,
+    StreamSound = "Audio/Stream.wav",
+    StreamSoundVolume = 0.35,
+    StreamAudibleRows = 6,
     Day = {
         MinRows = 1,
         MaxRows = 3,
