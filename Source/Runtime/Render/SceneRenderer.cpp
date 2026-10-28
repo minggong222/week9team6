@@ -19,6 +19,7 @@
 #include "GameFramework/PlayerController.h"
 
 #include <cmath>
+#include <cstddef>
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -29,13 +30,15 @@ DECLARE_CYCLE_STAT("Gather Elements", STAT_GatherElements);
 
 namespace
 {
-	struct FCameraOverlayConstants
+	struct alignas(16) FCameraOverlayConstants
 	{
-		FVector4 FadeColor;
+		FVector4 FadeColor = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
 		float LetterBoxHeight = 0.0f;
-		float Padding[3]{};
+		float VignetteIntensity = 0.0f;
+		float Padding[2]{};
 	};
 	static_assert(sizeof(FCameraOverlayConstants) == 32);
+	static_assert(offsetof(FCameraOverlayConstants, VignetteIntensity) == 20);
 
 	struct FToneMapConstants
 	{
@@ -627,20 +630,21 @@ bool FSceneRenderer::AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Render
 	return true;
 }
 
-bool FSceneRenderer::AddCameraOverlayPass(FRenderGraphBuilder& Graph, FRenderer* Renderer, FRenderGraphTextureRef Color)
+bool FSceneRenderer::AddCameraOverlayPass(FRenderGraphBuilder& Graph, FRenderer* Renderer, FRenderGraphTextureRef Color,
+	const FSceneRenderOptions& Options)
 {
 	APlayerController* Controller = World ? World->GetPlayerController() : nullptr;
 	APlayerCameraManager* CameraManager = Controller ? Controller->GetPlayerCameraManager() : nullptr;
-	if (!CameraManager)
+	FCameraOverlayConstants Constants{};
+	Constants.VignetteIntensity = Options.VignetteIntensity;
+	if (CameraManager)
 	{
-		return true;
+		Constants.FadeColor = CameraManager->GetFadeColor().ToVector4();
+		Constants.FadeColor.W *= CameraManager->GetFadeAmount();
+		Constants.LetterBoxHeight = CameraManager->GetLetterBoxHeight();
 	}
 
-	FCameraOverlayConstants Constants{};
-	Constants.FadeColor = CameraManager->GetFadeColor().ToVector4();
-	Constants.FadeColor.W *= CameraManager->GetFadeAmount();
-	Constants.LetterBoxHeight = CameraManager->GetLetterBoxHeight();
-	if (Constants.FadeColor.W <= 0.0f && Constants.LetterBoxHeight <= 0.0f)
+	if (Constants.FadeColor.W <= 0.0f && Constants.LetterBoxHeight <= 0.0f && Constants.VignetteIntensity <= 0.0f)
 	{
 		return true;
 	}
@@ -777,7 +781,7 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 		Pass.ReadTextures = { Depth };
 		if (!Graph.AddRasterPass(std::move(Pass), Callbacks.CascadeVisualization)) return false;
 	}
-	if (!Options.bShowWorldNormal && !AddCameraOverlayPass(Graph, Renderer, FinalColor)) return false;
+	if (!Options.bShowWorldNormal && !AddCameraOverlayPass(Graph, Renderer, FinalColor, Options)) return false;
 	if (!AddOverlayPass(Graph, "EditorLines", FinalColor, Depth, Overlay.EditorLines) ||
 		!AddOverlayPass(Graph, "EditorGrid", FinalColor, Depth, Overlay.EditorGrid) ||
 		!AddOverlayPass(Graph, "EditorOutline", FinalColor, Depth, Overlay.EditorOutline) ||
