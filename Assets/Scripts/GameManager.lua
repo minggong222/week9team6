@@ -208,13 +208,10 @@ function BeginPlay(Self)
         Level.Manager:Invoke("EnableTraffic")
     end
 
-    State.Game.Phase, State.Game.Score, State.Game.MaxRow = GamePhase.Selecting, 0, 0
+    State.Game.Phase, State.Game.Score, State.Game.MaxRow = GamePhase.Ready, 0, 0
     State.Game.GameOverRequested, State.Game.ClearRequested = false, false
     Refs.Selection:Invoke("CreatePreviews")
-    State.Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
-    local Target = Refs.Selection:Invoke("GetSelectionCameraLocation")
-    Refs.Camera:Invoke("ShowSelectionCamera", Target)
-    UpdateScreen()
+    EnterSelectedCharacter()
 end
 
 function TickComponent(Self, DeltaSeconds)
@@ -381,7 +378,9 @@ function TickComponent(Self, DeltaSeconds)
     end
 
     --------------------------------------------------------------------------------------
-    if Game.Phase ~= GamePhase.Selecting and Input.IsKeyPressed(EKeyCode.Backspace) then
+    local CanSelectCharacter = Game.Phase == GamePhase.Dead
+        or (Game.Phase == GamePhase.Playing and (Game.Score or 0) == 0)
+    if CanSelectCharacter and Input.IsKeyPressed(EKeyCode.Backspace) then
         ReturnToCharacterSelection()
         return
     end

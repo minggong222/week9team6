@@ -1,6 +1,7 @@
 -- 캐릭터 목록·선택 인덱스·프리뷰는 이 스크립트에서만 관리
 local Config = { RowX = -200.0, Spacing = 5.0, Size = 2.0 }
 local CharacterOptions = {
+    { Name = "Hitori", Path = "Models/OBJ format/animal-hitori.obj" },
     { Name = "Beaver", Path = "Models/OBJ format/animal-beaver.obj" },
     { Name = "Bee", Path = "Models/OBJ format/animal-bee.obj" },
     { Name = "Bunny", Path = "Models/OBJ format/animal-bunny.obj" },
@@ -25,7 +26,6 @@ local CharacterOptions = {
     { Name = "Pig", Path = "Models/OBJ format/animal-pig.obj" },
     { Name = "Polar", Path = "Models/OBJ format/animal-polar.obj" },
     { Name = "Tiger", Path = "Models/OBJ format/animal-tiger.obj" },
-    { Name = "Hitori", Path = "Models/OBJ format/animal-hitori.obj" },
 }
 
 -- 실행 상태와 연결 참조는 HotReload 시 보존. 기본 설정은 local로 선언

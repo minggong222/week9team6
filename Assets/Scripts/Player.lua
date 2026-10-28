@@ -141,6 +141,9 @@ function RefreshMeshBaseLocation()
     local Mesh = FindStaticMeshComponent(Actor)
     State.MeshBaseLocation = Mesh and Mesh:GetRelativeLocation() or nil
     State.MeshBaseScale = Mesh and Mesh:GetRelativeScale3D() or nil
+    if Mesh and State.MeshBaseRotation == nil then
+        State.MeshBaseRotation = Mesh:GetRelativeRotation()
+    end
     ResetJump(Mesh)
 end
 

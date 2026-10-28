@@ -1,5 +1,5 @@
 -- 피격 표현과 복원 기준은 이 스크립트에서만 관리
-local Config = { SquashRatio = 0.25 }
+local Config = { SquashRatio = 0.05 }
 State = {}
 Refs = {}
 

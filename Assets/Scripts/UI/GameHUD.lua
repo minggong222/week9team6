@@ -81,7 +81,7 @@ function ShowScore(Score, HUDScale)
     Place(Refs.HUDTitle, "SCORE", Config.Hint, 0.13, 0.92)
     Place(Refs.ScoreText, string.format("%03d", Score or 0), Config.Score, 0.13, 0.81)
     Place(Refs.HUDDetail, "", Config.Hint, 0.5, 0.5)
-    Place(Refs.HUDHint, "BACKSPACE : CHARACTERS", Config.Hint, 0.5, 0.06)
+    Place(Refs.HUDHint, (Score or 0) == 0 and "BACKSPACE : CHARACTERS" or "", Config.Hint, 0.5, 0.06)
 end
 
 function ShowResult(Phase, Score, HUDScale)
@@ -91,7 +91,8 @@ function ShowResult(Phase, Score, HUDScale)
     Place(Refs.HUDTitle, Phase == "Dead" and "GAME OVER" or "GAME CLEAR", 0.065, 0.5, 0.72)
     Place(Refs.ScoreText, string.format("%03d", Score or 0), Config.Score, 0.5, 0.55)
     Place(Refs.HUDDetail, "FINAL SCORE", Config.Hint, 0.5, 0.48)
-    Place(Refs.HUDHint, "R : RETRY\nBACKSPACE : CHARACTERS", Config.Hint, 0.5, 0.34)
+    Place(Refs.HUDHint, Phase == "Dead" and "R : RETRY\nBACKSPACE : CHARACTERS" or "R : RETRY",
+        Config.Hint, 0.5, 0.34)
 end
 
 function Hide()
