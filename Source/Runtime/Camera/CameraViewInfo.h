@@ -16,7 +16,7 @@ struct FCameraPOV
 	float OrthoWidth = 16.0f;
 
 	bool bIsPerspective = true;
-
+	float PerspectiveBlend = 1.0f;
 	bool IsValid() const;
 	
 	FMatrix GetViewMatrix() const;

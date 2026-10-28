@@ -38,6 +38,7 @@ struct FViewContext
 	float ProjectionScaleSquared = 0.0f;
 	float NearZ = 0.0f;
 	bool bOrthographic = false;
+	float PerspectiveBlend = 1.0f;
 	bool bGameView = false;
 	float CameraDepth = 0.0f;
 	FMatrix ViewProjection = FMatrix::Identity;
@@ -50,9 +51,11 @@ struct FViewContext
 	FMatrix BuildBillboardMatrix(const FVector& WorldPosition, float Width, float Height) const
 	{
 		// 뷰포트 카메라를 바라보는 방향 벡터 계산
-		FVector Facing = bOrthographic
-			? (CameraForward * -1.0f)
-			: (CameraPosition - WorldPosition).Normalized();
+		const FVector PerspectiveFacing = (CameraPosition - WorldPosition).Normalized();
+
+		const FVector OrthographicFacing = CameraForward * -1.0f;
+
+		const FVector Facing = (OrthographicFacing * (1.0f - PerspectiveBlend) + PerspectiveFacing * PerspectiveBlend).Normalized();
 		FVector Up = FVector(0.0f, 0.0f, 1.0f);
 		FVector Right = FVector::Cross(Up, Facing).Normalized();
 		if (Right.Length() <= EPSILON_1E_6)

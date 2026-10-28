@@ -1,10 +1,63 @@
 -- 맵·교통·기차의 생성·회수 순서 및 게임 매니저 연결 관리
-local Config = {
-    CellSize = 3.0, RowsBehind = 10, RowsAhead = 30, DeathRowsBehind = 6,
-    HalfWidth = 24.0, BoundaryWidth = 0.3, RoadHalfWidth = 34.0, InitialSeed = 20261026
-}
-State = { HighestRow = 0, Seed = Config.InitialSeed, TrafficRandomState = 1, RailSlots = {} }
-Refs = {}
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Level
+-- 엔진이 초기화한 Lua 난수에서 실행별 시드를 얻는다. 파생 시드의 오프셋 범위도 확보한다.
+local function NewRunSeed()
+    return math.random(1, 2147378917)
+end
+
+State = { HighestRow = 0, Seed = NewRunSeed(), TrafficRandomState = 1, RailSlots = {} }
+State.LightingProfile = Config.NightMode and "Night" or "Day"
+Refs = { Lights = { Sky = {}, Sun = {}, Car = {}, Train = {} } }
+
+local function ApplyLight(Light, Settings)
+    local Color = Settings.Color
+    if Settings.AttenuationRadius then Light:SetAttenuationRadius(Settings.AttenuationRadius) end
+    Light:SetIntensity(Settings.Intensity)
+    Light:SetLightColor(FColor.new(Color[1], Color[2], Color[3], Color[4] or 255))
+end
+
+-- 동적으로 생성한 차량 조명도 같은 설정을 적용하도록 등록한다.
+function RegisterLight(Kind, Light)
+    local Lights = assert(Refs.Lights[Kind], "Unknown light kind: " .. tostring(Kind))
+    for _, Existing in ipairs(Lights) do if Existing == Light then return end end
+    Lights[#Lights + 1] = Light
+    if Kind == "Car" or Kind == "Train" then
+        local Settings = Config.Spotlight
+        Light:SetShadowSlopeBias(Settings.ShadowSlopeBias)
+        Light:SetInnerConeAngle(Settings.InnerConeAngle)
+        Light:SetOuterConeAngle(Settings.OuterConeAngle)
+    end
+    ApplyLight(Light, Config.Lighting[State.LightingProfile][Kind])
+end
+
+-- 조명만 전환하며 교통 난이도와 장애물의 표시 상태는 유지한다.
+function SetLightingProfile(Profile)
+    local Settings = assert(Config.Lighting[Profile], "Unknown lighting profile: " .. tostring(Profile))
+    State.LightingProfile = Profile
+    for Kind, Lights in pairs(Refs.Lights) do
+        for _, Light in ipairs(Lights) do ApplyLight(Light, Settings[Kind]) end
+    end
+end
+
+-- 현재 선택된 낮/밤 설정의 Intensity와 RGBA를 변경한다.
+function SetLighting(Kind, Intensity, Red, Green, Blue, Alpha)
+    assert(Config.Lighting[State.LightingProfile][Kind], "Unknown light kind: " .. tostring(Kind))
+    assert(Intensity >= 0, "Light intensity must be non-negative")
+    local Settings = { Intensity = Intensity, Color = { Red, Green, Blue, Alpha or 255 },
+        AttenuationRadius = Config.Lighting[State.LightingProfile][Kind].AttenuationRadius }
+    for _, Value in ipairs(Settings.Color) do
+        assert(Value >= 0 and Value <= 255, "Light color must be within 0..255")
+    end
+    Config.Lighting[State.LightingProfile][Kind] = Settings
+    for _, Light in ipairs(Refs.Lights[Kind]) do ApplyLight(Light, Settings) end
+end
+
+local function InitializeLighting()
+    for _, Light in ipairs(Actor:GetWorld():GetLightComponents()) do
+        if Light:GetLightType() == ELightType.Sky then RegisterLight("Sky", Light) end
+        if Light:GetLightType() == ELightType.Directional then RegisterLight("Sun", Light) end
+    end
+end
 
 local function AttachScript(Name, Path)
     local Script = ULuaComponent.Cast(Actor:FindComponentByName(Name))
@@ -68,10 +121,10 @@ local function StopPlayerMovement()
     if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
 end
 
-function RequestGameOver(Reason)
+function RequestGameOver(Reason, HitDirection)
     if GetPhase() ~= "Playing" then return end
     if Refs.Game then
-        Refs.Game:Invoke("GameOver")
+        Refs.Game:Invoke("GameOver", HitDirection)
     else
         State.Game.Phase = "Dead"
         StopPlayerMovement()
@@ -149,7 +202,7 @@ function ResetLevel(NewSeed)
     -- 차량 반환 -> 각 시스템의 행 정리 -> 난수 초기화 -> 행 생성 순서 유지
     Refs.Traffic:Invoke("DeactivateCars")
     for _, Row in ipairs(Refs.Map:Invoke("GetRows")) do RecycleRow(Row.Id, false) end
-    if NewSeed then State.Seed = State.Seed + 1 end
+    if NewSeed then State.Seed = NewRunSeed() end
     State.HighestRow = 0
     State.TrafficRandomState = (State.Seed + 104729) % 2147483647
     Refs.Map:Invoke("ResetGeneration", State.Seed)
@@ -158,12 +211,7 @@ function ResetLevel(NewSeed)
 
     if Refs.Layout.HasMapPool then
         GenerateMapRows(-Config.RowsBehind, Config.RowsAhead)
-    else
-        for Id = 1, Refs.Layout.RowCount do
-            local Index = Refs.Map:Invoke("GetStaticRowIndex", Id)
-            Refs.Map:Invoke("CreateRow", Id, Index, "road")
-            ConfigureRow(Id, Index, "road")
-        end
+
     end
     PublishLevelState()
 end
@@ -175,6 +223,19 @@ end
 
 function SpawnCar(Location, Direction, Speed, TravelDistance)
     return Refs.Traffic:Invoke("SpawnCar", Location, Direction, Speed, TravelDistance)
+end
+
+function GetMode()
+    return Refs.Layout.NightMode and "Night" or "Day"
+end
+
+-- 선택 화면에서 모드 변경 시 같은 시드로 교통을 다시 구성한다.
+function SetMode(Mode)
+    assert(Mode == "Day" or Mode == "Night", "Unknown mode: " .. tostring(Mode))
+    if GetMode() == Mode then return end
+    Refs.Layout.NightMode = Mode == "Night"
+    SetLightingProfile(Mode)
+    ResetLevel(false)
 end
 
 function EnableTraffic()
@@ -199,6 +260,8 @@ local function PrintLevelState()
 end
 
 function BeginPlay(Self)
+    State.Initialized = false
+    InitializeLighting()
     assert(Config.DeathRowsBehind > 0 and Config.DeathRowsBehind <= Config.RowsBehind, "Death boundary must be inside the retained map")
     assert(Config.HalfWidth >= Config.CellSize and Config.HalfWidth <= 33 and Config.BoundaryWidth > 0, "Invalid map width")
     Refs.Player = Actor:GetWorld():GetPlayerPawn()
@@ -209,7 +272,7 @@ function BeginPlay(Self)
 
     -- Layout은 공통 배치값 전달용. 각 시스템의 실행 상태는 별도 보관
     Refs.Layout = {
-        CellSize = Config.CellSize, RowsBehind = Config.RowsBehind, RowsAhead = Config.RowsAhead,
+        NightMode = Config.NightMode, CellSize = Config.CellSize, RowsBehind = Config.RowsBehind, RowsAhead = Config.RowsAhead,
         HalfWidth = Config.HalfWidth, BoundaryWidth = Config.BoundaryWidth, RoadHalfWidth = Config.RoadHalfWidth,
         Origin = HasMapPool and Actor:GetActorLocation() or FVector.new(6, 0, 0), HasMapPool = HasMapPool
     }
@@ -242,6 +305,8 @@ function BeginPlay(Self)
     }
 
     -- 전역 공개 정보는 매니저 연결 및 기존 콘솔 호출의 호환용으로만 사용
+    State.Info.SetLightingProfile = function(Profile) Self:Invoke("SetLightingProfile", Profile) end
+    State.Info.SetLighting = function(...) Self:Invoke("SetLighting", ...) end
     State.Info.Reset = function(NewSeed) Self:Invoke("ResetLevel", NewSeed) end
     State.Info.EnableTraffic = function() Self:Invoke("EnableTraffic") end
     State.Info.SetTrainSpeed = function(Speed, RowIndex) Self:Invoke("SetTrainSpeed", Speed, RowIndex) end
@@ -251,9 +316,16 @@ function BeginPlay(Self)
 
     ResetLevel(false)
     if State.Game.EnableTraffic then EnableTraffic() end
+    State.Initialized = true
+end
+
+function PlayTreeHit(BlockingComponent)
+    if State.Initialized then Refs.Map:Invoke("PlayTreeHit", BlockingComponent) end
 end
 
 function TickComponent(Self, DeltaSeconds)
+    if not State.Initialized then return end
+    Refs.Map:Invoke("UpdateTreeHits", Actor:GetWorld():GetRealDeltaSeconds())
     if State.Game.EnableTraffic and not Refs.Traffic:Invoke("IsEnabled") then EnableTraffic() end
 
     -- GameManager가 없는 maptest는 기존처럼 자체 재시작·점수 처리
@@ -289,9 +361,9 @@ function TickComponent(Self, DeltaSeconds)
         end
     end
 
-    -- 사망 후에도 교통 유지, 선택·준비·클리어에서는 정지
+    -- 사망·크레딧 화면에서도 교통 유지, 선택·준비·클리어에서는 정지
     local Phase = GetPhase()
-    if Phase == "Playing" or Phase == "Dead" then
+    if Phase == "Playing" or Phase == "Dead" or Phase == "Credits" then
         Refs.Traffic:Invoke("Update", DeltaSeconds)
         if Refs.Layout.HasMapPool then
             Refs.Train:Invoke("Update", DeltaSeconds)

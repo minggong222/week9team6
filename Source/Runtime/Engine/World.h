@@ -21,6 +21,7 @@ class FLuaManager;
 class UBillboardComponent;
 class APawn;
 class APlayerController;
+class APlayerCameraManager;
 class AActor;
 class ACameraActor;
 class UActorComponent;
@@ -102,6 +103,7 @@ public:
 
 	APawn* GetPlayerPawn() const { return PlayerPawn; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
+	APlayerCameraManager* GetPlayerCameraManager() const;
 
 
 	////////////////////////////////////////////////////////////

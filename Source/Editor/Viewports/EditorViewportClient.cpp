@@ -158,6 +158,7 @@ FSceneView FEditorViewportClient::CalcSceneView(const FRect &InViewRect) const {
     OutView.NearClip = NearClip;
     OutView.FarClip = FarClip;
     OutView.OrthoWidth = OrthoWidth;
+    OutView.PerspectiveBlend = bIsPerspective ? 1.0f : 0.0f;
     OutView.bIsPerspective = bIsPerspective;
     OutView.bIsWireframe = ViewportMode == EViewportMode::Wireframe;
     return OutView;

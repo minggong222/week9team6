@@ -31,6 +31,7 @@ FCameraPOV UCameraComponent::GetCameraPOV() const
     POV.FarClip = FarClipPlane;
     POV.OrthoWidth = OrthoWidth;
     POV.bIsPerspective = !bIsOrthogonal;
+    POV.PerspectiveBlend = POV.bIsPerspective ? 1.0f : 0.0f;
 
     return POV;
 }

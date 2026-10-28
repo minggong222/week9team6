@@ -516,7 +516,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -938,7 +938,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -1360,7 +1360,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -1782,7 +1782,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -2204,7 +2204,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -2626,7 +2626,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -3048,7 +3048,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -3470,7 +3470,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -3892,7 +3892,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -4314,7 +4314,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -4736,7 +4736,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -5158,7 +5158,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -5580,7 +5580,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -6424,7 +6424,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -7268,7 +7268,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -8112,7 +8112,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -11066,7 +11066,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -11910,7 +11910,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -14864,7 +14864,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -16130,7 +16130,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -16974,7 +16974,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -17396,7 +17396,7 @@
                                 "bGenerateOverlapEvents": false,
                                 "bHiddenInGame": false,
                                 "bReceiveShadow": true,
-                                "bVisible": true
+                                "bVisible": false
                             }
                         },
                         {
@@ -17809,88 +17809,6 @@
                                     "Scale": {
                                         "X": 1.0227272727272727,
                                         "Y": 1,
-                                        "Z": 1
-                                    }
-                                },
-                                "bAutoActivate": true,
-                                "bBlockComponent": true,
-                                "bCastShadow": true,
-                                "bGenerateOverlapEvents": false,
-                                "bHiddenInGame": false,
-                                "bReceiveShadow": true,
-                                "bVisible": true
-                            }
-                        },
-                        {
-                            "Class": "UStaticMeshComponent",
-                            "Collision": {
-                                "Enabled": 1,
-                                "ObjectType": 1,
-                                "Pawn": 2,
-                                "Projectile": 2,
-                                "WorldDynamic": 2,
-                                "WorldStatic": 2
-                            },
-                            "Name": "MapBoundaryLeft",
-                            "OverrideMaterials": [],
-                            "Parent": "DefaultSceneRoot",
-                            "Properties": {
-                                "StaticMesh": "Models/Crossy/RoadTiles/kenney-sidewalk.obj",
-                                "Transform": {
-                                    "Location": {
-                                        "X": 30,
-                                        "Y": -25.65,
-                                        "Z": 0.01
-                                    },
-                                    "Rotation": {
-                                        "Pitch": 0,
-                                        "Yaw": 0,
-                                        "Roll": 0
-                                    },
-                                    "Scale": {
-                                        "X": 1.025,
-                                        "Y": 0.09999999999999999,
-                                        "Z": 1
-                                    }
-                                },
-                                "bAutoActivate": true,
-                                "bBlockComponent": true,
-                                "bCastShadow": true,
-                                "bGenerateOverlapEvents": false,
-                                "bHiddenInGame": false,
-                                "bReceiveShadow": true,
-                                "bVisible": true
-                            }
-                        },
-                        {
-                            "Class": "UStaticMeshComponent",
-                            "Collision": {
-                                "Enabled": 1,
-                                "ObjectType": 1,
-                                "Pawn": 2,
-                                "Projectile": 2,
-                                "WorldDynamic": 2,
-                                "WorldStatic": 2
-                            },
-                            "Name": "MapBoundaryRight",
-                            "OverrideMaterials": [],
-                            "Parent": "DefaultSceneRoot",
-                            "Properties": {
-                                "StaticMesh": "Models/Crossy/RoadTiles/kenney-sidewalk.obj",
-                                "Transform": {
-                                    "Location": {
-                                        "X": 30,
-                                        "Y": 25.65,
-                                        "Z": 0.01
-                                    },
-                                    "Rotation": {
-                                        "Pitch": 0,
-                                        "Yaw": 0,
-                                        "Roll": 0
-                                    },
-                                    "Scale": {
-                                        "X": 1.025,
-                                        "Y": 0.09999999999999999,
                                         "Z": 1
                                     }
                                 },

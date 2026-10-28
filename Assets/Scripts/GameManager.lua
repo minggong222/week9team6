@@ -1,6 +1,6 @@
 -- 게임 규칙과 시스템 간 호출 순서 관리
-local GamePhase = { Selecting = "SelectingCharacter", Ready = "Ready", Playing = "Playing", Dead = "Dead", Clear = "Clear" }
-local Config = { CellSize = 3.0, GoalRow = 150 }
+local GamePhase = { Selecting = "SelectingCharacter", Ready = "Ready", Playing = "Playing", Dead = "Dead", Clear = "Clear", Credits = "Credits" }
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Game
 
 -- 전역 테이블은 기존 외부 호출과의 호환용. 게임 단계·점수 변경은 이 매니저 담당
 State = { Game = _G.CrossyGameState or { Phase = GamePhase.Ready, Score = 0, MaxRow = 0 } }
@@ -27,11 +27,13 @@ local function UpdateHUD()
     local Game = State.Game
     if Game.Phase == GamePhase.Selecting then
         local Name, Index, Count = Refs.Selection:Invoke("GetSelection")
-        Refs.HUD:Invoke("ShowSelection", Name, Index, Count, Game.HUDScale)
+        Refs.HUD:Invoke("ShowSelection", Name, Index, Count, Game.HUDScale, Game.Mode or Config.DefaultMode)
     elseif Game.Phase == GamePhase.Playing then
         Refs.HUD:Invoke("ShowScore", Game.Score, Game.HUDScale)
     elseif Game.Phase == GamePhase.Dead or Game.Phase == GamePhase.Clear then
         Refs.HUD:Invoke("ShowResult", Game.Phase, Game.Score, Game.HUDScale)
+    elseif Game.Phase == GamePhase.Credits then
+        Refs.HUD:Invoke("ShowCredits", Game.HUDScale, State.CreditsCamera)
     else
         Refs.HUD:Invoke("Hide")
     end
@@ -45,6 +47,7 @@ end
 
 function BindLevel(LevelManager)
     Refs.Level = LevelManager
+    State.Game.Mode = LevelManager:Invoke("GetMode")
 end
 
 function GetPhase()
@@ -75,13 +78,15 @@ function StartGame()
     print("Game Started")
 end
 
-function GameOver()
+function GameOver(HitDirection)
     -- 같은 프레임의 여러 충돌도 한 번만 처리
     if State.Game.Phase ~= GamePhase.Playing then return end
     State.Game.Phase = GamePhase.Dead
 
     if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
-    Refs.HitReaction:Invoke("PlayHitReaction")
+    local MinY, MaxY
+    if Refs.Level then MinY, MaxY = Refs.Level:Invoke("GetMovementBounds") end
+    Refs.HitReaction:Invoke("PlayHitReaction", HitDirection, Config.CellSize, MinY, MaxY)
     Refs.Cinematics:Invoke("PlayDeath")
     UpdateScreen()
     print("Game Over!")
@@ -111,6 +116,8 @@ end
 
 local function Restart()
     if State.Restarting then return end
+    -- 암전이 시작되기 전에 HitStop·슬로모션을 해제해 재시작 시간이 늘어나지 않도록 한다.
+    Actor:GetWorld():ResetTimeEffects()
     local WasDead = State.Game.Phase == GamePhase.Dead
     State.Game.RestartCount = (State.Game.RestartCount or 0) + 1
     State.Restarting = true
@@ -194,7 +201,7 @@ function BeginPlay(Self)
     Refs.HUD:Invoke("Initialize", Camera)
     Refs.Camera:Invoke("Initialize", Camera)
     Refs.Selection:Invoke("Initialize", Refs.Player, Refs.PlayerMesh)
-    Refs.HitReaction:Invoke("Initialize", Refs.PlayerMesh)
+    Refs.HitReaction:Invoke("Initialize", Refs.PlayerMesh, Refs.Player)
     Refs.Cinematics:Invoke("PlayStart")
 
     -- 두 매니저의 BeginPlay 순서와 무관한 연결 및 기존 공개 인터페이스 유지
@@ -208,17 +215,15 @@ function BeginPlay(Self)
         Level.Manager:Invoke("EnableTraffic")
     end
 
-    State.Game.Phase, State.Game.Score, State.Game.MaxRow = GamePhase.Selecting, 0, 0
+    State.Game.Phase, State.Game.Score, State.Game.MaxRow = GamePhase.Ready, 0, 0
     State.Game.GameOverRequested, State.Game.ClearRequested = false, false
     Refs.Selection:Invoke("CreatePreviews")
-    State.Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
-    local Target = Refs.Selection:Invoke("GetSelectionCameraLocation")
-    Refs.Camera:Invoke("ShowSelectionCamera", Target)
-    UpdateScreen()
+    ReturnToCharacterSelection()
 end
 
 function TickComponent(Self, DeltaSeconds)
     local Game = State.Game
+    Refs.HitReaction:Invoke("Update", Actor:GetWorld():GetRealDeltaSeconds())
     -- 암전 중에는 재입력을 막고, 초기화는 화면이 가려진 뒤 실행한다.
     if State.Restarting then
         State.RestartRemaining = State.RestartRemaining - DeltaSeconds
@@ -227,6 +232,20 @@ function TickComponent(Self, DeltaSeconds)
             State.Restarting = false
             StartGame()
             RequestPlayerReset(true)
+        end
+        return
+    end
+
+    if Game.Phase == GamePhase.Credits then
+        if Input.IsKeyPressed(EKeyCode.C) or Input.IsKeyPressed(EKeyCode.Backspace) then
+            Refs.Camera:Invoke("StopCreditsCamera")
+            State.CreditsCamera = nil
+            Game.Phase = State.CreditsReturnPhase
+            State.CreditsReturnPhase = nil
+            UpdateScreen()
+        else
+            Refs.Camera:Invoke("UpdateCreditsCamera", DeltaSeconds)
+            UpdateHUD()
         end
         return
     end
@@ -365,7 +384,9 @@ function TickComponent(Self, DeltaSeconds)
     if Input.IsKeyPressed(EKeyCode.F7) then
         local World = Actor:GetWorld()
 
-        if World:StartCameraShake(1.5, 2.0, 3.0, 16.0) then
+        local CameraManager = World:GetPlayerCameraManager()
+
+        if CameraManager and CameraManager:StartCameraShake(1.5, 2.0, 3.0, 16.0) then
             print("[CameraModifierTest] Camera shake started")
         else
             print("[CameraModifierTest] Failed to start camera shake")
@@ -381,12 +402,31 @@ function TickComponent(Self, DeltaSeconds)
     end
 
     --------------------------------------------------------------------------------------
-    if Game.Phase ~= GamePhase.Selecting and Input.IsKeyPressed(EKeyCode.Backspace) then
+    local CanSelectCharacter = Game.Phase == GamePhase.Dead
+        or (Game.Phase == GamePhase.Playing and (Game.Score or 0) == 0)
+    if CanSelectCharacter and Input.IsKeyPressed(EKeyCode.C) then
+        State.CreditsReturnPhase = Game.Phase
+        if Game.Phase == GamePhase.Playing and Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
+        State.CreditsCamera = Refs.Camera:Invoke("StartCreditsCamera")
+        Game.Phase = GamePhase.Credits
+        UpdateScreen()
+        return
+    end
+    if CanSelectCharacter and Input.IsKeyPressed(EKeyCode.Backspace) then
         ReturnToCharacterSelection()
         return
     end
 
     if Game.Phase == GamePhase.Selecting then
+        if Refs.Level and (Input.IsKeyPressed(EKeyCode.Up) or Input.IsKeyPressed(EKeyCode.Down)) then
+            Game.Mode = Game.Mode == "Night" and "Day" or "Night"
+            Refs.Level:Invoke("SetMode", Game.Mode)
+            local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
+            if CameraManager then
+                local Shake = Config.ModeShake
+                CameraManager:StartCameraShake(Shake.Duration, Shake.Location, Shake.Rotation, Shake.Frequency)
+            end
+        end
         local Changed, Confirmed = Refs.Selection:Invoke("HandleInput")
         if Changed then
             Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
@@ -441,6 +481,7 @@ function TickComponent(Self, DeltaSeconds)
 end
 
 function EndPlay(Self)
+    Refs.Camera:Invoke("StopCreditsCamera")
     Refs.Cinematics:Invoke("StopCinematics")
     if Refs.PlayerHitbox and State.BeginOverlapHandle then
         Refs.PlayerHitbox.OnComponentBeginOverlap:Remove(State.BeginOverlapHandle)

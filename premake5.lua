@@ -207,7 +207,7 @@ project "HitoriEditor"
 	}
 
 	filter "files:Source/ThirdParty/ImSequencer/**.cpp"
-		flags { "NoPCH" }
+		enablepch "Off"
 	filter {}
 
 	filter "configurations:ObjViewer"

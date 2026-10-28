@@ -1,5 +1,6 @@
 #include "EnginePCH.h"
 #include "PlayerCameraManager.h"
+#include "CameraZoomModifier.h"
 
 #include "Camera/CameraComponent.h"
 #include "Camera/CameraActor.h"
@@ -39,7 +40,9 @@ namespace
 
         Result.OrthoWidth = Start.OrthoWidth + (Target.OrthoWidth - Start.OrthoWidth) * Alpha;
 
-        Result.bIsPerspective = Start.bIsPerspective;
+        Result.PerspectiveBlend = Start.PerspectiveBlend + (Target.PerspectiveBlend - Start.PerspectiveBlend) * Alpha;
+
+        Result.bIsPerspective = Result.PerspectiveBlend >= 0.5f;
 
         return Result;
     }
@@ -166,7 +169,9 @@ void APlayerCameraManager::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
     UpdateCameraEffects(DeltaTime);
-    EvaluateCamera(DeltaTime);
+    const UWorld* World = GetWorld();
+    const float RealDeltaTime = World ? World->GetRealDeltaSeconds() : DeltaTime;
+    EvaluateCamera(DeltaTime, RealDeltaTime);
 }
 
 void APlayerCameraManager::EndPlay()
@@ -203,7 +208,7 @@ bool APlayerCameraManager::SetViewTarget(UCameraComponent* InCamera, float Blend
         return false;
     }
 
-    const bool bCanBlend = std::isfinite(BlendTime) && BlendTime > 0.0f && bHasFinalPOV && FinalPOV.IsValid() && FinalPOV.bIsPerspective == NewTarget.POV.bIsPerspective;
+    const bool bCanBlend = std::isfinite(BlendTime) && BlendTime > 0.0f && bHasFinalPOV && FinalPOV.IsValid();
 
     if (bCanBlend)
     {
@@ -322,7 +327,7 @@ bool APlayerCameraManager::GetCameraPOV(FCameraPOV& OutPOV) const
     return true;
 }
 
-bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
+bool APlayerCameraManager::EvaluateCamera(float DeltaTime, float ModifierDeltaTime)
 {
     if (!RefreshViewTarget())
     {
@@ -363,8 +368,8 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
     {
         const float SafeDeltaTime = (std::isfinite(DeltaTime) && DeltaTime > 0.0f) ? DeltaTime : 0.0f;
         TransitionElapsed = std::min(TransitionElapsed + SafeDeltaTime, TransitionDuration);
-        const float Alpha = std::clamp(TransitionElapsed / TransitionDuration, 0.0f, 1.0f);
-
+        const float LinearAlpha = std::clamp(TransitionElapsed / TransitionDuration, 0.0f, 1.0f);
+        const float Alpha = LinearAlpha * LinearAlpha * (3.0f - 2.0f * LinearAlpha);
         FinalPOV = BlendCameraPOV(TransitionStartPOV, TargetPOV, Alpha);
 
         if (Alpha >= 1.0f)
@@ -377,7 +382,7 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
     {
         FinalPOV = TargetPOV;
     }
-
+    const float SafeModifierDeltaTime = std::isfinite(ModifierDeltaTime) && ModifierDeltaTime >= 0.0f ? ModifierDeltaTime : DeltaTime;
     for (auto It = CameraModifiers.begin(); It != CameraModifiers.end();)
     {
         if (!(*It))
@@ -387,10 +392,14 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
         }
         FCameraModifier* Modifier = It->get();
 
-        Modifier->ApplyCamera(DeltaTime, FinalPOV);
+        Modifier->ApplyCamera(SafeModifierDeltaTime, FinalPOV);
 
         if (Modifier->IsFinished())
         {
+            if (Modifier == ActiveZoomModifier)
+            {
+                ActiveZoomModifier = nullptr;
+            }
             It = CameraModifiers.erase(It);
             continue;
         }
@@ -522,13 +531,40 @@ bool APlayerCameraManager::RemoveCameraModifier(FCameraModifier* Modifier)
     {
         return false;
     }
+    if (Modifier == ActiveZoomModifier)
+    {
+        ActiveZoomModifier = nullptr;
+    }
     CameraModifiers.erase(It);
     return true;
 }
 
 void APlayerCameraManager::ClearCameraModifiers()
 {
+    ActiveZoomModifier = nullptr;
     CameraModifiers.clear();
+}
+
+bool APlayerCameraManager::StartCameraZoom(float Scale, float ZoomInDuration, float ZoomOutDuration, int32 Priority)
+{
+    auto Modifier = MakeUnique<FCameraZoomModifier>();
+    Modifier->SetPriority(Priority);
+    Modifier->Start(Scale, ZoomInDuration, ZoomOutDuration);
+    if (Modifier->IsFinished())
+    {
+        return false;
+    }
+
+    // 반복 호출 시 배율이 중첩되지 않도록 이전 줌만 교체한다.
+    StopCameraZoom();
+    ActiveZoomModifier = Modifier.get();
+    AddCameraModifier(std::move(Modifier));
+    return true;
+}
+
+void APlayerCameraManager::StopCameraZoom()
+{
+    RemoveCameraModifier(ActiveZoomModifier);
 }
 
 FCameraShakeModifier* APlayerCameraManager::StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency, int32 Priority)

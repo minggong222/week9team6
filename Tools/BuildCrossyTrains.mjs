@@ -21,7 +21,6 @@ async function readMesh(path) {
     mesh.center = mesh.max.map((v, i) => (v + mesh.min[i]) / 2);
     return mesh;
 }
-const grass = await readMesh(root + 'Assets/Models/Crossy/RoadTiles/kenney-grass-row.obj');
 const rail = await readMesh(folder + 'railroad-straight.obj');
 const head = await readMesh(folder + 'train-electric-bullet-a.obj');
 const carriage = await readMesh(folder + 'train-electric-bullet-b.obj');
@@ -66,10 +65,10 @@ await writeFile(folder + 'crossy-train.mtl',
     'newmtl colormap\nKd 1 1 1\nmap_Kd Textures/colormap.png\n\n' +
     'newmtl Grass\nKd 1 1 1\nmap_Kd ../RoadTiles/kenney-color-Grass.png\n');
 
-// One 3 x 69 row. Rail bed sits on the same grass floor used by the map.
-await compose('crossy-rail-row', [{ mesh: grass }, ...Array.from({ length: 23 }, (_, i) => ({
+// 잔디는 MapBackdrop을 사용하여 주변 바닥과 높이를 일치시킨다.
+await compose('crossy-rail-row', Array.from({ length: 23 }, (_, i) => ({
     mesh: rail, scale: [0.75, 2.2, 2.2], yaw: 90, center: true, offset: [0, (i - 11) * 3, 0.01]
-}))]);
+})));
 
 async function buildTrain(name, meshes, hasRearCab) {
     // Scale the complete formation uniformly; keep every original carriage's proportions.

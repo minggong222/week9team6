@@ -1,5 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 // --main combines __Crossy's player/camera/HUD with the pooled map and traffic.
@@ -10,25 +12,22 @@ const scene = JSON.parse(await readFile(root + 'Scenes/' + (mainGame ? '__Crossy
 let existingScene;
 try { existingScene = JSON.parse(await readFile(root + outputPath, 'utf8')); }
 catch (e) { if (e.code !== 'ENOENT') throw e; }
-// Read the editor preview settings from the same Lua constants used at runtime.
-const settings = await readFile(root + 'Assets/Scripts/LevelManager.lua', 'utf8');
-function numberSetting(name) {
-    const match = settings.match(new RegExp('^local ' + name + ' = (-?[0-9.]+)', 'm'));
-    if (!match) throw new Error('Missing numeric map setting: ' + name);
-    return Number(match[1]);
-}
-const grid = numberSetting('LaneSpacing'), behind = numberSetting('RowsBehind'), ahead = numberSetting('RowsAhead');
-const initialSeed = numberSetting('InitialSeed');
-const halfWidth = numberSetting('MapPlayerHalfWidth'), boundaryWidth = numberSetting('MapBoundaryWidth');
-const roadChance = numberSetting('MapRoadChance'), treesPerRow = numberSetting('TreesPerRow');
-const railChance = numberSetting('MapRailChance');
-const signalSpacing = numberSetting('MapRailSignalSpacing'), signalOffsetX = numberSetting('MapRailSignalOffsetX');
-const trainTypeText = settings.match(/^local MapTrainTypes = \{([\s\S]*?)^\}/m)?.[1];
-const trainPaths = [...(trainTypeText ?? '').matchAll(/Path = "([^"]+)"/g)].map(m => m[1]);
-if (!trainPaths.length) throw new Error('Missing MapTrainTypes.');
-const weightText = settings.match(/^local MapTreeCountWeights = \{([^}]+)\}/m)?.[1];
-if (!weightText) throw new Error('Missing MapTreeCountWeights.');
-const treeWeights = weightText.replace(/--[^\r\n]*/g, '').split(',').filter(v => v.trim()).map(Number);
+// 런타임과 같은 ConfigManager에서 미리보기 생성 설정을 읽는다.
+const configText = execFileSync(join(root, 'Source/ThirdParty/luajit/luajit.exe'), ['-e', `
+    local C = dofile("Assets/Scripts/ConfigManager.lua")
+    local L, T = C.Level, C.Train
+    local M = L.NightMode and C.Map.Night or C.Map.Day
+    print(L.CellSize, L.RowsBehind, L.RowsAhead, L.PreviewSeed, L.HalfWidth, L.BoundaryWidth,
+        M.RoadChance, M.TreesPerRow, M.RailChance, T.SignalSpacing, T.SignalOffsetX)
+    print(table.concat(M.TreeWeights, ","))
+    print(math.max(C.Map.Day.TreesPerRow, C.Map.Night.TreesPerRow))
+    for _, Train in ipairs(T.Types) do print(Train.Path) end
+`], { cwd: root, encoding: 'utf8' }).trim().split(/\r?\n/);
+const [grid, behind, ahead, initialSeed, halfWidth, boundaryWidth, roadChance, treesPerRow,
+    railChance, signalSpacing, signalOffsetX] = configText[0].trim().split(/\s+/).map(Number);
+const treeWeights = configText[1].split(',').map(Number);
+const treePoolSize = Number(configText[2]);
+const trainPaths = configText.slice(3);
 const totalTreeWeight = treeWeights.reduce((sum, weight) => sum + weight, 0);
 if (!(roadChance >= 0 && railChance >= 0 && roadChance + railChance <= 1) || !(halfWidth >= grid && halfWidth <= 33) || !(boundaryWidth > 0) || !(signalSpacing > 0))
     throw new Error('Invalid map width, road probability or signal spacing.');
@@ -126,8 +125,11 @@ let previewRailRows = 0;
 for (let slot = 1; slot <= poolCount; slot++) {
     const index = slot - behind - 1, kind = rowType(index);
     if (kind === 'rail') previewRailRows++;
-    components.push(meshComponent(kind === 'rail' ? rail : (kind === 'road' ? road : grass), 'MapFloor_' + slot,
-        'DefaultSceneRoot', transform(index * grid)));
+    const floor = meshComponent(kind === 'rail' ? rail : (kind === 'road' ? road : grass), 'MapFloor_' + slot,
+        'DefaultSceneRoot', transform(index * grid));
+    // 잔디는 MapBackdrop으로 표시하고 도로·철길 타일만 렌더링한다.
+    floor.Properties.bVisible = kind !== 'grass';
+    components.push(floor);
     const train = kind === 'rail' ? pickTrain() : trains[0];
     const trainComponent = meshComponent(train, 'MapTrain_' + slot, 'DefaultSceneRoot', transform(index * grid, -16));
     trainComponent.Properties.bVisible = kind === 'rail';
@@ -158,7 +160,7 @@ for (let slot = 1; slot <= poolCount; slot++) {
         for (let i = 0; i < count; i++) placements.push(transform(index * grid, columns[i] * grid,
             0, integer(0, 3) * 90, 0.9 + random() * 0.1));
     }
-    for (let tree = 1; tree <= treesPerRow; tree++) {
+    for (let tree = 1; tree <= treePoolSize; tree++) {
         const name = 'MapTree_' + slot + '_' + tree;
         const style = treeStyles[(slot + tree) % treeStyles.length];
         components.push(sceneComponent(name, 'DefaultSceneRoot', placements[tree - 1] ?? transform(),
@@ -174,16 +176,6 @@ const backdrop = meshComponent(backdropTemplate, 'MapBackdrop', 'DefaultSceneRoo
 backdrop.Properties.Transform.Scale.X = (poolCount + 4) * grid /
     (await boundsFor(backdrop.Properties.StaticMesh)).size[0];
 components.push(backdrop);
-const sidewalkTemplate = meshTemplate('kenney-sidewalk');
-for (const side of [-1, 1]) {
-    const sidewalk = meshComponent(sidewalkTemplate, side < 0 ? 'MapBoundaryLeft' : 'MapBoundaryRight',
-        'DefaultSceneRoot', transform(centerX, side * (halfWidth + grid / 2 + boundaryWidth / 2), 0.01));
-    sidewalk.Properties.Transform.Scale.X = poolCount * grid /
-        (await boundsFor(sidewalk.Properties.StaticMesh)).size[0];
-    sidewalk.Properties.Transform.Scale.Y = boundaryWidth /
-        (await boundsFor(sidewalk.Properties.StaticMesh)).size[1];
-    components.push(sidewalk);
-}
 components.push({ Class: 'ULuaComponent', Name: 'LevelManager', Parent: '', Properties: {
     ScriptPath: 'Scripts/LevelManager.lua', bAutoActivate: true, bVisible: true, bHiddenInGame: false
 } });
@@ -205,5 +197,5 @@ const outputScene = existingScene ?? scene;
 outputScene.World.PersistentLevel.Actors = actors;
 await writeFile(root + outputPath, JSON.stringify(outputScene, null, 4) + '\n');
 console.log(JSON.stringify({ output: outputPath, actors: actors.length,
-    rows: poolCount, behind, ahead, treePool: poolCount * treesPerRow,
+    rows: poolCount, behind, ahead, treePool: poolCount * treePoolSize,
     railRows: previewRailRows, trainPool: poolCount, cars: mainGame ? '100 pooled at runtime' : 0 }));

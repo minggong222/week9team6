@@ -10,6 +10,7 @@
 class APlayerController;
 class UCameraComponent;
 class UWorld;
+class FCameraZoomModifier;
 
 
 // 현재 카메라 시점을 제공하는 대상
@@ -51,7 +52,7 @@ public:
 	bool GetCameraPOV(FCameraPOV& OutPOV) const;
 	const FViewTarget& GetViewTarget() const { return ViewTarget; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
-	bool EvaluateCamera(float DeltaTime);
+	bool EvaluateCamera(float DeltaTime, float ModifierDeltaTime = -1.0f);
 
 	// 투명도 0은 원래 화면, 1은 지정 색상. 완료 후 끝 값을 유지한다.
 	bool StartCameraFade(float FromAlpha, float ToAlpha, float Duration, const FColor& Color);
@@ -69,6 +70,9 @@ public:
 	FCameraModifier* AddCameraModifier(TUniquePtr<FCameraModifier> Modifier);
 	bool RemoveCameraModifier(FCameraModifier* Modifier);
 	void ClearCameraModifiers();
+	// Scale < 1은 줌인, Scale > 1은 줌아웃 후 원래 배율로 복귀한다. 실제 시간 기준.
+	bool StartCameraZoom(float Scale, float ZoomInDuration, float ZoomOutDuration, int32 Priority = 0);
+	void StopCameraZoom();
 	FCameraShakeModifier* StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency, int32 Priority = 0);
 private:
 	void UpdateCameraEffects(float DeltaTime);
@@ -106,4 +110,5 @@ private:
 	float LetterBoxElapsed = 0.0f;
 
 	std::vector<TUniquePtr<FCameraModifier>> CameraModifiers;
+	FCameraZoomModifier* ActiveZoomModifier = nullptr;
 };

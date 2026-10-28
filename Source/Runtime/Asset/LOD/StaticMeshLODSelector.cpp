@@ -40,7 +40,11 @@ namespace
             const int NearMask = _mm_movemask_ps(_mm_or_ps(_mm_cmple_ps(NearDistance, _mm_setzero_ps()),
                 _mm_cmple_ps(_mm_mul_ps(NearDistance, NearDistance), R2)));
             const __m128 Numerator = _mm_mul_ps(R2, ProjectionScale);
-            const __m128 Factor = Orthographic ? _mm_set1_ps(1.0f) : _mm_mul_ps(Depth, Depth);
+            const __m128 PerspectiveBlend = _mm_set1_ps(View.PerspectiveBlend);
+
+            const __m128 ClipW = _mm_add_ps(_mm_mul_ps(PerspectiveBlend, Depth), _mm_set1_ps(1.0f - View.PerspectiveBlend));
+
+            const __m128 Factor = _mm_mul_ps(ClipW, ClipW);
             int Masks[3];
             for (uint32 T = 0; T < 3; ++T)
             {

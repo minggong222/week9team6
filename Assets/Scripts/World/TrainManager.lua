@@ -1,17 +1,11 @@
 -- 레일별 기차·경고등 상태 소유. 지형·차량 시스템의 직접 호출 제외
-local Config = {
-    Speed = 50.0, WaitMin = 3.0, WaitMax = 6.0, WarningTime = 1.0,
-    BlinkDuration = 1.0, BlinkInterval = 0.25,
-    SignalSpacing = 12.0, SignalOffsetX = -1.4, SignalIntensity = 6.0,
-    PassSoundRange = 18.0, PassSoundLead = 6.0, PassSoundVolume = 0.75,
-    Types = {
-        { Name = "bullet", Path = "Models/Crossy/Trains/crossy-train-long.obj" },
-        { Name = "city", Path = "Models/Crossy/Trains/crossy-train-city.obj" },
-        { Name = "freight", Path = "Models/Crossy/Trains/crossy-train-freight.obj" }
-    }
-}
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Train
 State = { Slots = {}, RandomState = 1, ActiveCount = 0 }
 Refs = {}
+
+local function GetDifficulty()
+    return Refs.Layout.NightMode and Config.Night or Config.Day
+end
 
 function BeginPlay(Self)
     Self:SetComponentTickEnabled(false)
@@ -29,8 +23,13 @@ end
 
 function Initialize(Level, Player, Layout)
     Refs.Level, Refs.Player, Refs.Layout = Level, Player, Layout
-    assert(Config.Speed > 0 and Config.WaitMin >= 0 and Config.WaitMax >= Config.WaitMin, "Invalid train settings")
-    assert(Config.WarningTime > 0 and Config.BlinkDuration > 0 and Config.BlinkInterval > 0
+    for _, Settings in ipairs({ Config.Day, Config.Night }) do
+        assert(Settings.Speed > 0 and Settings.WaitMin >= 0 and Settings.WaitMax >= Settings.WaitMin,
+            "Invalid train settings")
+        assert(Settings.WarningTime > 0 and Settings.InitialWaitMin >= Settings.WarningTime
+            and Settings.InitialWaitMax >= Settings.InitialWaitMin, "Invalid train warning settings")
+    end
+    assert(Config.BlinkDuration > 0 and Config.BlinkInterval > 0
         and Config.SignalSpacing > 0 and Config.SignalIntensity >= 0, "Invalid rail signal settings")
     if not Layout.HasMapPool then return end
 
@@ -107,13 +106,35 @@ local function SpawnTrain(Row)
     Row.Train:SetRelativeRotation(FRotator.new(0, 0, 0))
     local Bounds = Row.Train:CalcBounds()
     Row.TrainHalfLength = (Bounds.Max.Y - Bounds.Min.Y) / 2
-    Row.Speed, Row.TrainActive = (State.SpeedOverride or Config.Speed), false
-    Row.TrainWait = math.max(Config.WarningTime, 1 + TrafficRandom() * 3)
+    Row.Speed, Row.TrainActive = (State.SpeedOverride or GetDifficulty().Speed), false
+    local Settings = GetDifficulty()
+    Row.TrainWait = Settings.InitialWaitMin + TrafficRandom() * (Settings.InitialWaitMax - Settings.InitialWaitMin)
     Row.WarningElapsed, Row.TrainWarning = 0, false
     local Sign = Row.Direction and 1 or -1
     Row.Train:SetRelativeRotation(FRotator.new(0, Row.Direction and 0 or 180, 0))
     Row.Train:SetRelativeLocation(FVector.new(Row.Index * Refs.Layout.CellSize,
         -Sign * (Refs.Layout.RoadHalfWidth + Row.TrainHalfLength + Refs.Layout.CellSize), 0))
+    do -- 낮에도 조명을 생성해 모드 전환 시 재사용한다.
+        Row.Headlights = Row.Headlights or {}
+        for Index, Side in ipairs({ -1, 1 }) do
+            local Light = Row.Headlights[Index]
+            if not Light then
+                Light = USpotLightComponent.Cast(Actor:AddComponent(UClass.Find("USpotLightComponent"),
+                    "NightTrainLight_" .. Row.Slot .. "_" .. Index))
+                assert(Light, "Could not create train headlight")
+                Light:SetupAttachment(Row.Train)
+                Light:SetRelativeRotation(FRotator.new(Config.Headlight.Pitch, Config.Headlight.Yaw, 0))
+                Refs.Level:Invoke("RegisterLight", "Train", Light)
+                Light:SetAttenuationRadius(Config.Headlight.Radius)
+                Light:SetCastShadows(Config.Headlight.CastShadows)
+                Row.Headlights[Index] = Light
+            end
+            -- 열차 종류가 바뀌어도 선두의 좌우에 대칭으로 배치한다.
+            Light:SetRelativeLocation(FVector.new(Side * (Bounds.Max.X - Bounds.Min.X) * Config.Headlight.SideOffsetRatio,
+                Row.TrainHalfLength, Config.Headlight.Height))
+            Light:SetVisibility(false)
+        end
+    end
     PlaceRailSignals(Row)
 end
 
@@ -144,12 +165,13 @@ function Update(DeltaSeconds)
             local Step = DeltaSeconds
             if not Row.TrainActive then
                 Row.TrainWait = Row.TrainWait - DeltaSeconds
-                Row.WarningElapsed = math.max(0, Config.WarningTime - Row.TrainWait)
+                Row.WarningElapsed = math.max(0, GetDifficulty().WarningTime - Row.TrainWait)
                 if Row.TrainWait <= 0 then
                     -- 출발 대기 시간을 초과한 만큼만 이번 프레임의 이동에 반영
                     Step, Row.TrainActive = -Row.TrainWait, true
                     Row.PassSoundPlayed = false
                     Row.Train:SetVisibility(true, true)
+                    for _, Light in ipairs(Row.Headlights or {}) do Light:SetVisibility(true) end
                 end
             else
                 Row.WarningElapsed = Row.WarningElapsed + DeltaSeconds
@@ -190,23 +212,32 @@ function Update(DeltaSeconds)
 
                 Position.Y = NextY
                 Row.Train:SetRelativeLocation(Position)
-                if bHit then Refs.Level:Invoke("RequestGameOver", "기차와 충돌했습니다.") end
+                if bHit then Refs.Level:Invoke("RequestGameOver", "기차와 충돌했습니다.", FVector.new(0, Sign, 0)) end
 
                 if Sign * NextY >= Limit then
                     Row.TrainActive = false
                     Row.Train:SetVisibility(false, true)
                     Position.Y = -Sign * Limit
                     Row.Train:SetRelativeLocation(Position)
-                    Row.TrainWait = math.max(Config.WarningTime,
-                        Config.WaitMin + TrafficRandom() * (Config.WaitMax - Config.WaitMin))
+                    Row.TrainWait = math.max(GetDifficulty().WarningTime,
+                        GetDifficulty().WaitMin + TrafficRandom() * (GetDifficulty().WaitMax - GetDifficulty().WaitMin))
                     Row.WarningElapsed = 0
                 else
                     ActiveCount = ActiveCount + 1
                 end
             end
 
-            Row.TrainWarning = (Row.TrainActive or Row.TrainWait <= Config.WarningTime)
+            local WasWarning = Row.TrainWarning
+            Row.TrainWarning = (Row.TrainActive or Row.TrainWait <= GetDifficulty().WarningTime)
                 and Row.WarningElapsed < Config.BlinkDuration
+            if Row.TrainWarning and not WasWarning then
+                local Bounds = Row.Train:CalcBounds()
+                local Distance = math.abs((Bounds.Min.X + Bounds.Max.X) * 0.5 - Refs.Player:GetActorLocation().X)
+                if Distance < Config.PassSoundRange then
+                    local Attenuation = 1 - Distance / Config.PassSoundRange
+                    Audio.PlaySFX("Audio/bell_deng_ge_deng_v2.wav", Config.WarningSoundVolume * Attenuation * Attenuation)
+                end
+            end
             local On = Row.TrainWarning and math.floor(Row.WarningElapsed / Config.BlinkInterval) % 2 == 0
             SetRailSignals(Row, true, On)
         end

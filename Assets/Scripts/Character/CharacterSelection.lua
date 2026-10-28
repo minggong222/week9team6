@@ -1,32 +1,7 @@
 -- 캐릭터 목록·선택 인덱스·프리뷰는 이 스크립트에서만 관리
-local Config = { RowX = -200.0, Spacing = 5.0, Size = 2.0 }
-local CharacterOptions = {
-    { Name = "Beaver", Path = "Models/OBJ format/animal-beaver.obj" },
-    { Name = "Bee", Path = "Models/OBJ format/animal-bee.obj" },
-    { Name = "Bunny", Path = "Models/OBJ format/animal-bunny.obj" },
-    { Name = "Cat", Path = "Models/OBJ format/animal-cat.obj" },
-    { Name = "Caterpillar", Path = "Models/OBJ format/animal-caterpillar.obj" },
-    { Name = "Chick", Path = "Models/OBJ format/animal-chick.obj" },
-    { Name = "Cow", Path = "Models/OBJ format/animal-cow.obj" },
-    { Name = "Crab", Path = "Models/OBJ format/animal-crab.obj" },
-    { Name = "Deer", Path = "Models/OBJ format/animal-deer.obj" },
-    { Name = "Dog", Path = "Models/OBJ format/animal-dog.obj" },
-    { Name = "Elephant", Path = "Models/OBJ format/animal-elephant.obj" },
-    { Name = "Fish", Path = "Models/OBJ format/animal-fish.obj" },
-    { Name = "Fox", Path = "Models/OBJ format/animal-fox.obj" },
-    { Name = "Giraffe", Path = "Models/OBJ format/animal-giraffe.obj" },
-    { Name = "Hog", Path = "Models/OBJ format/animal-hog.obj" },
-    { Name = "Koala", Path = "Models/OBJ format/animal-koala.obj" },
-    { Name = "Lion", Path = "Models/OBJ format/animal-lion.obj" },
-    { Name = "Monkey", Path = "Models/OBJ format/animal-monkey.obj" },
-    { Name = "Panda", Path = "Models/OBJ format/animal-panda.obj" },
-    { Name = "Parrot", Path = "Models/OBJ format/animal-parrot.obj" },
-    { Name = "Penguin", Path = "Models/OBJ format/animal-penguin.obj" },
-    { Name = "Pig", Path = "Models/OBJ format/animal-pig.obj" },
-    { Name = "Polar", Path = "Models/OBJ format/animal-polar.obj" },
-    { Name = "Tiger", Path = "Models/OBJ format/animal-tiger.obj" },
-    { Name = "Hitori", Path = "Models/OBJ format/animal-hitori.obj" },
-}
+local Settings = dofile("Assets/Scripts/ConfigManager.lua")
+local Config = Settings.Selection
+local CharacterOptions = Settings.Characters
 
 -- 실행 상태와 연결 참조는 HotReload 시 보존. 기본 설정은 local로 선언
 State = { SelectedIndex = 1, Previews = {} }

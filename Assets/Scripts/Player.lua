@@ -1,16 +1,4 @@
-local MoveDistance = 3.0
--- 맵 매니저가 있으면 해당 맵의 이동 경계를 우선 사용
-local MinY = -33
-local MaxY = 33
-local YawOffset = 180.0
-local JumpDuration = 0.1
-local JumpHeight = 0.5
-local JumpSquashRatio = 0.12
-local JumpSquashDuration = 0.08
-local LandingSquashDuration = 0.08
-local BounceDuration = 0.12 -- 나무에 부딪힌 뒤 출발 칸으로 돌아오는 시간
-local CollisionStep = 0.01 -- 프레임이 길어져도 점프 이동을 나눠 충돌 검사
-local TreeHitboxExtent = FVector.new(1.0, 1.0, 0.5)
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Player
 
 -- 이동 상태와 연결 참조는 이 스크립트 소유. HotReload 시 유지
 State = { ResetRequested = false }
@@ -61,8 +49,8 @@ function InitializeComponent(Component)
         or UBoxComponent.Cast(Actor:AddComponent(UClass.Find("UBoxComponent"), "PlayerTreeHitbox"))
     assert(Hitbox, "Could not create player tree hitbox")
     Hitbox:SetupAttachment(Actor:GetRootComponent())
-    Hitbox:SetBoxExtent(TreeHitboxExtent)
-    Hitbox:SetRelativeLocation(FVector.new(0, 0, TreeHitboxExtent.Z))
+    Hitbox:SetBoxExtent(FVector.new(Config.TreeHitboxExtent.X, Config.TreeHitboxExtent.Y, Config.TreeHitboxExtent.Z))
+    Hitbox:SetRelativeLocation(FVector.new(0, 0, Config.TreeHitboxExtent.Z))
     Hitbox:SetCollisionObjectType(ECollisionChannel.Pawn)
     Hitbox:SetCollisionResponseToAllChannels(ECollisionResponse.Ignore)
     Hitbox:SetCollisionResponseToChannel(ECollisionChannel.WorldStatic, ECollisionResponse.Block)
@@ -141,6 +129,9 @@ function RefreshMeshBaseLocation()
     local Mesh = FindStaticMeshComponent(Actor)
     State.MeshBaseLocation = Mesh and Mesh:GetRelativeLocation() or nil
     State.MeshBaseScale = Mesh and Mesh:GetRelativeScale3D() or nil
+    if Mesh and State.MeshBaseRotation == nil then
+        State.MeshBaseRotation = Mesh:GetRelativeRotation()
+    end
     ResetJump(Mesh)
 end
 
@@ -257,7 +248,7 @@ function TickComponent(Component, DeltaSeconds)
             State.MoveQueue[1] = nil
             State.JumpSquashElapsed = 0.0
         else
-            State.JumpSquashElapsed = math.min(JumpSquashDuration, State.JumpSquashElapsed + DeltaSeconds)
+            State.JumpSquashElapsed = math.min(Config.JumpSquashDuration, State.JumpSquashElapsed + DeltaSeconds)
         end
     end
 
@@ -267,8 +258,8 @@ function TickComponent(Component, DeltaSeconds)
         local bWithinBounds = true
 
         if MoveDirection.Y ~= 0.0 then
-            local TargetY = CurrentLocation.Y + MoveDirection.Y * MoveDistance
-            local AllowedMinY, AllowedMaxY = MinY, MaxY
+            local TargetY = CurrentLocation.Y + MoveDirection.Y * Config.MoveDistance
+            local AllowedMinY, AllowedMaxY = Config.MinY, Config.MaxY
             if Refs.Level then AllowedMinY, AllowedMaxY = Refs.Level:Invoke("GetMovementBounds") end
             bWithinBounds = TargetY >= AllowedMinY and TargetY <= AllowedMaxY
         end
@@ -286,7 +277,7 @@ function TickComponent(Component, DeltaSeconds)
                 local Yaw = GetYawFromDirection(MoveDirection)
 
                 if Yaw ~= nil then
-                    Yaw = Yaw + YawOffset
+                    Yaw = Yaw + Config.YawOffset
 
                     if Yaw > 180.0 then
                         Yaw = Yaw - 360.0
@@ -295,6 +286,8 @@ function TickComponent(Component, DeltaSeconds)
                     MeshComponent:SetRelativeRotation(FRotator.new(0.0, Yaw, 0.0))
                 end
             end
+        else
+            Audio.PlaySFX("Audio/Boing2.wav")
         end
     end
 
@@ -302,11 +295,11 @@ function TickComponent(Component, DeltaSeconds)
     -- 전진 점프 -> 충돌 시 복귀 -> 출발 칸 착지. 예약 이동은 착지 후 처리
     local Remaining = DeltaSeconds
     while State.bIsJumping and Remaining > 0 do
-        local Step = math.min(Remaining, CollisionStep)
+        local Step = math.min(Remaining, Config.CollisionStep)
         Remaining = Remaining - Step
         if State.bIsReturning then
             State.ReturnElapsed = State.ReturnElapsed + Step
-            local Alpha = math.min(1.0, State.ReturnElapsed / BounceDuration)
+            local Alpha = math.min(1.0, State.ReturnElapsed / Config.BounceDuration)
             if Alpha > 1.0 - 0.000001 then Alpha = 1.0 end
             local Location = State.ReturnStartLocation + (State.JumpStartLocation - State.ReturnStartLocation) * Alpha
             if Alpha >= 1.0 then Location = State.JumpStartLocation end
@@ -317,20 +310,24 @@ function TickComponent(Component, DeltaSeconds)
             State.CurrentJumpHeight = State.ReturnStartHeight * (1.0 - Alpha)
             if Alpha >= 1.0 then
                 ResetJump(MeshComponent, true)
-                State.LandingSquashRemaining = LandingSquashDuration
+                State.LandingSquashRemaining = Config.LandingSquashDuration
             end
         else
             State.JumpElapsed = State.JumpElapsed + Step
-            local Alpha = math.min(1.0, State.JumpElapsed / JumpDuration)
+            local Alpha = math.min(1.0, State.JumpElapsed / Config.JumpDuration)
             if Alpha > 1.0 - 0.000001 then Alpha = 1.0 end
-            local Location = State.JumpStartLocation + State.JumpDirection * (MoveDistance * Alpha)
-            if RootComponent:TryMoveWithBlocking(Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation()) then
-                State.CurrentJumpHeight = 4.0 * JumpHeight * Alpha * (1.0 - Alpha)
+            local Location = State.JumpStartLocation + State.JumpDirection * (Config.MoveDistance * Alpha)
+            local Moved, BlockingComponent = RootComponent:TryMoveWithBlocking(
+                Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation())
+            if Moved then
+                State.CurrentJumpHeight = 4.0 * Config.JumpHeight * Alpha * (1.0 - Alpha)
                 if Alpha >= 1.0 then
                     ResetJump(MeshComponent, true)
-                    State.LandingSquashRemaining = LandingSquashDuration
+                    State.LandingSquashRemaining = Config.LandingSquashDuration
                 end
             else
+                if BlockingComponent and Refs.Level then Refs.Level:Invoke("PlayTreeHit", BlockingComponent) end
+                Audio.PlaySFX("Audio/Boing2.wav")
                 State.bIsReturning, State.ReturnElapsed = true, 0.0
                 State.ReturnStartLocation = RootComponent:GetWorldLocation()
                 State.ReturnStartHeight = State.CurrentJumpHeight
@@ -343,10 +340,10 @@ function TickComponent(Component, DeltaSeconds)
 
     -- 키다운·착지 압축이 겹쳐도 최대 비율을 넘거나 누적되지 않도록 함
     if MeshComponent and State.MeshBaseScale then
-        local Alpha = State.JumpSquashElapsed / JumpSquashDuration
-        local Squash = JumpSquashRatio * Alpha * (2.0 - Alpha)
-        local LandingAlpha = State.LandingSquashRemaining / LandingSquashDuration
-        Squash = math.max(Squash, JumpSquashRatio * LandingAlpha * LandingAlpha)
+        local Alpha = State.JumpSquashElapsed / Config.JumpSquashDuration
+        local Squash = Config.JumpSquashRatio * Alpha * (2.0 - Alpha)
+        local LandingAlpha = State.LandingSquashRemaining / Config.LandingSquashDuration
+        Squash = math.max(Squash, Config.JumpSquashRatio * LandingAlpha * LandingAlpha)
         local Width = 1.0 + Squash * 0.5
         local Scale = State.MeshBaseScale
         MeshComponent:SetRelativeScale3D(FVector.new(Scale.X * Width, Scale.Y * Width, Scale.Z * (1.0 - Squash)))

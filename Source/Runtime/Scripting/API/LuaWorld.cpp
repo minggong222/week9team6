@@ -1,9 +1,10 @@
 #include "EnginePCH.h"
 #include "sol/sol.hpp"
 #include "Engine/World.h"
+#include "Engine/Level.h"
+#include "Components/LightComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Camera/CameraComponent.h"
-#include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Camera/CameraActor.h"
 
@@ -16,13 +17,22 @@ void LuaRegisterWorld(sol::state& State)
 
     State.new_usertype<APlayerCameraManager>("APlayerCameraManager", sol::no_constructor,
         sol::base_classes, sol::bases<AActor, UObject>(),
+        "StartCameraShake",
+        [](APlayerCameraManager& CameraManager, float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency, sol::optional<int32> Priority)
+        {
+            return CameraManager.StartCameraShake(Duration, LocationAmplitude, RotationAmplitude, Frequency, Priority.value_or(0)) != nullptr;
+        },
         "StartCameraFade", &APlayerCameraManager::StartCameraFade,
         "StopCameraFade", &APlayerCameraManager::StopCameraFade,
         "GetFadeAmount", &APlayerCameraManager::GetFadeAmount,
         // "GetFadeColor", &APlayerCameraManager::GetFadeColor, // 현재 Lua에서는 미사용
         "SetLetterBox", &APlayerCameraManager::SetLetterBox,
         // "GetLetterBoxHeight", &APlayerCameraManager::GetLetterBoxHeight, // 현재 Lua에서는 미사용
-        "StopLetterBox", &APlayerCameraManager::StopLetterBox);
+        "StopLetterBox", &APlayerCameraManager::StopLetterBox,
+        "StartCameraZoom", [](APlayerCameraManager& Manager, float Scale, float ZoomInDuration, float ZoomOutDuration, sol::optional<int32> Priority) {
+            return Manager.StartCameraZoom(Scale, ZoomInDuration, ZoomOutDuration, Priority.value_or(0));
+        },
+        "StopCameraZoom", &APlayerCameraManager::StopCameraZoom);
 
     State.new_usertype<UWorld>("UWorld", sol::no_constructor,
         sol::base_classes, sol::bases<UObject>(),
@@ -35,14 +45,28 @@ void LuaRegisterWorld(sol::state& State)
 
             return World.SpawnActor(Class, Name ? FName(*Name) : NAME_None, Transform ? &*Transform : nullptr);
         },
+        // 레벨 조명을 Lua 매니저가 찾아 실행 중 설정할 수 있도록 제공한다.
+        "GetLightComponents", [](const UWorld& World) {
+            TArray<ULightComponent*> Lights;
+            for (ULevel* Level : World.GetLevels())
+            {
+                if (!Level) continue;
+                for (AActor* Actor : Level->GetActors())
+                {
+                    if (!Actor) continue;
+                    for (UActorComponent* Component : Actor->GetComponents())
+                    {
+                        if (auto* Light = Cast<ULightComponent>(Component)) Lights.Add(Light);
+                    }
+                }
+            }
+            return sol::as_table(Lights);
+        },
         "GetPlayerPawn", &UWorld::GetPlayerPawn,
         "GetMainCamera", &UWorld::GetMainCamera,
         "GetMainCameraComponent", &UWorld::GetMainCameraComponent,
         "GetPlayerCamera", &UWorld::GetPlayerCamera,
-        "GetPlayerCameraManager", [](UWorld& World) -> APlayerCameraManager* {
-            APlayerController* Controller = World.GetPlayerController();
-            return Controller ? Controller->GetPlayerCameraManager() : nullptr;
-        },
+        "GetPlayerCameraManager", &UWorld::GetPlayerCameraManager,
         "GetGlobalTimeDilation", &UWorld::GetGlobalTimeDilation,
         "SetGlobalTimeDilation", &UWorld::SetGlobalTimeDilation,
         "GetDeltaSeconds", &UWorld::GetDeltaSeconds,
@@ -68,15 +92,6 @@ void LuaRegisterWorld(sol::state& State)
         [](UWorld& World, UCameraComponent* Camera, sol::optional<float> BlendTime)
         {
             return World.SetMainCameraComponent(Camera, BlendTime ? *BlendTime : 0.0f);
-        },
-        "StartCameraShake",
-        [](UWorld& World, float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency, sol::optional<int32> Priority)
-        {
-            APlayerController* PlayerController = World.GetPlayerController();
-
-            APlayerCameraManager* CameraManager = PlayerController ? PlayerController->GetPlayerCameraManager() : nullptr;
-
-            return CameraManager && CameraManager->StartCameraShake(Duration, LocationAmplitude, RotationAmplitude, Frequency, Priority ? *Priority : 0) != nullptr;
         }
     );
 }

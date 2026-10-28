@@ -65,6 +65,11 @@ FLuaManager* UWorld::GetLuaManager() const
 	return OwningGameInstance ? OwningGameInstance->GetLuaManager() : nullptr;
 }
 
+APlayerCameraManager* UWorld::GetPlayerCameraManager() const
+{
+	return PlayerController ? PlayerController->GetPlayerCameraManager() : nullptr;
+}
+
 bool UWorld::Init()
 {
 	// Spawn Actor로 카메라 생성하고 세팅하기

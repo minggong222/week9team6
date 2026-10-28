@@ -1,18 +1,11 @@
 -- 차량 풀과 도로별 생성 상태만 소유. 지형 행 테이블의 직접 수정 제외
-local Config = {
-    PoolCount = 100, CarWidth = 2.0, MinCarGap = 0.8, MaxInitialCarsPerRow = 4,
-    MinSpawnInterval = 0.25, MaxSpawnInterval = 2.5, PositiveYChance = 0.50,
-    MapMinSpeed = 8.0, MapMaxSpeed = 20.0, MinSpeed = 8.0, MaxSpeed = 20.0,
-    Cars = {
-        { Path = "Models/Crossy/Cars/taxi.obj", Weight = 1.0 },
-        { Path = "Models/Crossy/Cars/sedan.obj", Weight = 1.0 },
-        { Path = "Models/Crossy/Cars/truck.obj", Weight = 1.0 },
-        { Path = "Models/Crossy/Cars/firetruck.obj", Weight = 1.0 },
-        { Path = "Models/Crossy/Cars/garbage-truck.obj", Weight = 1.0 }
-    }
-}
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Traffic
 State = { CarPool = {}, AvailableCars = {}, PoolByActor = {}, Lanes = {}, Enabled = false, MaxCarLength = 0.0, CarLimit = 34.0 }
 Refs = {}
+
+local function GetDifficulty()
+    return Refs.Layout.NightMode and Config.Night or Config.Day
+end
 
 function BeginPlay(Self)
     Self:SetComponentTickEnabled(false)
@@ -21,7 +14,11 @@ end
 function Initialize(Self, Level, Player, PlayerScript, Layout)
     Refs.Self, Refs.Level, Refs.Player, Refs.PlayerScript, Refs.Layout = Self, Level, Player, PlayerScript, Layout
     State.CarLimit = Layout.RoadHalfWidth
-    assert(Config.MapMinSpeed > 0 and Config.MapMaxSpeed >= Config.MapMinSpeed, "Invalid road speed range")
+    for _, Settings in ipairs({ Config.Day, Config.Night }) do
+        assert(Settings.MinSpeed > 0 and Settings.MaxSpeed >= Settings.MinSpeed, "Invalid road speed range")
+        assert(Settings.MinSpawnInterval > 0 and Settings.MaxSpawnInterval >= Settings.MinSpawnInterval,
+            "Invalid car spawn interval")
+    end
     assert(Config.PositiveYChance >= 0 and Config.PositiveYChance <= 1, "Invalid direction probability")
 end
 
@@ -31,13 +28,14 @@ local function TrafficRandom()
 end
 
 local function SpawnInterval(Speed)
-    local Minimum = Config.MinSpawnInterval
+    local Settings = GetDifficulty()
+    local Minimum = Settings.MinSpawnInterval
     -- 차량 길이·속도를 반영해 같은 도로에서 생성 직후 겹침 방지
     if Speed then
         if Speed <= 0 then return math.huge end
         Minimum = math.max(Minimum, (State.MaxCarLength + Config.MinCarGap) / Speed)
     end
-    local Maximum = math.max(Minimum, Config.MaxSpawnInterval)
+    local Maximum = math.max(Minimum, Settings.MaxSpawnInterval)
     return Minimum + TrafficRandom() * (Maximum - Minimum)
 end
 
@@ -101,6 +99,20 @@ local function CreateCarPool()
                 -(Bounds.Min.Y + Bounds.Max.Y - 2 * Position.Y) * Scale / 2,
                 -(Bounds.Min.Z - Position.Z) * Scale))
             State.CarLimit = math.max(State.CarLimit, Refs.Layout.RoadHalfWidth + (Bounds.Max.X - Bounds.Min.X) * Scale / 2 + Refs.Layout.CellSize)
+            do -- 낮에도 조명을 생성해 모드 전환 시 재사용한다.
+                -- 차체 루트에 연결해 진행 방향 전환과 풀의 표시 상태를 함께 따른다.
+                for Index, Side in ipairs({ -1, 1 }) do
+                    local Light = USpotLightComponent.Cast(CarActor:AddComponent(UClass.Find("USpotLightComponent"), "NightHeadlight_" .. Index))
+                    assert(Light, "Could not create car headlight")
+                    Light:SetupAttachment(CarActor:GetRootComponent())
+                    Light:SetRelativeLocation(FVector.new(-(Bounds.Max.X - Bounds.Min.X) * Scale / 2,
+                        Side * Config.CarWidth * Config.Headlight.SideOffsetRatio, Config.Headlight.Height))
+                    Light:SetRelativeRotation(FRotator.new(Config.Headlight.Pitch, Config.Headlight.Yaw, 0))
+                    Refs.Level:Invoke("RegisterLight", "Car", Light)
+                    Light:SetCastShadows(Config.Headlight.CastShadows)
+                end
+            end
+
             local Script = ULuaComponent.Cast(CarActor:AddComponent(ULuaComponent.StaticClass(), "CarScript"))
             Script:SetScriptPath("Scripts/Car.lua")
             Script:InitializeLua()
@@ -188,9 +200,8 @@ function PrepareRow(Id, Index, Kind)
     local Direction, Speed
     if Kind == "road" or Kind == "rail" then
         Direction = TrafficRandom() < Config.PositiveYChance
-        local Min = Refs.Layout.HasMapPool and Config.MapMinSpeed or Config.MinSpeed
-        local Max = Refs.Layout.HasMapPool and Config.MapMaxSpeed or Config.MaxSpeed
-        Speed = Min + TrafficRandom() * (Max - Min)
+        local Settings = GetDifficulty()
+        Speed = Settings.MinSpeed + TrafficRandom() * (Settings.MaxSpeed - Settings.MinSpeed)
     end
     if Kind == "road" then
         State.Lanes[Id] = { Index = Index, Kind = Kind, Active = true, Cars = {}, Direction = Direction, Speed = Speed, NextSpawnTime = NextSpawnTime }
