@@ -183,7 +183,8 @@ assert(RightLight.Intensity == 9 and RightLight.Color[3] == 60 and not RightLigh
 local Sky, Sun = Component(), Component()
 Lighting.RegisterLight("Sky", Sky)
 Lighting.RegisterLight("Sun", Sun)
-assert(Sky.Intensity == 0.1 and Sun.Intensity == 0.5)
+assert(Sky.Intensity == Defaults.Level.Lighting.Night.Sky.Intensity
+    and Sun.Intensity == Defaults.Level.Lighting.Night.Sun.Intensity)
 Lighting.SetLighting("Sky", 0.3, 100, 120, 140, 255)
 Lighting.SetLighting("Sun", 0.6, 200, 210, 220, 255)
 assert(Sky.Intensity == 0.3 and Sky.Color[1] == 100)
@@ -424,8 +425,14 @@ assert(Kind == "grass" and Map.GetRows()[1].TreeCount == 8)
 local Hitbox = Components.MapTreeHitbox_1_1
 local HitMesh = Components.MapTreeMesh_1_1
 HitMesh.Scale, HitMesh.Rotation = Vector(2, 3, 4), { Pitch = 5, Yaw = 10, Roll = 15 }
+local TerrainSeedBeforeHit = Map.State.RandomState
 Map.PlayTreeHit(Hitbox)
+local Effect = Map.State.TreeEffects[HitMesh]
+local PitchPhase, RollPhase = Effect.PitchPhase, Effect.RollPhase
+assert(PitchPhase >= 0 and PitchPhase < 2 * math.pi and RollPhase >= 0 and RollPhase < 2 * math.pi)
+assert(Map.State.RandomState == TerrainSeedBeforeHit)
 Map.UpdateTreeHits(MapConfig.Map.HitSquash.Duration / 2)
+assert(Effect.PitchPhase == PitchPhase and Effect.RollPhase == RollPhase)
 assert(math.abs(HitMesh.Scale.X - 1.8) < 0.000001 and math.abs(HitMesh.Scale.Z - 3.6) < 0.000001)
 assert(HitMesh.Rotation.Pitch ~= 5 or HitMesh.Rotation.Roll ~= 15)
 Map.PlayTreeHit(Hitbox)

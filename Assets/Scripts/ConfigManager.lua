@@ -18,8 +18,8 @@ ConfigManager.Level = {
             Train = { Intensity = 0, Color = { 220, 235, 255 } }
         },
         Night = {
-            Sky = { Intensity = 0.4, Color = { 117, 109, 176 } },
-            Sun = { Intensity = 0.5, Color = { 132, 143, 227 } },
+            Sky = { Intensity = 0.25, Color = { 117, 109, 176 } },
+            Sun = { Intensity = 0.2, Color = { 132, 143, 227 } },
             Car = { Intensity = 4, Color = { 255, 235, 195 }, AttenuationRadius = 15 },
             Train = { Intensity = 18, Color = { 220, 235, 255 } }
         }
@@ -44,8 +44,8 @@ ConfigManager.Traffic = {
         MaxSpawnInterval = 2.5
     },
     Night = {
-        MinSpeed = 10.0,
-        MaxSpeed = 40.0,
+        MinSpeed = 16.0,
+        MaxSpeed = 30.0,
         MinSpawnInterval = 0.5,
         MaxSpawnInterval = 2.5
     },
