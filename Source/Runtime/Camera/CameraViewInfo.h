@@ -15,6 +15,7 @@ struct FCameraPOV
 	float FarClip = 10000.0f;
 	float OrthoWidth = 16.0f;
 	float ColorGradingGamma = 1.0f;
+	float VignetteIntensity = 0.0f;
 
 	bool bIsPerspective = true;
 	float PerspectiveBlend = 1.0f;

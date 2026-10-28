@@ -34,6 +34,7 @@ FCameraPOV UCameraComponent::GetCameraPOV() const
     POV.FarClip = FarClipPlane;
     POV.OrthoWidth = OrthoWidth;
     POV.ColorGradingGamma = ColorGradingGamma;
+    POV.VignetteIntensity = VignetteIntensity;
     POV.bIsPerspective = !bIsOrthogonal;
     POV.PerspectiveBlend = POV.bIsPerspective ? 1.0f : 0.0f;
 
@@ -48,6 +49,15 @@ bool UCameraComponent::SetColorGradingGamma(float InGamma)
     }
 
     ColorGradingGamma = InGamma;
+    return true;
+}
+
+bool UCameraComponent::SetVignetteIntensity(float InIntensity)
+{
+    if (!std::isfinite(InIntensity) || InIntensity < 0.0f || InIntensity > 1.0f)
+        return false;
+
+    VignetteIntensity = InIntensity;
     return true;
 }
 

@@ -12,6 +12,7 @@ class UCameraComponent : public USceneComponent
 	REFLECT_START(ClassName)
 		PROPERTY_FLAGS(bUseForPlayerView, CPF_Edit)
 		PROPERTY_FLAGS(ColorGradingGamma, CPF_Edit)
+		PROPERTY_FLAGS(VignetteIntensity, CPF_Edit)
 	REFLECT_END()
 public:
 	UCameraComponent() = default;
@@ -51,6 +52,9 @@ public:
 	float GetColorGradingGamma() const { return ColorGradingGamma; }
 	bool SetColorGradingGamma(float InGamma);
 
+	float GetVignetteIntensity() const { return VignetteIntensity; }
+	bool SetVignetteIntensity(float InIntensity);
+
 	FCameraPOV GetCameraPOV() const;
 
 	// 마우스 조작 설정
@@ -85,6 +89,7 @@ protected:
 	bool bIsOrthogonal = false;
 	float OrthoWidth = 16.0f;
 	float ColorGradingGamma = 1.0f;
+	float VignetteIntensity = 0.0f;
 	
 	float MoveSpeed = 10.0f;
 	float MouseSensitivity = 0.05f;

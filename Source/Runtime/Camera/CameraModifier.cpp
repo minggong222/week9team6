@@ -37,6 +37,8 @@ namespace
 
 		Result.ColorGradingGamma = From.ColorGradingGamma + (To.ColorGradingGamma - From.ColorGradingGamma) * Alpha;
 
+		Result.VignetteIntensity = From.VignetteIntensity + (To.VignetteIntensity - From.VignetteIntensity) * Alpha;
+
 		Result.PerspectiveBlend = From.PerspectiveBlend + (To.PerspectiveBlend - From.PerspectiveBlend) * Alpha;
 
 		Result.bIsPerspective = Result.PerspectiveBlend >= 0.5f;
