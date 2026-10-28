@@ -37,6 +37,14 @@ namespace
 	};
 	static_assert(sizeof(FCameraOverlayConstants) == 32);
 
+	struct FToneMapConstants
+	{
+		float ColorGradingGamma = 1.0f;
+		uint32 bEnableGammaCorrection = 1;
+		float Padding[2]{};
+	};
+	static_assert(sizeof(FToneMapConstants) == 16);
+
 	std::atomic<uint32> GCascadeCount{ 4 };
 	std::atomic<float> GCascadeLogRatio{ 0.8f };
 
@@ -581,20 +589,37 @@ bool FSceneRenderer::AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Render
 		})) return false;
 	}
 
+	FToneMapConstants Constants{};
+	Constants.ColorGradingGamma = Options.ColorGradingGamma;
+	Constants.bEnableGammaCorrection = Options.bEnableGammaCorrection ? 1u : 0u;
+
+	if (!RenderData.ToneMapCB)
+		RenderData.ToneMapCB = RenderCommand::CreateConstantBuffer(sizeof(FToneMapConstants));
+
+	if (!RenderData.ToneMapCB || !RenderData.ToneMapCB->GetBuffer())
+		return false;
+
 	FRenderGraphRasterPassDesc ToneMap{};
 	ToneMap.Name = "ToneMap";
 	ToneMap.ReadTextures = { LightingHDR };
-	ToneMap.ColorAttachments = { { SceneColor, ERenderGraphLoadAction::Clear, { 0.0f, 0.0f, 0.0f, 1.0f } } };
-	if (!Graph.AddRasterPass(std::move(ToneMap), [this, Renderer, &Graph, LightingHDR]
+	ToneMap.ColorAttachments = { { SceneColor, ERenderGraphLoadAction::Clear,{ 0.0f, 0.0f, 0.0f, 1.0f } } };
+
+	if (!Graph.AddRasterPass(std::move(ToneMap), [this, Renderer, Constants]
 		{
 			if (bCorePassSucceeded)
 			{
 				if (FPipelineState* Pipeline = FRenderResourceManager::GetPSO(EPSOType::ToneMap);
 					Pipeline && Pipeline->Shader && Pipeline->Shader->VertexShader && Pipeline->Shader->PixelShader)
 				{
+					RenderCommand::UpdateBufferData(RenderData.ToneMapCB.get(), &Constants, sizeof(Constants));
+
 					RenderCommand::BindPipelineState(*Pipeline);
+					Renderer->BindPixelConstant(0, RenderData.ToneMapCB.get());
+
 					RenderCommand::BindVertexBuffer(nullptr);
 					RenderCommand::Draw(3);
+
+					Renderer->BindPixelConstant(0, nullptr);
 				}
 			}
 		})) return false;

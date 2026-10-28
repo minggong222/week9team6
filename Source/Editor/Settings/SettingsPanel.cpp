@@ -90,6 +90,13 @@ void FSettingsPanel::OnRender()
 	//////////////////////////////////////////////////////////
 
 	ImGui::Dummy(ImVec2(0.0f, SectionGap));
+	ImGui::SeparatorText("Post Processing");
+	ImGui::Checkbox("Gamma Correction", &Settings.bEnableGammaCorrection);
+	ImGui::SliderFloat("Color Grading Gamma", &Settings.ColorGradingGamma, 0.25f, 4.0f, "%.2f");
+
+	//////////////////////////////////////////////////////////
+
+	ImGui::Dummy(ImVec2(0.0f, SectionGap));
 	ImGui::SeparatorText("Grid");
 
 	ImGui::Checkbox("Draw Batch Line / Grid", &Settings.bDrawBatchLine);
@@ -172,6 +179,8 @@ bool FSettingsPanel::SaveSettings() const
 	File << "DrawPSGrid=" << Settings.bDrawPSGrid << "\n";
 	File << "SceneDepthMaxRange=" << Settings.SceneDepthMaxRange << "\n";
 	File << "EnableFXAA=" << Settings.bEnableFXAA << "\n";
+	File << "EnableGammaCorrection=" << Settings.bEnableGammaCorrection << "\n";
+	File << "ColorGradingGamma=" << Settings.ColorGradingGamma << "\n";
 	File << "LightCullingMode=" << (Settings.LightCullingMode == ELightCullingMode::Off ? "Off" : Settings.LightCullingMode == ELightCullingMode::Tiled ? "Tiled" : "Clustered") << "\n";
 	File << "RenderingPath=" << (Settings.RenderingPath == ERenderingPath::Forward ? "Forward" : "Deferred") << "\n";
 	File << "LightingModel=" << (Settings.LightingModel == ELightingModel::Gouraud ? "Gouraud" :
@@ -300,7 +309,7 @@ bool FSettingsPanel::LoadSettings()
                         RotationComponentMasks[Index] |= 1 << 3;
                     }
                 }
-                if (Key == "Wireframe") Settings.bWireframe = std::stoi(ValueStr);
+				if (Key == "Wireframe") Settings.bWireframe = std::stoi(ValueStr);
 				else if (Key == "DrawPrimitives") Settings.bDrawPrimitives = std::stoi(ValueStr);
 				else if (Key == "CacheShadows") Settings.bCacheShadows = std::stoi(ValueStr);
 				else if (Key == "PcfMode")
@@ -316,6 +325,7 @@ bool FSettingsPanel::LoadSettings()
 				else if (Key == "DrawPSGrid") Settings.bDrawPSGrid = std::stoi(ValueStr);
 				else if (Key == "SceneDepthMaxRange") Settings.SceneDepthMaxRange = std::stof(ValueStr);
 				else if (Key == "EnableFXAA") Settings.bEnableFXAA = std::stoi(ValueStr);
+				else if (Key == "EnableGammaCorrection") Settings.bEnableGammaCorrection = std::stoi(ValueStr);
 				else if (Key == "LightCullingMode")
 				{
 					if (ValueStr == "Off") Settings.LightCullingMode = ELightCullingMode::Off;
@@ -342,6 +352,7 @@ bool FSettingsPanel::LoadSettings()
 				else if (Key == "CameraMoveSpeed") Settings.CameraSpeed = std::stof(ValueStr);
 				else if (Key == "CameraRotateSensitivity") Settings.MouseSensitivity = std::stof(ValueStr);
 				else if (Key == "GridSpacing") Settings.GridSpacing = std::stoi(ValueStr);
+				else if (Key == "ColorGradingGamma") Settings.ColorGradingGamma = std::stof(ValueStr);
 				else if (Key == "Horizontal") Settings.MultipleViewportsHorizontal = std::stof(ValueStr);
 				else if (Key == "Vertical") Settings.MultipleViewportsVertical = std::stof(ValueStr);
 				else if (Key == "Layout") Settings.bMultipleViewportsSingle = ValueStr == "Single";

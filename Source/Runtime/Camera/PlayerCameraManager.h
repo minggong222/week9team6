@@ -65,6 +65,9 @@ public:
 	void StopLetterBox();
 	float GetLetterBoxHeight() const { return LetterBoxHeight; }
 
+	float GetColorGradingGamma() const { return ColorGradingGamma; }
+	bool SetColorGradingGamma(float InGamma);
+
 	FCameraModifier* AddCameraModifier(TUniquePtr<FCameraModifier> Modifier);
 	bool RemoveCameraModifier(FCameraModifier* Modifier);
 	void ClearCameraModifiers();
@@ -103,6 +106,8 @@ private:
 	float LetterBoxTarget = 0.0f;
 	float LetterBoxDuration = 0.0f;
 	float LetterBoxElapsed = 0.0f;
+
+	float ColorGradingGamma = 1.0f;
 
 	std::vector<TUniquePtr<FCameraModifier>> CameraModifiers;
 	FCameraZoomModifier* ActiveZoomModifier = nullptr;
