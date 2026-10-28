@@ -38,19 +38,19 @@ ConfigManager.Game = { CellSize = ConfigManager.Level.CellSize, GoalRow = 150 }
 
 ConfigManager.Traffic = {
     Day = {
-        MinSpeed = 6.0,
+        MinSpeed = 5.0,
         MaxSpeed = 20.0,
-        MinSpawnInterval = 0.5,
-        MaxSpawnInterval = 3.0
+        MinSpawnInterval = 0.8,
+        MaxSpawnInterval = 3.5
     },
     Night = {
-        MinSpeed = 16.0,
-        MaxSpeed = 30.0,
-        MinSpawnInterval = 0.35,
+        MinSpeed = 15.0,
+        MaxSpeed = 25.0,
+        MinSpawnInterval = 0.3,
         MaxSpawnInterval = 2.5
     },
     Headlight = {
-        SideOffsetRatio = 0.32,
+        SideOffsetRatio = 0.2,
         Height = 0.8,
         Pitch = 12,
         Yaw = 180,
@@ -72,7 +72,7 @@ ConfigManager.Traffic = {
 
 ConfigManager.Train = {
     Day = {
-        Speed = 50.0,
+        Speed = 40.0,
         WaitMin = 3.0,
         WaitMax = 6.0,
         WarningTime = 1.0,
@@ -295,7 +295,7 @@ ConfigManager.River = {
     Day = {
         MinRows = 1,
         MaxRows = 3,
-        LogsPerRow = 5,
+        LogsPerRow = 6,
         MaxInitialLogsPerRow = 4,
         MinSpawnDelay = 1.5,
         MaxSpawnDelay = 3.5,
@@ -311,13 +311,13 @@ ConfigManager.River = {
         MaxRows = 4,
         LogsPerRow = 4,
         MaxInitialLogsPerRow = 3,
-        MinSpawnDelay = 1.0,
+        MinSpawnDelay = 1.2,
         MaxSpawnDelay = 2.5,
         MinLogGap = 0.8,
-        MinSpeed = 7.0,
+        MinSpeed = 6.0,
         MaxSpeed = 20.0,
-        MinLogHalfLength = 1.0,
-        MaxLogHalfLength = 2.5,
+        MinLogHalfLength = 0.75,
+        MaxLogHalfLength = 2.75,
         PlayerHalfWidth = 0.7,
     },
     -- 물 에셋이 작은 타일이면 "Tile",
