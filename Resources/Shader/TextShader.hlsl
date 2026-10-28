@@ -34,6 +34,7 @@ cbuffer MSDFParams : register(b1)
     float PxRange; // msdf-atlas-gen에서 지정한 distance range (예: 4.0)
     //float ScreenPxRange; // 화면상 실제 표현 픽셀 범위 (동적 계산 또는 고정값)
     float3 Padding;
+    float4 TextColor;
 };
 
 float Median(float3 msdf)
@@ -65,5 +66,5 @@ float4 mainPS(PSInput Input) : SV_TARGET
 	// 가장자리가 완전히 0인 픽셀은 discard (배경 겹침 방지, 알파 블렌딩 안 쓸 경우 유용)
     clip(Opacity - 0.001f);
 
-    return float4(1.0f, 1.0f, 1.0f, 1.0f);
+    return TextColor;
 }

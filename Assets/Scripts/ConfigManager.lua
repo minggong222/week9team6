@@ -18,8 +18,8 @@ ConfigManager.Level = {
             Train = { Intensity = 0, Color = { 220, 235, 255 } }
         },
         Night = {
-            Sky = { Intensity = 0.1, Color = { 117, 109, 176 } },
-            Sun = { Intensity = 0.5, Color = { 132, 143, 227 } },
+            Sky = { Intensity = 0.25, Color = { 117, 109, 176 } },
+            Sun = { Intensity = 0.2, Color = { 132, 143, 227 } },
             Car = { Intensity = 4, Color = { 255, 235, 195 }, AttenuationRadius = 15 },
             Train = { Intensity = 18, Color = { 220, 235, 255 } }
         }
@@ -44,9 +44,9 @@ ConfigManager.Traffic = {
         MaxSpawnInterval = 2.5
     },
     Night = {
-        MinSpeed = 10.0,
-        MaxSpeed = 40.0,
-        MinSpawnInterval = 0.5,
+        MinSpeed = 16.0,
+        MaxSpeed = 30.0,
+        MinSpawnInterval = 0.35,
         MaxSpawnInterval = 2.5
     },
     Headlight = {
@@ -119,14 +119,18 @@ ConfigManager.Map = {
         ShakeFrequency = 4
     },
     Day = {
-        RoadChance = 0.60,
+        RoadChance = 0.50,
         RailChance = 0.05,
+        RiverChance = 0.10,
+
         TreesPerRow = 5,
         TreeWeights = { 5, 15, 20, 30, 20, 10 }
     },
     Night = {
         RoadChance = 0.60,
         RailChance = 0.10,
+        RiverChance = 0.10,
+
         TreesPerRow = 7,
         TreeWeights = { 5, 10, 15, 15, 20, 15, 15, 5 }
     },
@@ -144,12 +148,24 @@ ConfigManager.Camera = {
     Distance = 32.0,
     LookAhead = 5.0,
     MoveSpeed = 8.0,
-    SelectionWidth = 12.0
+    SelectionWidth = 12.0,
+    DayGamma = 1.0, 
+    NightGamma = 1.7
 }
 
 ConfigManager.HUD = {
-    ScorePulseDuration = 0.20,
-    ScorePulseAmount = 0.2,
+    PlayingScoreSize = 0.075,
+    ScoreColumns = {
+        Playing = { Score = 0.13, HiScore = 0.27 },
+        Result = { Score = 0.43, HiScore = 0.57 }
+    },
+    RainbowPeriod = 3.0,
+    RecordColors = {
+        { 255, 179, 186 }, { 255, 223, 186 }, { 255, 255, 186 },
+        { 186, 255, 201 }, { 186, 225, 255 }, { 210, 190, 255 }, { 255, 190, 235 }
+    },
+    ScorePulseDuration = 0.15,
+    ScorePulseAmount = 0.25,
     GameOverSwingPeriod = 2.0,
     GameOverSwingAngle = 7.0,
     Scale = 1.0,
@@ -160,6 +176,21 @@ ConfigManager.HUD = {
 }
 
 ConfigManager.Selection = {
+    Spotlight = {
+        Intensity = 30,
+        Color = { 255, 240, 220 },
+        AttenuationRadius = 30,
+        InnerConeAngle = 30,
+        OuterConeAngle = 50,
+        CastShadows = true,
+        ShadowSlopeBias = 0.05,
+        Location = { X = 5, Y = 0, Z = 0 },
+        Rotation = { Pitch = 5, Yaw = 10, Roll = 0 }
+    },
+    Background = {
+        Mesh = "Models/Crossy/Selection/background.obj", Distance = 40, SizeMargin = 1.5,
+        Day = { Color = { 180, 210, 230 } }, Night = { Color = { 20, 25, 50 } }
+    },
     RowX = -200.0,
     Spacing = 5.0,
     Size = 2.0
@@ -220,6 +251,7 @@ ConfigManager.Player = {
 
 ConfigManager.Cinematics = {
     FadeDuration = 0.15,
+    DeathVignetteIntensity = 0.5,
     LetterBoxHeight = 0.08,
     LetterBoxDuration = 0.25,
     Black = { 0, 0, 0, 255 },
@@ -245,6 +277,55 @@ ConfigManager.Cinematics = {
         Hold = 0.75,
         Recovery = 1
     }
+}
+
+ConfigManager.River = {
+    -- 물 에셋이 작은 타일이면 "Tile",
+    -- 가로 폭 전체를 덮는 메시라면 "Row"
+    WaterMeshMode = "Tile",
+
+    WaterMeshPath = "Models/Crossy/River/ground_riverStraight.obj",
+    LogMeshPath = "Models/Crossy/River/log.obj",
+
+    -- 물이 작은 타일인 경우 각 타일의 크기 조절
+    WaterTileScale = { X = 3.0, Y = 3.0, Z = 1.0 },
+
+    -- 물이 전체 강 행 메시인 경우 크기 조절
+    WaterRowScale = { X = 1.0, Y = 1.0, Z = 1.0 },
+
+    WaterZ = 0.02,
+
+    -- 연속된 강물 행 개수
+    MinRows = 1,
+    MaxRows = 2,
+
+    -- 통나무 설정
+    LogsPerRow = 3,
+    MinSpeed = 1.5,
+    MaxSpeed = 3.0,
+
+    -- 실제 모델 크기에 맞춰 설정
+    LogScale = { X = 5.0, Y = 5.0, Z = 6.0 },
+    LogYaw = 90.0,
+    LogCenterZ = -0.8,
+
+    -- 통나무가 물 위에서 위아래로 움직이는 정도
+    LogFloatAmplitude = 0.08,
+
+    -- 통나무가 위아래로 움직이는 속도
+    LogFloatSpeed = 1.8,
+
+    -- 플레이어가 올라탔을 때 가라앉는 거리
+    LogSinkOffset = 0.15,
+
+    -- 월드 좌표 기준의 통나무 반길이
+    LogHalfLength = 2.0,
+
+    -- 플레이어 중심에서 좌우로 인정할 너비
+    PlayerHalfWidth = 0.7,
+
+    -- 통나무 메시 원점에서 플레이어 발 높이까지의 거리
+    LogTopOffset = 0.55
 }
 
 ConfigManager.Game.DefaultMode = ConfigManager.Level.NightMode and "Night" or "Day"

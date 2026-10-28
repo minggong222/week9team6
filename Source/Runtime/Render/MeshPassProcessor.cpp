@@ -71,7 +71,7 @@ namespace
 			UTexture2D* Color = Material->Textures.IsEmpty() ? nullptr : Material->Textures[0];
 			UTexture2D* Normal = Material->Textures.Num() > 1 ? Material->Textures[1] : nullptr;
 			const bool bHasColor = Color && Color->GetResource() && Color->GetResource()->GetSRV();
-			Params.SurfaceParams = FVector4(Material->bFlipNormalY ? 1.0f : 0.0f, 0.0f, bHasColor ? 1.0f : 0.0f,
+			Params.SurfaceParams = FVector4(Material->bFlipNormalY ? 1.0f : 0.0f, Material->bUnlit ? 1.0f : 0.0f, bHasColor ? 1.0f : 0.0f,
 				GetNormalEncoding(Normal));
 			const FVector2 UV = Material->UVScrollSpeed * EngineTimer::GetTotalTime();
 			Params.UVTransform = FVector4(UV.X, UV.Y, 1.0f, 1.0f);
@@ -96,7 +96,8 @@ namespace
 				FStaticMeshMaterialParams Params{};
 				Params.BaseColor = Material->BaseColor;
 				Params.UVOffset = Material->UVScrollSpeed * EngineTimer::GetTotalTime();
-				Params.TextureFlags.X = GetNormalEncoding(Material->Textures.Num() > 1 ? Material->Textures[1] : nullptr);
+				Params.TextureFlags.X = Material->bUnlit ? -1.0f
+					: GetNormalEncoding(Material->Textures.Num() > 1 ? Material->Textures[1] : nullptr);
 				Params.TextureFlags.Y = Material->bFlipNormalY ? 1.0f : 0.0f;
 				std::memcpy(Batch.MaterialData.data(), &Params, sizeof(Params));
 				Batch.MaterialDataSize = sizeof(Params);

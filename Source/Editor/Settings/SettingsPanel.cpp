@@ -14,6 +14,7 @@
 #include "GameFramework/Pawn.h"
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 // 종료 시 렌더·에디터·뷰포트 설정을 함께 저장한다.
 FSettingsPanel::~FSettingsPanel()
 {
@@ -86,6 +87,25 @@ void FSettingsPanel::OnRender()
 	ImGui::SeparatorText("Anti-Aliasing");
 
 	ImGui::Checkbox("Enable FXAA", &Settings.bEnableFXAA);
+
+	//////////////////////////////////////////////////////////
+
+	ImGui::Dummy(ImVec2(0.0f, SectionGap));
+	ImGui::SeparatorText("Post Processing");
+	ImGui::Checkbox("Output Gamma Encoding (Debug)", &Settings.bEnableGammaCorrection);
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("Show flag for output encoding (1/2.2).\nDoes not control color grading Gamma.");
+	}
+	ImGui::SliderFloat("Editor Preview Gamma", &Settings.ColorGradingGamma, 0.25f, 4.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("Preview override for editor viewports only; not saved with the scene.\n"
+			"PIE / Standalone use Gamma from the active CameraComponent.");
+	}
+	ImGui::SliderFloat("Editor Preview Vignette", &Settings.VignetteIntensity, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Editor preview only. PIE / Standalone use Vignette Intensity from the active camera.\n0.0 disables the effect.");
 
 	//////////////////////////////////////////////////////////
 
@@ -172,6 +192,9 @@ bool FSettingsPanel::SaveSettings() const
 	File << "DrawPSGrid=" << Settings.bDrawPSGrid << "\n";
 	File << "SceneDepthMaxRange=" << Settings.SceneDepthMaxRange << "\n";
 	File << "EnableFXAA=" << Settings.bEnableFXAA << "\n";
+	File << "EnableGammaCorrection=" << Settings.bEnableGammaCorrection << "\n";
+	File << "ColorGradingGamma=" << Settings.ColorGradingGamma << "\n";
+	File << "VignetteIntensity=" << Settings.VignetteIntensity << "\n";
 	File << "LightCullingMode=" << (Settings.LightCullingMode == ELightCullingMode::Off ? "Off" : Settings.LightCullingMode == ELightCullingMode::Tiled ? "Tiled" : "Clustered") << "\n";
 	File << "RenderingPath=" << (Settings.RenderingPath == ERenderingPath::Forward ? "Forward" : "Deferred") << "\n";
 	File << "LightingModel=" << (Settings.LightingModel == ELightingModel::Gouraud ? "Gouraud" :
@@ -300,7 +323,7 @@ bool FSettingsPanel::LoadSettings()
                         RotationComponentMasks[Index] |= 1 << 3;
                     }
                 }
-                if (Key == "Wireframe") Settings.bWireframe = std::stoi(ValueStr);
+				if (Key == "Wireframe") Settings.bWireframe = std::stoi(ValueStr);
 				else if (Key == "DrawPrimitives") Settings.bDrawPrimitives = std::stoi(ValueStr);
 				else if (Key == "CacheShadows") Settings.bCacheShadows = std::stoi(ValueStr);
 				else if (Key == "PcfMode")
@@ -316,6 +339,7 @@ bool FSettingsPanel::LoadSettings()
 				else if (Key == "DrawPSGrid") Settings.bDrawPSGrid = std::stoi(ValueStr);
 				else if (Key == "SceneDepthMaxRange") Settings.SceneDepthMaxRange = std::stof(ValueStr);
 				else if (Key == "EnableFXAA") Settings.bEnableFXAA = std::stoi(ValueStr);
+				else if (Key == "EnableGammaCorrection") Settings.bEnableGammaCorrection = std::stoi(ValueStr);
 				else if (Key == "LightCullingMode")
 				{
 					if (ValueStr == "Off") Settings.LightCullingMode = ELightCullingMode::Off;
@@ -342,6 +366,12 @@ bool FSettingsPanel::LoadSettings()
 				else if (Key == "CameraMoveSpeed") Settings.CameraSpeed = std::stof(ValueStr);
 				else if (Key == "CameraRotateSensitivity") Settings.MouseSensitivity = std::stof(ValueStr);
 				else if (Key == "GridSpacing") Settings.GridSpacing = std::stoi(ValueStr);
+				else if (Key == "ColorGradingGamma") Settings.ColorGradingGamma = std::stof(ValueStr);
+				else if (Key == "VignetteIntensity")
+				{
+					const float Intensity = std::stof(ValueStr);
+					Settings.VignetteIntensity = std::isfinite(Intensity) ? std::clamp(Intensity, 0.0f, 1.0f) : 0.0f;
+				}
 				else if (Key == "Horizontal") Settings.MultipleViewportsHorizontal = std::stof(ValueStr);
 				else if (Key == "Vertical") Settings.MultipleViewportsVertical = std::stof(ValueStr);
 				else if (Key == "Layout") Settings.bMultipleViewportsSingle = ValueStr == "Single";

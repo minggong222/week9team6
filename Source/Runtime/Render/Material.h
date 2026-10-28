@@ -44,6 +44,7 @@ public:
 	float Shininess = 32.0f;
 	FVector2 UVScrollSpeed = FVector2(0.0f, 0.0f);
 	bool bFlipNormalY = false;
+	bool bUnlit = false; // 실행 중 생성하는 단색 배경용 머티리얼 플래그
 
 	bool bIsInstance = false;
 

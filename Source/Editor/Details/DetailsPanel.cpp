@@ -10,6 +10,7 @@
 #include "Core/EngineLog.h"
 #include "UObject/UObjectIterator.h"
 #include "GameFramework/Actor.h"
+#include "Camera/CameraComponent.h"
 
 #include "Components/PrimitiveComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -609,7 +610,13 @@ namespace
 		void* ValuePtr = reinterpret_cast<char*>(Object) + Property.Offset;
 		const FString Label = "##" + Property.Name;
 
+		const bool bCameraGamma = Property.Name == "ColorGradingGamma" && Object->IsA(UCameraComponent::StaticClass());
+		const bool bCameraVignette = Property.Name == "VignetteIntensity" && Object->IsA(UCameraComponent::StaticClass());
 		const char* DisplayName = Property.Name.c_str();
+		if (bCameraGamma)
+			DisplayName = "Game Gamma";
+		else if (bCameraVignette)
+			DisplayName = "Game Vignette Intensity";
 
 		// 패널이 넓으면 라벨 | 값을 한 줄에, 좁거나 라벨이 길면 라벨 아래 줄에 값을 놓는다.
 		const float StartX = ImGui::GetCursorPosX();
@@ -631,7 +638,27 @@ namespace
 		switch (Property.Type)
 		{
 		case EPropertyType::Float:
-			bChanged = ImGui::DragFloat(Label.c_str(), static_cast<float*>(ValuePtr), 0.1f);
+			if (bCameraGamma)
+			{
+				bChanged = ImGui::SliderFloat(Label.c_str(), static_cast<float*>(ValuePtr), 0.25f, 4.0f,
+					"%.2f", ImGuiSliderFlags_AlwaysClamp);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("Saved with the scene; used by the active camera in PIE / Standalone.\n"
+						"1.0 is neutral. Game scripts may override this value.");
+				}
+			}
+			else if (bCameraVignette)
+			{
+				bChanged = ImGui::SliderFloat(Label.c_str(), static_cast<float*>(ValuePtr), 0.0f, 1.0f,
+					"%.2f", ImGuiSliderFlags_AlwaysClamp);
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip("Saved with the scene; used by the active camera in PIE / Standalone.\n0.0 disables the effect.");
+			}
+			else
+			{
+				bChanged = ImGui::DragFloat(Label.c_str(), static_cast<float*>(ValuePtr), 0.1f);
+			}
 			break;
 		case EPropertyType::Int:
 			bChanged = ImGui::DragInt(Label.c_str(), static_cast<int*>(ValuePtr), 1.0f);

@@ -3,6 +3,9 @@
 #include "Input/InputSystem.h"
 #include "../Collision/Ray.h"
 #include "GameFramework/Actor.h"
+
+#include <cmath>
+
 // 외부 입력 관리 시 기본 입력을 생략해 ViewportLayout와 카메라의 중복 갱신을 막는다.
 void UCameraComponent::TickComponent(float DeltaTime)
 {
@@ -30,10 +33,32 @@ FCameraPOV UCameraComponent::GetCameraPOV() const
     POV.NearClip = NearClipPlane;
     POV.FarClip = FarClipPlane;
     POV.OrthoWidth = OrthoWidth;
+    POV.ColorGradingGamma = ColorGradingGamma;
+    POV.VignetteIntensity = VignetteIntensity;
     POV.bIsPerspective = !bIsOrthogonal;
     POV.PerspectiveBlend = POV.bIsPerspective ? 1.0f : 0.0f;
 
     return POV;
+}
+
+bool UCameraComponent::SetColorGradingGamma(float InGamma)
+{
+    if (!std::isfinite(InGamma) || InGamma <= 0.0f)
+    {
+        return false;
+    }
+
+    ColorGradingGamma = InGamma;
+    return true;
+}
+
+bool UCameraComponent::SetVignetteIntensity(float InIntensity)
+{
+    if (!std::isfinite(InIntensity) || InIntensity < 0.0f || InIntensity > 1.0f)
+        return false;
+
+    VignetteIntensity = InIntensity;
+    return true;
 }
 
 // 키 입력을 카메라의 전방·우측·상방 이동으로 변환한다.

@@ -22,7 +22,10 @@ void LuaRegisterComponentCommon(sol::state& State)
         "GetIsOrthogonal", &UCameraComponent::GetIsOrthogonal,
         "SetIsOrthogonal", &UCameraComponent::SetIsOrthogonal,
         "GetOrthoWidth", &UCameraComponent::GetOrthoWidth,
-        "SetOrthoWidth", &UCameraComponent::SetOrthoWidth
+        "SetOrthoWidth", &UCameraComponent::SetOrthoWidth,
+        "GetColorGradingGamma", &UCameraComponent::GetColorGradingGamma,
+        "SetColorGradingGamma", &UCameraComponent::SetColorGradingGamma,
+        "SetVignetteIntensity", &UCameraComponent::SetVignetteIntensity
         // "GetMoveSpeed", &UCameraComponent::GetMoveSpeed,
         // "SetMoveSpeed", &UCameraComponent::SetMoveSpeed,
         // "GetMouseSensitivity", &UCameraComponent::GetMouseSensitivity,
@@ -57,6 +60,7 @@ void LuaRegisterComponentCommon(sol::state& State)
         // "GetFont", &UTextRenderComponent::GetFont,
         // "SetFont", &UTextRenderComponent::SetFont,
         // "GetTextSize", &UTextRenderComponent::GetTextSize,
-        "SetTextSize", &UTextRenderComponent::SetTextSize
+        "SetTextSize", &UTextRenderComponent::SetTextSize,
+        "SetTextColor", &UTextRenderComponent::SetTextColor
     );
 }

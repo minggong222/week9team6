@@ -77,6 +77,11 @@ function Update(Phase)
     -- BeginPlay 호출 순서상 Manager가 아직 없으면 다음 Update에서 다시 확인한다.
     if not CameraManager or State.Phase == Phase then return end
 
+    local Camera = CameraManager:GetViewTargetCamera()
+    if Camera then
+        Camera:SetVignetteIntensity(Phase == "Dead" and Config.DeathVignetteIntensity or 0)
+    end
+
     local FromAlpha = CameraManager:GetFadeAmount()
     if State.Phase == nil then FromAlpha = 1 end
 
@@ -166,6 +171,7 @@ function PlayCameraSequence(Duration)
 
     local Cine = Sequence.CineActor
     local Camera = Cine:GetCameraComponent()
+    Camera:SetColorGradingGamma(ReturnCamera:GetColorGradingGamma())
 
     -- 현재 카메라의 구도를 시작점으로 사용한다.
     local StartLocation = ReturnCamera:GetWorldLocation()

@@ -83,7 +83,8 @@ public:
 	const FSceneRenderData& GetRenderData() const { return RenderData; }
 	
 private:
-	bool AddCameraOverlayPass(FRenderGraphBuilder& Graph, FRenderer* Renderer, FRenderGraphTextureRef Color);
+	bool AddCameraOverlayPass(FRenderGraphBuilder& Graph, FRenderer* Renderer, FRenderGraphTextureRef Color,
+		const FSceneRenderOptions& Options);
 	bool AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Renderer, FSceneViewTargets& Targets,
 		const FSceneRenderOptions& Options, FSkyboxRenderer* Skybox);
 	bool AddWorldNormalPass(FRenderGraphBuilder& Graph, FRenderer* Renderer, FSceneViewTargets& Targets,

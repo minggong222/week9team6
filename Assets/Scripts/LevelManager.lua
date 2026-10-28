@@ -111,6 +111,39 @@ function GetMovementBounds()
     return State.Info.MinY, State.Info.MaxY
 end
 
+-- 강에서 다른 지형으로 이동할 때 목표 Y 좌표를 계산한다.
+-- 강에서 강으로 이동할 때는 좌표를 보정하지 않는다.
+function GetRiverExitTargetY(CurrentX, TargetX, CurrentY)
+    if not Refs.Layout or not Refs.Layout.HasMapPool or not Refs.Map then return nil end
+    local CellSize = Refs.Layout.CellSize
+    local Origin = Refs.Layout.Origin
+    local CurrentIndex = math.floor((CurrentX - Origin.X) / CellSize + 0.0001)
+    local TargetIndex = math.floor((TargetX - Origin.X) / CellSize + 0.0001)
+    local CurrentKind = nil
+    local TargetKind = nil
+    for _, Row in ipairs(Refs.Map:Invoke("GetRows")) do
+        if Row.Active then
+            if Row.Index == CurrentIndex then CurrentKind = Row.Kind end
+            if Row.Index == TargetIndex then TargetKind = Row.Kind end
+            if CurrentKind ~= nil and TargetKind ~= nil then break end
+        end
+    end
+    if CurrentKind ~= "river" or TargetKind == nil or TargetKind == "river" then return nil end
+    return Origin.Y + math.floor((CurrentY - Origin.Y) / CellSize + 0.5) * CellSize
+end
+
+function GetGroundZ()
+    return State.StartPosition.Z
+end
+
+function DetachPlayerFromLog()
+    if Refs.River then Refs.River:Invoke("DetachPlayer") end
+end
+
+function ResolveRiverLanding(Position)
+    if Refs.River then return Refs.River:Invoke("ResolveLanding", Position) end
+    return false
+end
 -- 도로 배치와 기차 대기가 사용하던 공통 난수 스트림의 소비 순서 유지
 function TrafficRandom()
     State.TrafficRandomState = State.TrafficRandomState * 48271 % 2147483647
@@ -138,8 +171,8 @@ local function PublishLevelState()
     Info.HighestRow = State.HighestRow
     Info.ReusedRows = Refs.Map:Invoke("GetReusedRows")
     Info.MinRow, Info.MaxRow = State.HighestRow - Config.RowsBehind, State.HighestRow + Config.RowsAhead
-    Info.ActiveRows, Info.RoadRows, Info.GrassRows, Info.RailRows, Info.ActiveTrees = 0, 0, 0, 0, 0
-    Info.RoadLanes, Info.RailLanes, State.RailSlots = {}, {}, {}
+    Info.ActiveRows, Info.RoadRows, Info.GrassRows, Info.RailRows, Info.RiverRows, Info.ActiveTrees = 0, 0, 0, 0, 0, 0
+    Info.RoadLanes, Info.RailLanes, State.RiverLanes, State.RailSlots = {}, {}, {}, {}
 
     for _, Row in ipairs(Refs.Map:Invoke("GetRows")) do
         if Row.Active then
@@ -152,12 +185,14 @@ local function PublishLevelState()
                 Lane.X = Layout.Origin.X + Row.Index * Config.CellSize
                 Info.RoadLanes[Row.Index] = Lane
                 Info.RoadRows = Info.RoadRows + 1
-            else
+            elseif Row.Kind == "rail" then
                 local Lane = Refs.Train:Invoke("GetLaneInfo", Row.Id)
                 Lane.X = Layout.Origin.X + Row.Index * Config.CellSize
                 Info.RailLanes[Row.Index] = Lane
                 State.RailSlots[Row.Index] = Row.Id
                 Info.RailRows = Info.RailRows + 1
+            elseif Row.Kind == "river" then
+                Info.RiverRows = Info.RiverRows + 1
             end
         end
     end
@@ -181,6 +216,8 @@ local function ConfigureRow(Id, Index, Kind)
         Refs.Traffic:Invoke("PopulateRow", Id)
     elseif Kind == "rail" then
         Refs.Train:Invoke("SpawnRail", Id, Index, Direction)
+    elseif Kind == "river" then
+        Refs.River:Invoke("SpawnRow", Id, Index)
     end
 end
 
@@ -195,6 +232,7 @@ end
 local function RecycleRow(Id, CountReuse)
     Refs.Traffic:Invoke("RemoveRow", Id)
     Refs.Train:Invoke("RemoveRow", Id)
+    Refs.River:Invoke("RemoveRow", Id)
     Refs.Map:Invoke("RecycleRow", Id, CountReuse)
 end
 
@@ -207,6 +245,7 @@ function ResetLevel(NewSeed)
     State.TrafficRandomState = (State.Seed + 104729) % 2147483647
     Refs.Map:Invoke("ResetGeneration", State.Seed)
     Refs.Train:Invoke("ResetRandom", (State.Seed + 65537) % 2147483647)
+    Refs.River:Invoke("ResetRandom", (State.Seed + 130363) % 2147483647)
     State.Info.ActiveTrains, State.Info.Seed = 0, State.Seed
 
     if Refs.Layout.HasMapPool then
@@ -289,12 +328,13 @@ function BeginPlay(Self)
     Refs.Map = AttachScript("CrossyMapGenerator", "Scripts/World/MapGenerator.lua")
     Refs.Traffic = AttachScript("CrossyTrafficManager", "Scripts/World/TrafficManager.lua")
     Refs.Train = AttachScript("CrossyTrainManager", "Scripts/World/TrainManager.lua")
+    Refs.River = AttachScript("CrossyRiverManager", "Scripts/World/RiverManager.lua")
     Refs.Map:Invoke("Initialize", Refs.Layout)
     local RowCount, TreeCount = Refs.Map:Invoke("GetPoolSize")
     Refs.Layout.RowCount = RowCount
     Refs.Traffic:Invoke("Initialize", Refs.Traffic, Self, Refs.Player, Refs.PlayerScript, Refs.Layout)
     Refs.Train:Invoke("Initialize", Self, Refs.Player, Refs.Layout)
-
+    Refs.River:Invoke("Initialize", Refs.River, Self, Refs.Player, Refs.PlayerScript, Refs.Layout)
     State.Game = _G.CrossyGameState or { Phase = "Playing", Score = 0, MaxRow = 0 }
     _G.CrossyGameState = State.Game
     local Width = HasMapPool and Config.HalfWidth or 33
@@ -367,6 +407,7 @@ function TickComponent(Self, DeltaSeconds)
         Refs.Traffic:Invoke("Update", DeltaSeconds)
         if Refs.Layout.HasMapPool then
             Refs.Train:Invoke("Update", DeltaSeconds)
+            Refs.River:Invoke("Update", DeltaSeconds)
             RefreshTrainState()
         end
     end
@@ -376,6 +417,7 @@ end
 
 function EndPlay(Self)
     Refs.Train:Invoke("Shutdown")
+    Refs.River:Invoke("Shutdown")
     Refs.Map:Invoke("ReleaseCollisions")
     Refs.Traffic:Invoke("DestroyCars")
     if _G.CrossyLevel == State.Info then _G.CrossyLevel, _G.CrossyMapTest = nil, nil end

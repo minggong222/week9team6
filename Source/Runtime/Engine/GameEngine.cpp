@@ -229,6 +229,8 @@ void UGameEngine::RenderGameFrame()
 	FSceneView SceneView = GameViewport.CalcSceneView(ViewRect);
 
 	FSceneRenderOptions Options;
+	Options.ColorGradingGamma = SceneView.ColorGradingGamma;
+	Options.VignetteIntensity = SceneView.VignetteIntensity;
 	Options.bDrawPrimitives = true;
 	Options.bCacheShadows = true;
 	Options.PcfMode = EPcfMode::Sample8;
@@ -281,7 +283,7 @@ void UGameEngine::RenderSceneText(UWorld* World, const FSceneView& SceneView)
 			!Text->GetOwner() || Text->GetOwner()->GetWorld() != World)
 			continue;
 		TextRenderer->OnRender(Text->GetText(), Text->GetWorldMatrix(), Text->GetTextSize(),
-			*Text->GetFont(), SceneView.ViewProjectionMatrix);
+			*Text->GetFont(), SceneView.ViewProjectionMatrix, Text->GetTextColor());
 	}
 }
 

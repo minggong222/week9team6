@@ -17,6 +17,7 @@ void LuaRegisterWorld(sol::state& State)
 
     State.new_usertype<APlayerCameraManager>("APlayerCameraManager", sol::no_constructor,
         sol::base_classes, sol::bases<AActor, UObject>(),
+        "GetViewTargetCamera", &APlayerCameraManager::GetViewTargetCamera,
         "StartCameraShake",
         [](APlayerCameraManager& CameraManager, float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency, sol::optional<int32> Priority)
         {

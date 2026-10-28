@@ -42,6 +42,7 @@ UMaterial* UMaterial::CreateInstance(const UMaterial* Source)
 	Instance->Shininess = Source->Shininess;
 	Instance->UVScrollSpeed = Source->UVScrollSpeed;
 	Instance->bFlipNormalY = Source->bFlipNormalY;
+	Instance->bUnlit = Source->bUnlit;
 	Instance->PSOType = Source->PSOType;
 
 	// ParamBuffer는 TUniquePtr라 복사할 수 없다.

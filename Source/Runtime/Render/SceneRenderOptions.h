@@ -16,6 +16,9 @@ struct FSceneRenderOptions
 	bool bShowCascade = false;
 	bool bShowWorldNormal = false;
 	bool bShowLightCulling = false;
+	bool bEnableGammaCorrection = true;
+	float ColorGradingGamma = 1.0f;
+	float VignetteIntensity = 0.0f;
 	float SceneDepthRange = 1.0f;
 	uint32 DirectionalShadowMapSize = 0;
 	uint32 PointShadowMapSize = 0;

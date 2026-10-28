@@ -3,6 +3,8 @@
 #include "Asset/AssetManager.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/MeshComponent.h"
+#include "Render/Material.h"
+#include "Math/Color.h"
 
 void LuaRegisterComponentMesh(sol::state& State)
 {
@@ -31,5 +33,16 @@ void LuaRegisterComponentMesh(sol::state& State)
         "StaticClass", &UStaticMeshComponent::StaticClass,
         "Cast", &Cast<UStaticMeshComponent>,
         "SetStaticMesh", &UStaticMeshComponent::SetStaticMesh,
-        "GetStaticMesh", &UStaticMeshComponent::GetStaticMesh);
+        "GetStaticMesh", &UStaticMeshComponent::GetStaticMesh,
+        "SetUnlitColor", [](UStaticMeshComponent& Mesh, const FColor& Color) {
+            UMaterial* Material = Mesh.GetOverrideMaterial(0);
+            if (!Material || !Material->bIsInstance)
+                Material = UMaterial::CreateInstance(Mesh.GetMaterial(0));
+            if (!Material) throw sol::error("SetUnlitColor requires a mesh material");
+
+            const FLinearColor Linear(Color);
+            Material->BaseColor = FVector4(Linear.R, Linear.G, Linear.B, Linear.A);
+            Material->bUnlit = true;
+            Mesh.SetMaterial(0, Material);
+        });
 }

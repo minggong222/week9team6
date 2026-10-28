@@ -860,6 +860,7 @@ void UEditorEngine::BuildSceneRenderOptions(FGameViewportClient* ViewClient, FSc
 	}
 
 	Options.bEnableFXAA = SettingsPanel->GetSettings().bEnableFXAA;
+	Options.bEnableGammaCorrection = SettingsPanel->GetSettings().bEnableGammaCorrection;
 	Options.bCacheShadows = SettingsPanel->GetSettings().bCacheShadows;
 	Options.PcfMode = SettingsPanel->GetSettings().PcfMode;
 	Options.RenderingPath = SettingsPanel->GetSettings().RenderingPath;
@@ -878,6 +879,9 @@ void UEditorEngine::BuildSceneRenderOptions(FEditorViewportClient* ViewClient, b
 	}
 
 	Options.bEnableFXAA = SettingsPanel->GetSettings().bEnableFXAA;
+	Options.bEnableGammaCorrection = SettingsPanel->GetSettings().bEnableGammaCorrection;
+	Options.ColorGradingGamma = SettingsPanel->GetSettings().ColorGradingGamma;
+	Options.VignetteIntensity = SettingsPanel->GetSettings().VignetteIntensity;
 	Options.bCacheShadows = SettingsPanel->GetSettings().bCacheShadows;
 	Options.PcfMode = SettingsPanel->GetSettings().PcfMode;
 	Options.RenderingPath = SettingsPanel->GetSettings().RenderingPath;
@@ -901,8 +905,12 @@ void UEditorEngine::RenderGameFrame(FGameViewportClient* GameClient, const FScen
 {
 	if (!GameClient) return;
 
+	FSceneRenderOptions Options = RenderOptions;
+	Options.ColorGradingGamma = SceneView.ColorGradingGamma;
+	Options.VignetteIntensity = SceneView.VignetteIntensity;
+
 	FSceneViewTargets& Targets = GameClient->GetViewTargets();
-	const bool bRendered = RenderScene(Targets, SceneView, SceneRenderer, GameClient->GetWorld(), RenderOptions,
+	const bool bRendered = RenderScene(Targets, SceneView, SceneRenderer, GameClient->GetWorld(), Options,
 		[this, &Targets, &SceneView, bIsSIEMode](FSceneOverlayCallbacks& Overlays)
 	{
 		if (!bIsSIEMode) return;
@@ -991,7 +999,7 @@ void UEditorEngine::RenderSceneText(UWorld* TargetWorld, const FSceneView& Scene
 			Text->GetOwner()->GetWorld() != TargetWorld)
 			continue;
 		TextRenderer->OnRender(Text->GetText(), Text->GetWorldMatrix(), Text->GetTextSize(),
-			*Text->GetFont(), SceneView.ViewProjectionMatrix);
+			*Text->GetFont(), SceneView.ViewProjectionMatrix, Text->GetTextColor());
 	}
 }
 
