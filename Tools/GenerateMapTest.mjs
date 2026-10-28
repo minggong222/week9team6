@@ -15,16 +15,19 @@ catch (e) { if (e.code !== 'ENOENT') throw e; }
 // 런타임과 같은 ConfigManager에서 미리보기 생성 설정을 읽는다.
 const configText = execFileSync(join(root, 'Source/ThirdParty/luajit/luajit.exe'), ['-e', `
     local C = dofile("Assets/Scripts/ConfigManager.lua")
-    local L, M, T = C.Level, C.Map, C.Train
+    local L, T = C.Level, C.Train
+    local M = L.NightMode and C.Map.Night or C.Map.Day
     print(L.CellSize, L.RowsBehind, L.RowsAhead, L.InitialSeed, L.HalfWidth, L.BoundaryWidth,
         M.RoadChance, M.TreesPerRow, M.RailChance, T.SignalSpacing, T.SignalOffsetX)
     print(table.concat(M.TreeWeights, ","))
+    print(math.max(C.Map.Day.TreesPerRow, C.Map.Night.TreesPerRow))
     for _, Train in ipairs(T.Types) do print(Train.Path) end
 `], { cwd: root, encoding: 'utf8' }).trim().split(/\r?\n/);
 const [grid, behind, ahead, initialSeed, halfWidth, boundaryWidth, roadChance, treesPerRow,
     railChance, signalSpacing, signalOffsetX] = configText[0].trim().split(/\s+/).map(Number);
 const treeWeights = configText[1].split(',').map(Number);
-const trainPaths = configText.slice(2);
+const treePoolSize = Number(configText[2]);
+const trainPaths = configText.slice(3);
 const totalTreeWeight = treeWeights.reduce((sum, weight) => sum + weight, 0);
 if (!(roadChance >= 0 && railChance >= 0 && roadChance + railChance <= 1) || !(halfWidth >= grid && halfWidth <= 33) || !(boundaryWidth > 0) || !(signalSpacing > 0))
     throw new Error('Invalid map width, road probability or signal spacing.');
@@ -157,7 +160,7 @@ for (let slot = 1; slot <= poolCount; slot++) {
         for (let i = 0; i < count; i++) placements.push(transform(index * grid, columns[i] * grid,
             0, integer(0, 3) * 90, 0.9 + random() * 0.1));
     }
-    for (let tree = 1; tree <= treesPerRow; tree++) {
+    for (let tree = 1; tree <= treePoolSize; tree++) {
         const name = 'MapTree_' + slot + '_' + tree;
         const style = treeStyles[(slot + tree) % treeStyles.length];
         components.push(sceneComponent(name, 'DefaultSceneRoot', placements[tree - 1] ?? transform(),
@@ -194,5 +197,5 @@ const outputScene = existingScene ?? scene;
 outputScene.World.PersistentLevel.Actors = actors;
 await writeFile(root + outputPath, JSON.stringify(outputScene, null, 4) + '\n');
 console.log(JSON.stringify({ output: outputPath, actors: actors.length,
-    rows: poolCount, behind, ahead, treePool: poolCount * treesPerRow,
+    rows: poolCount, behind, ahead, treePool: poolCount * treePoolSize,
     railRows: previewRailRows, trainPool: poolCount, cars: mainGame ? '100 pooled at runtime' : 0 }));

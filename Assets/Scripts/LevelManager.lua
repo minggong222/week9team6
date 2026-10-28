@@ -206,12 +206,7 @@ function ResetLevel(NewSeed)
 
     if Refs.Layout.HasMapPool then
         GenerateMapRows(-Config.RowsBehind, Config.RowsAhead)
-    else
-        for Id = 1, Refs.Layout.RowCount do
-            local Index = Refs.Map:Invoke("GetStaticRowIndex", Id)
-            Refs.Map:Invoke("CreateRow", Id, Index, "road")
-            ConfigureRow(Id, Index, "road")
-        end
+
     end
     PublishLevelState()
 end

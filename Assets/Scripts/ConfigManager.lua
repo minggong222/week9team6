@@ -4,7 +4,11 @@ local ConfigManager = {}
 
 ConfigManager.Level = {
     NightMode = false, -- 최초 선택 모드
-    Spotlight = { ShadowSlopeBias = 0.05, InnerConeAngle = 30, OuterConeAngle = 40 },
+    Spotlight = {
+        ShadowSlopeBias = 0.05,
+        InnerConeAngle = 30,
+        OuterConeAngle = 40
+    },
     -- 낮/밤별 조명 설정. Color는 0~255 RGB 또는 RGBA를 사용한다.
     Lighting = {
         Day = {
@@ -20,18 +24,43 @@ ConfigManager.Level = {
             Train = { Intensity = 18, Color = { 220, 235, 255 } }
         }
     },
-    CellSize = 3.0, RowsBehind = 10, RowsAhead = 30, DeathRowsBehind = 6,
-    HalfWidth = 24.0, BoundaryWidth = 0.3, RoadHalfWidth = 34.0, InitialSeed = 20261026
+    CellSize = 3.0,
+    RowsBehind = 10,
+    RowsAhead = 30,
+    DeathRowsBehind = 6,
+    HalfWidth = 24.0,
+    BoundaryWidth = 0.3,
+    RoadHalfWidth = 34.0,
+    InitialSeed = 20261026
 }
 
 ConfigManager.Game = { CellSize = ConfigManager.Level.CellSize, GoalRow = 150 }
 
 ConfigManager.Traffic = {
-    NightSpeedMultiplier = 1.35, NightSpawnIntervalMultiplier = 0.7,
-    Headlight = { SideOffsetRatio = 0.32, Height = 0.8, Pitch = 12, Yaw = 180, CastShadows = false },
-    PoolCount = 100, CarWidth = 2.0, MinCarGap = 0.8, MaxInitialCarsPerRow = 4,
-    MinSpawnInterval = 0.25, MaxSpawnInterval = 2.5, PositiveYChance = 0.50,
-    MapMinSpeed = 8.0, MapMaxSpeed = 20.0, MinSpeed = 8.0, MaxSpeed = 20.0,
+    Day = {
+        MinSpeed = 8.0,
+        MaxSpeed = 20.0,
+        MinSpawnInterval = 0.25,
+        MaxSpawnInterval = 2.5
+    },
+    Night = {
+        MinSpeed = 10.8,
+        MaxSpeed = 27.0,
+        MinSpawnInterval = 0.25,
+        MaxSpawnInterval = 1.75
+    },
+    Headlight = {
+        SideOffsetRatio = 0.32,
+        Height = 0.8,
+        Pitch = 12,
+        Yaw = 180,
+        CastShadows = false
+    },
+    PoolCount = 100,
+    CarWidth = 2.0,
+    MinCarGap = 0.8,
+    MaxInitialCarsPerRow = 4,
+    PositiveYChance = 0.50,
     Cars = {
         { Path = "Models/Crossy/Cars/taxi.obj", Weight = 1.0 },
         { Path = "Models/Crossy/Cars/sedan.obj", Weight = 1.0 },
@@ -42,12 +71,38 @@ ConfigManager.Traffic = {
 }
 
 ConfigManager.Train = {
-    NightSpeedMultiplier = 1.3, NightWaitMultiplier = 0.75,
-    Headlight = { SideOffsetRatio = 0.32, Height = 1.8, Pitch = 10, Yaw = 90, Radius = 26, CastShadows = false },
-    Speed = 50.0, WaitMin = 3.0, WaitMax = 6.0, WarningTime = 1.0,
-    BlinkDuration = 1.0, BlinkInterval = 0.25,
-    SignalSpacing = 12.0, SignalOffsetX = -1.4, SignalIntensity = 6.0,
-    PassSoundRange = 18.0, PassSoundLead = 30.0, PassSoundVolume = 0.70,
+    Day = {
+        Speed = 50.0,
+        WaitMin = 3.0,
+        WaitMax = 6.0,
+        WarningTime = 1.0,
+        InitialWaitMin = 1.0,
+        InitialWaitMax = 4.0
+    },
+    Night = {
+        Speed = 65.0,
+        WaitMin = 2.25,
+        WaitMax = 4.5,
+        WarningTime = 1.0,
+        InitialWaitMin = 1.0,
+        InitialWaitMax = 4.0
+    },
+    Headlight = {
+        SideOffsetRatio = 0.32,
+        Height = 1.8,
+        Pitch = 10,
+        Yaw = 90,
+        Radius = 26,
+        CastShadows = false
+    },
+    BlinkDuration = 1.0,
+    BlinkInterval = 0.25,
+    SignalSpacing = 12.0,
+    SignalOffsetX = -1.4,
+    SignalIntensity = 6.0,
+    PassSoundRange = 18.0,
+    PassSoundLead = 30.0,
+    PassSoundVolume = 0.70,
     WarningSoundVolume = 0.50,
     Types = {
         { Name = "bullet", Path = "Models/Crossy/Trains/crossy-train-long.obj" },
@@ -57,21 +112,52 @@ ConfigManager.Train = {
 }
 
 ConfigManager.Map = {
-    RoadChance = 0.60, RailChance = 0.05, TreesPerRow = 5,
-    TreeWeights = { 5, 15, 20, 30, 20, 10 },
-    TreeHitboxExtent = { X = 0.45, Y = 0.45, Z = 1.0 },
-    StaticRoadRows = { 1, 2, 6, 7, 8, 11, 12, 16, 17, 18, 21, 22, 26, 27, 31, 32, 33 }
+    Day = {
+        RoadChance = 0.60,
+        RailChance = 0.05,
+        TreesPerRow = 5,
+        TreeWeights = { 5, 15, 20, 30, 20, 10 }
+    },
+    Night = {
+        RoadChance = 0.60,
+        RailChance = 0.05,
+        TreesPerRow = 5,
+        TreeWeights = { 5, 15, 20, 30, 20, 10 }
+    },
+    TreeHitboxExtent = {
+        X = 0.45,
+        Y = 0.45,
+        Z = 1.0
+    }
 }
 
 ConfigManager.Camera = {
-    Pitch = 40.0, Yaw = -35.0, Width = 36.0, Distance = 32.0,
-    LookAhead = 5.0, MoveSpeed = 8.0, SelectionWidth = 12.0
+    Pitch = 40.0,
+    Yaw = -35.0,
+    Width = 36.0,
+    Distance = 32.0,
+    LookAhead = 5.0,
+    MoveSpeed = 8.0,
+    SelectionWidth = 12.0
 }
 
-ConfigManager.HUD = { ScorePulseDuration = 0.20, ScorePulseAmount = 0.2,
-    GameOverSwingPeriod = 2.0, GameOverSwingAngle = 7.0, Scale = 1.0, Score = 0.105, Title = 0.032, Name = 0.052, Hint = 0.023 }
+ConfigManager.HUD = {
+    ScorePulseDuration = 0.20,
+    ScorePulseAmount = 0.2,
+    GameOverSwingPeriod = 2.0,
+    GameOverSwingAngle = 7.0,
+    Scale = 1.0,
+    Score = 0.105,
+    Title = 0.032,
+    Name = 0.052,
+    Hint = 0.023
+}
 
-ConfigManager.Selection = { RowX = -200.0, Spacing = 5.0, Size = 2.0 }
+ConfigManager.Selection = {
+    RowX = -200.0,
+    Spacing = 5.0,
+    Size = 2.0
+}
 
 ConfigManager.Characters = {
     { Name = "Hitori", Path = "Models/OBJ format/animal-hitori.obj" },
@@ -115,16 +201,40 @@ ConfigManager.Player = {
     LandingSquashDuration = 0.08,
     BounceDuration = 0.12,
     CollisionStep = 0.01,
-    TreeHitboxExtent = { X = 1.0, Y = 1.0, Z = 0.5 },
+    TreeHitboxExtent = {
+        X = 1.0,
+        Y = 1.0,
+        Z = 0.5
+    },
 }
 
 ConfigManager.Cinematics = {
-    FadeDuration = 0.15, LetterBoxHeight = 0.08, LetterBoxDuration = 0.25,
+    FadeDuration = 0.15,
+    LetterBoxHeight = 0.08,
+    LetterBoxDuration = 0.25,
     Black = { 0, 0, 0, 255 },
-    DeathZoom = { Scale = 0.9, InDuration = 0.25, OutDuration = 0.15 },
-    DeathShake = { Duration = 0.35, Location = 1.5, Rotation = 1.25, Frequency = 8.0 },
-    ModeShake = { Duration = 0.25, Location = 0.15, Rotation = 0.8, Frequency = 18 },
-    HitStop = { Scale = 0, Hold = 0.25, Recovery = 1.5 }
+    DeathZoom = {
+        Scale = 0.9,
+        InDuration = 0.25,
+        OutDuration = 0.15
+    },
+    DeathShake = {
+        Duration = 0.35,
+        Location = 1.5,
+        Rotation = 1.25,
+        Frequency = 8.0
+    },
+    ModeShake = {
+        Duration = 0.25,
+        Location = 0.15,
+        Rotation = 0.8,
+        Frequency = 18
+    },
+    HitStop = {
+        Scale = 0,
+        Hold = 0.25,
+        Recovery = 1.5
+    }
 }
 
 ConfigManager.Game.DefaultMode = ConfigManager.Level.NightMode and "Night" or "Day"

@@ -276,4 +276,50 @@ PressedKey = "Down"
 Manager.TickComponent({}, 0)
 assert(Manager.State.Game.Mode == "Night" and Layout.NightMode)
 assert(ResetCount == 2 and ShakeCount == 2)
+-- 서로 다른 모드의 지형 확률·나무 수를 적용하고 큰 쪽 풀을 재사용한다.
+local MapConfig = dofile("Assets/Scripts/ConfigManager.lua")
+MapConfig.Map.Day = { RoadChance = 1, RailChance = 0, TreesPerRow = 0, TreeWeights = { 1 } }
+MapConfig.Map.Night = { RoadChance = 0, RailChance = 0, TreesPerRow = 6,
+    TreeWeights = { 0, 0, 0, 0, 0, 0, 1 } }
+Base.dofile = function() return MapConfig end
+Base.USceneComponent = { Cast = function(V) return V end }
+Base.UBoxComponent = { Cast = function(V) return V end }
+Base.ECollisionEnabled = { NoCollision = 0, QueryOnly = 1 }
+Base.ECollisionChannel = { WorldStatic = 0, Pawn = 1 }
+Base.ECollisionResponse = { Ignore = 0, Block = 1 }
+local function MapComponent()
+    local C = Component()
+    function C:SetCollisionEnabled(V) self.Collision = V end
+    function C:SetCollisionObjectType() end
+    function C:SetCollisionResponseToAllChannels() end
+    function C:SetCollisionResponseToChannel() end
+    function C:SetBoxExtent() end
+    function C:SetRelativeScale3D() end
+    return C
+end
+Components.MapFloor_1 = MapComponent()
+for Index = 1, 6 do
+    Components["MapTree_1_" .. Index] = MapComponent()
+    Components["MapTreeHitbox_1_" .. Index] = MapComponent()
+end
+local Map = Load("World/MapGenerator.lua")
+Base.dofile = nil
+local MapLayout = { NightMode = false, HasMapPool = true, RowsBehind = 0, RowsAhead = 0,
+    HalfWidth = 24, CellSize = 3 }
+Map.Initialize(MapLayout)
+local Rows, Trees = Map.GetPoolSize()
+assert(Rows == 1 and Trees == 6)
+Map.ResetGeneration(1)
+local Id, Index, Kind = Map.GenerateNextRow(3, 3)
+assert(Kind == "road" and Map.GetRows()[1].TreeCount == 0)
+Map.RecycleRow(Id, false)
+MapLayout.NightMode = true
+Map.ResetGeneration(1)
+Id, Index, Kind = Map.GenerateNextRow(3, 3)
+assert(Kind == "grass" and Map.GetRows()[1].TreeCount == 6)
+Map.RecycleRow(Id, false)
+MapConfig.Map.Night.RailChance = 1
+Map.ResetGeneration(1)
+Id, Index, Kind = Map.GenerateNextRow(3, 3)
+assert(Kind == "rail" and Map.GetRows()[1].TreeCount == 0)
 print('PASS merge regression: death squash, train warning/audio settings, night mode: 200 car headlights, car speed/interval, train speed/wait, spotlight direction/visibility/reuse')
