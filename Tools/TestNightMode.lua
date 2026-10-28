@@ -440,4 +440,37 @@ MapConfig.Map.Night.RailChance = 1
 Map.ResetGeneration(1)
 Id, Index, Kind = Map.GenerateNextRow(3, 3)
 assert(Kind == "rail" and Map.GetRows()[1].TreeCount == 0)
+-- 선택 조명·배경은 플레이어 카메라 하위에 생성하고 모드 색상과 표시 상태를 따른다.
+local SelectionCamera = Component()
+function SelectionCamera:GetWorldLocation() return self.Position end
+function SelectionCamera:GetWorldRotation() return {} end
+function SelectionCamera:SetWorldLocation(Value) self.Position = Value end
+function SelectionCamera:SetWorldRotation(Value) self.Rotation = Value end
+function SelectionCamera:SetIsOrthogonal() end
+function SelectionCamera:SetOrthoWidth(Value) self.Width = Value end
+function SelectionCamera:GetOrthoWidth() return self.Width or 12 end
+function SelectionCamera:GetAspectRatio() return 2 end
+function World:GetPlayerPawn() return Actor end
+function Actor:AddComponent(_, Name)
+    local C = MapComponent()
+    function C:SetCastShadow(Value) self.CastShadow = Value end
+    function C:SetUnlitColor(Value) self.Color = Value end
+    Components[Name] = C
+    return C
+end
+local SelectionView = Load("Camera/GameCamera.lua")
+SelectionView.Initialize(SelectionCamera)
+local Spot = assert(Components.CharacterSelectionSpotlight)
+local Back = assert(Components.CharacterSelectionBackground)
+assert(Spot.Parent == SelectionCamera and Back.Parent == SelectionCamera)
+assert(not Spot.Visible and not Back.Visible and not Back.CastShadow)
+SelectionView.ShowSelectionCamera(Vector(-208, 0, 8))
+assert(Spot.Visible and Back.Visible and Back.Scale.Y / Back.Scale.Z == 2)
+SelectionView.SetSelectionMode("Night")
+assert(Back.Color[1] == Defaults.Selection.Background.Night.Color[1])
+SelectionView.SetSelectionMode("Day")
+assert(Back.Color[1] == Defaults.Selection.Background.Day.Color[1])
+SelectionView.Refs.Camera = nil
+SelectionView.ApplyGameplayCamera()
+assert(not Spot.Visible and not Back.Visible)
 print('PASS merge regression: death squash, train warning/audio settings, night mode: 200 car headlights, car speed/interval, train speed/wait, spotlight direction/visibility/reuse')

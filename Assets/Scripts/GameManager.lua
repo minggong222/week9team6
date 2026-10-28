@@ -41,6 +41,9 @@ end
 
 -- 연출과 HUD를 각각 갱신한다. 재시작의 Ready 처리도 FadeOut보다 먼저 끝낸다.
 local function UpdateScreen()
+    if State.Game.Phase == GamePhase.Selecting then
+        Refs.Camera:Invoke("SetSelectionMode", State.Game.Mode or Config.DefaultMode)
+    end
     Refs.Cinematics:Invoke("Update", State.Game.Phase)
     UpdateHUD()
 end

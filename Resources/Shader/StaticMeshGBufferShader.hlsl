@@ -98,6 +98,6 @@ GBUFFER_OUTPUT mainPS(PS_INPUT Input)
 
     // 현재 UMaterial에는 Metallic/Roughness 값이 없어 임시 상수를 쓴다.
     Output.BaseColorMetallic = float4(LinearAlbedo, 0.0f);
-    Output.NormalRoughness = float4(Normal, 0.8f);
+    Output.NormalRoughness = float4(Normal, TextureFlags.x < -0.5f ? -1.0f : 0.8f);
     return Output;
 }
