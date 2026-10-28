@@ -38,6 +38,7 @@
 
 #include "Render/RenderCommand.h"
 #include "Editor/Outliner/OutlinerPanel.h"
+#include "Editor/Sequencer/SequencerPanel.h"
 #include "Editor/HitoriEd/EditorFileUtils.h"
 #include "Editor/Viewports/EditorViewportClient.h"
 #include "UObject/UObjectIterator.h"
@@ -150,6 +151,7 @@ bool UEditorEngine::Init()
 	EditorControlsPanel = EditorUI->AddEditorPanel<FEditorControlsPanel>();
 	ViewportsPanel = EditorUI->AddEditorPanel<FViewportsPanel>();
 	ContentDrawerPanel = EditorUI->AddEditorPanel<FContentDrawerPanel>();
+	EditorUI->AddEditorPanel<FSequencerPanel>();
     ContentDrawerPanel->SetWorld(EditorWorld);
     DetailsPanel->SetScriptCreatedCallback([this](const FString& ScriptPath)
     {

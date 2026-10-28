@@ -176,6 +176,8 @@ project "HitoriEditor"
 	{
 		"Source/Editor/**.h",
 		"Source/Editor/**.cpp",
+		"Source/ThirdParty/ImSequencer/ImSequencer.h",
+		"Source/ThirdParty/ImSequencer/ImSequencer.cpp",
 		"Source/Programs/**.h",
 		"Source/Programs/**.cpp",
 		"Source/Editor/**.rc",   -- 창·exe 아이콘
@@ -203,6 +205,10 @@ project "HitoriEditor"
 		"winmm.lib",
 		"xaudio2.lib",
 	}
+
+	filter "files:Source/ThirdParty/ImSequencer/**.cpp"
+		flags { "NoPCH" }
+	filter {}
 
 	filter "configurations:ObjViewer"
 		targetname "ObjViewer"
