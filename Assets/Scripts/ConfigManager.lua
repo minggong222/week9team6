@@ -38,16 +38,16 @@ ConfigManager.Game = { CellSize = ConfigManager.Level.CellSize, GoalRow = 150 }
 
 ConfigManager.Traffic = {
     Day = {
-        MinSpeed = 8.0,
+        MinSpeed = 6.0,
         MaxSpeed = 20.0,
-        MinSpawnInterval = 0.25,
+        MinSpawnInterval = 0.5,
         MaxSpawnInterval = 2.5
     },
     Night = {
-        MinSpeed = 10.8,
-        MaxSpeed = 27.0,
-        MinSpawnInterval = 0.25,
-        MaxSpawnInterval = 1.75
+        MinSpeed = 10.0,
+        MaxSpeed = 40.0,
+        MinSpawnInterval = 0.5,
+        MaxSpawnInterval = 2.5
     },
     Headlight = {
         SideOffsetRatio = 0.32,
@@ -81,8 +81,8 @@ ConfigManager.Train = {
     },
     Night = {
         Speed = 65.0,
-        WaitMin = 2.25,
-        WaitMax = 4.5,
+        WaitMin = 1.0,
+        WaitMax = 3.0,
         WarningTime = 1.0,
         InitialWaitMin = 1.0,
         InitialWaitMax = 4.0
@@ -120,9 +120,9 @@ ConfigManager.Map = {
     },
     Night = {
         RoadChance = 0.60,
-        RailChance = 0.05,
-        TreesPerRow = 5,
-        TreeWeights = { 5, 15, 20, 30, 20, 10 }
+        RailChance = 0.10,
+        TreesPerRow = 7,
+        TreeWeights = { 5, 10, 15, 15, 20, 15, 15, 5 }
     },
     TreeHitboxExtent = {
         X = 0.45,

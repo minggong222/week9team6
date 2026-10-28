@@ -68,6 +68,7 @@ assert(Defaults.Level.Lighting.Day.Car.Intensity == 0)
 local Random = 0
 local Lighting = Load("LevelManager.lua")
 assert(Lighting.State.LightingProfile == "Day", "Default mode must be Day")
+Lighting.TickComponent({}, 0) -- 초기화 전 Tick은 다른 상태에 접근하지 않는다.
 Lighting.SetLightingProfile("Night")
 local Level = { Invoke = function(_, Name, ...)
     if Name == "RegisterLight" then return Lighting.RegisterLight(...) end
@@ -276,11 +277,36 @@ PressedKey = "Down"
 Manager.TickComponent({}, 0)
 assert(Manager.State.Game.Mode == "Night" and Layout.NightMode)
 assert(ResetCount == 2 and ShakeCount == 2)
+-- HitStop으로 게임 시간이 멈춘 프레임에도 R 입력이 암전 전에 시간 효과를 해제한다.
+local Retry = Load("GameManager.lua")
+Retry.State.Game.Phase = "Dead"
+local TimeResetCount, FadeCount = 0, 0
+function World:ResetTimeEffects() TimeResetCount = TimeResetCount + 1 end
+Retry.Refs.HitReaction = { Invoke = function() end }
+Retry.Refs.HUD = { Invoke = function() end }
+Retry.Refs.Cinematics = { Invoke = function(_, Name)
+    if Name == "PlayRestart" then
+        assert(TimeResetCount == 1, "HitStop must end before FadeOut starts")
+        FadeCount = FadeCount + 1
+        return 0.15
+    end
+end }
+Base.EKeyCode.R = "R"
+PressedKey = "R"
+Retry.TickComponent({}, 0)
+assert(Retry.State.Restarting and FadeCount == 1 and TimeResetCount == 1)
+PressedKey = nil
+Retry.TickComponent({}, 0.1)
+assert(Retry.State.Restarting and FadeCount == 1)
+Retry.TickComponent({}, 0.06)
+assert(not Retry.State.Restarting and Retry.State.Game.Phase == "Playing")
+assert(TimeResetCount == 2 and FadeCount == 1)
+
 -- 서로 다른 모드의 지형 확률·나무 수를 적용하고 큰 쪽 풀을 재사용한다.
 local MapConfig = dofile("Assets/Scripts/ConfigManager.lua")
 MapConfig.Map.Day = { RoadChance = 1, RailChance = 0, TreesPerRow = 0, TreeWeights = { 1 } }
-MapConfig.Map.Night = { RoadChance = 0, RailChance = 0, TreesPerRow = 6,
-    TreeWeights = { 0, 0, 0, 0, 0, 0, 1 } }
+MapConfig.Map.Night = { RoadChance = 0, RailChance = 0, TreesPerRow = 8,
+    TreeWeights = { 0, 0, 0, 0, 0, 0, 0, 0, 1 } }
 Base.dofile = function() return MapConfig end
 Base.USceneComponent = { Cast = function(V) return V end }
 Base.UBoxComponent = { Cast = function(V) return V end }
@@ -294,13 +320,22 @@ local function MapComponent()
     function C:SetCollisionResponseToAllChannels() end
     function C:SetCollisionResponseToChannel() end
     function C:SetBoxExtent() end
-    function C:SetRelativeScale3D() end
+    function C:SetRelativeScale3D(V) self.Scale = V end
+    function C:GetRelativeScale3D() return self.Scale or Vector(1, 1, 1) end
+    function C:GetRelativeRotation() return self.Rotation or {} end
+    function C:GetStaticMesh() return self.Mesh end
     return C
 end
 Components.MapFloor_1 = MapComponent()
-for Index = 1, 6 do
+for Index = 1, 5 do
     Components["MapTree_1_" .. Index] = MapComponent()
     Components["MapTreeHitbox_1_" .. Index] = MapComponent()
+end
+Components.MapTreeMesh_1_1 = MapComponent()
+Components.MapTreeMesh_1_1:SetStaticMesh("tree-template")
+function Actor:AddComponent(_, Name)
+    Components[Name] = MapComponent()
+    return Components[Name]
 end
 local Map = Load("World/MapGenerator.lua")
 Base.dofile = nil
@@ -308,7 +343,13 @@ local MapLayout = { NightMode = false, HasMapPool = true, RowsBehind = 0, RowsAh
     HalfWidth = 24, CellSize = 3 }
 Map.Initialize(MapLayout)
 local Rows, Trees = Map.GetPoolSize()
-assert(Rows == 1 and Trees == 6)
+assert(Rows == 1 and Trees == 8)
+for Index = 6, 8 do
+    local Tree = assert(Components["MapTree_1_" .. Index])
+    local Mesh = assert(Components["MapTreeMesh_1_" .. Index])
+    assert(Mesh.Parent == Tree and Mesh.Mesh == "tree-template")
+    assert(Mesh.Collision == Base.ECollisionEnabled.NoCollision)
+end
 Map.ResetGeneration(1)
 local Id, Index, Kind = Map.GenerateNextRow(3, 3)
 assert(Kind == "road" and Map.GetRows()[1].TreeCount == 0)
@@ -316,7 +357,7 @@ Map.RecycleRow(Id, false)
 MapLayout.NightMode = true
 Map.ResetGeneration(1)
 Id, Index, Kind = Map.GenerateNextRow(3, 3)
-assert(Kind == "grass" and Map.GetRows()[1].TreeCount == 6)
+assert(Kind == "grass" and Map.GetRows()[1].TreeCount == 8)
 Map.RecycleRow(Id, false)
 MapConfig.Map.Night.RailChance = 1
 Map.ResetGeneration(1)

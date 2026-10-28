@@ -100,6 +100,29 @@ local function RecycleMapRow(Row)
     end
 end
 
+-- 저장된 씬보다 나무 수를 늘려도 기존 메시 배치를 복사해 슬롯을 보충한다.
+local function GetOrCreateTree(Slot, Index)
+    local Name = "MapTree_" .. Slot .. "_" .. Index
+    local Tree = USceneComponent.Cast(Actor:FindComponentByName(Name))
+    if Tree then return Tree end
+
+    local Template = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapTreeMesh_" .. Slot .. "_1"))
+    assert(Template, "Missing tree mesh template for slot " .. Slot)
+    Tree = USceneComponent.Cast(Actor:AddComponent(UClass.Find("USceneComponent"), Name))
+    local Mesh = UStaticMeshComponent.Cast(Actor:AddComponent(UClass.Find("UStaticMeshComponent"),
+        "MapTreeMesh_" .. Slot .. "_" .. Index))
+    assert(Tree and Mesh, "Could not create tree slot")
+    Tree:SetupAttachment(Actor:GetRootComponent())
+    Mesh:SetupAttachment(Tree)
+    Mesh:SetStaticMesh(Template:GetStaticMesh())
+    Mesh:SetRelativeLocation(Template:GetRelativeLocation())
+    Mesh:SetRelativeRotation(Template:GetRelativeRotation())
+    Mesh:SetRelativeScale3D(Template:GetRelativeScale3D())
+    Mesh:SetCollisionEnabled(ECollisionEnabled.NoCollision)
+    Tree:SetVisibility(false, true)
+    return Tree
+end
+
 local function CaptureMapPool()
     if not State.HasMapPool then return end
     Refs.GrassMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/kenney-grass-row.obj")
@@ -125,8 +148,7 @@ local function CaptureMapPool()
         end
 
         for Index = 1, TreePoolSize do
-            local Tree = USceneComponent.Cast(Actor:FindComponentByName("MapTree_" .. Slot .. "_" .. Index))
-            assert(Tree, "Missing tree slot; regenerate the scene for the configured tree pool size")
+            local Tree = GetOrCreateTree(Slot, Index)
             Row.Trees[Index] = Tree
             local Name = "MapTreeHitbox_" .. Slot .. "_" .. Index
             local Hitbox = UBoxComponent.Cast(Actor:FindComponentByName(Name))

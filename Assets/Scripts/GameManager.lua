@@ -114,6 +114,8 @@ end
 
 local function Restart()
     if State.Restarting then return end
+    -- 암전이 시작되기 전에 HitStop·슬로모션을 해제해 재시작 시간이 늘어나지 않도록 한다.
+    Actor:GetWorld():ResetTimeEffects()
     local WasDead = State.Game.Phase == GamePhase.Dead
     State.Game.RestartCount = (State.Game.RestartCount or 0) + 1
     State.Restarting = true

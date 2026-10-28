@@ -255,6 +255,7 @@ local function PrintLevelState()
 end
 
 function BeginPlay(Self)
+    State.Initialized = false
     InitializeLighting()
     assert(Config.DeathRowsBehind > 0 and Config.DeathRowsBehind <= Config.RowsBehind, "Death boundary must be inside the retained map")
     assert(Config.HalfWidth >= Config.CellSize and Config.HalfWidth <= 33 and Config.BoundaryWidth > 0, "Invalid map width")
@@ -310,9 +311,11 @@ function BeginPlay(Self)
 
     ResetLevel(false)
     if State.Game.EnableTraffic then EnableTraffic() end
+    State.Initialized = true
 end
 
 function TickComponent(Self, DeltaSeconds)
+    if not State.Initialized then return end
     if State.Game.EnableTraffic and not Refs.Traffic:Invoke("IsEnabled") then EnableTraffic() end
 
     -- GameManager가 없는 maptest는 기존처럼 자체 재시작·점수 처리
