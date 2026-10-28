@@ -288,7 +288,7 @@ ConfigManager.River = {
     LogMeshPath = "Models/Crossy/River/log.obj",
 
     -- 물이 작은 타일인 경우 각 타일의 크기 조절
-    WaterTileScale = { X = 1.0, Y = 1.0, Z = 1.0 },
+    WaterTileScale = { X = 3.0, Y = 3.0, Z = 1.0 },
 
     -- 물이 전체 강 행 메시인 경우 크기 조절
     WaterRowScale = { X = 1.0, Y = 1.0, Z = 1.0 },
@@ -305,12 +305,12 @@ ConfigManager.River = {
     MaxSpeed = 3.0,
 
     -- 실제 모델 크기에 맞춰 설정
-    LogScale = { X = 1.0, Y = 1.0, Z = 1.0 },
+    LogScale = { X = 5.0, Y = 5.0, Z = 6.0 },
     LogYaw = 90.0,
-    LogCenterZ = 0.25,
+    LogCenterZ = -0.8,
 
     -- 월드 좌표 기준의 통나무 반길이
-    LogHalfLength = 4.5,
+    LogHalfLength = 2.0,
 
     -- 플레이어 중심에서 좌우로 인정할 너비
     PlayerHalfWidth = 0.7,

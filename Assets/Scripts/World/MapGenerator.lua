@@ -159,12 +159,14 @@ local function GenerateMapRow(Row, Index, Kind)
 
     -- 해당 행이 강물일 때만 물 타일을 표시한다.
     for _, Tile in ipairs(Row.WaterTiles) do
-        if Kind == "river" and RiverConfig.WaterMeshMode == "Tile" then Tile.Component:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, Tile.Column * Refs.Layout.CellSize, RiverConfig.WaterZ)) Tile.Component:SetVisibility(true, true)
-        else Tile.Component:SetVisibility(false, true) end
+        if Kind == "river" and RiverConfig.WaterMeshMode == "Tile" then
+            Tile.Component:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, Tile.Column * Refs.Layout.CellSize, RiverConfig.WaterZ))
+            Tile.Component:SetVisibility(true, true)
+        else
+            Tile.Component:SetVisibility(false, true)
+        end
     end
-    Row.Floor:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, 0, 0))
-    -- 잔디는 단일 배경 바닥으로 표시하여 행 타일의 경계선과 옆면을 없앤다.
-    Row.Floor:SetVisibility(Kind ~= "grass", true)
+
     -- 바닥 끝(마지막 이동 칸의 바깥쪽)부터 벽 배치. 터널은 행마다 독립 배치
     for Side, Wall in ipairs(Row.Walls) do
         local Sign = Side == 1 and -1 or 1
@@ -276,6 +278,7 @@ local function CaptureMapPool()
                 Water:SetupAttachment(Actor:GetRootComponent())
                 Water:SetStaticMesh(Refs.WaterMesh)
                 Water:SetCollisionEnabled(ECollisionEnabled.NoCollision)
+                Water:SetRelativeRotation(FRotator.new(0, 90, 0))
                 Water:SetRelativeScale3D(FVector.new(RiverConfig.WaterTileScale.X, RiverConfig.WaterTileScale.Y, RiverConfig.WaterTileScale.Z))
                 Water:SetVisibility(false, true)
                 Row.WaterTiles[#Row.WaterTiles + 1] = {Component = Water, Column = Column}
