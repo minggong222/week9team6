@@ -83,7 +83,7 @@ function ShowSelection(Name, Index, Count, HUDScale, Mode)
     Place(Refs.HUDTitle, "CHOOSE YOUR CHARACTER", Config.Title, 0.5, 0.88)
     Place(Refs.ScoreText, "<  " .. Name:upper() .. "  >", Config.Name, 0.5, 0.25)
     Place(Refs.HUDDetail, string.format("%02d / %02d     |     %s MODE", Index, Count, (Mode or Config.DefaultMode):upper()), Config.Hint, 0.5, 0.18)
-    Place(Refs.HUDHint, "LEFT / RIGHT : CHARACTER     UP / DOWN : MODE     ENTER : PLAY", Config.Hint, 0.5, 0.09)
+    Place(Refs.HUDHint, "A/D, LEFT/RIGHT : CHARACTER     W/S, UP/DOWN : MODE     ENTER : PLAY", Config.Hint, 0.5, 0.09)
 end
 
 function ShowScore(Score, HUDScale)

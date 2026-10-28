@@ -65,7 +65,8 @@ ConfigManager.Map = {
 
 ConfigManager.Camera = {
     Pitch = 40.0, Yaw = -35.0, Width = 36.0, Distance = 32.0,
-    LookAhead = 5.0, MoveSpeed = 8.0, SelectionWidth = 12.0
+    LookAhead = 5.0, MoveSpeed = 8.0, SelectionWidth = 12.0,
+    DayGamma = 1.0, NightGamma = 1.7
 }
 
 ConfigManager.HUD = { ScorePulseDuration = 0.20, ScorePulseAmount = 0.2,

@@ -48,6 +48,7 @@ end
 function BindLevel(LevelManager)
     Refs.Level = LevelManager
     State.Game.Mode = LevelManager:Invoke("GetMode")
+    Refs.Camera:Invoke("SetModeGamma", State.Game.Mode)
 end
 
 function GetPhase()
@@ -196,6 +197,7 @@ function BeginPlay(Self)
     local Camera = Actor:GetWorld():GetPlayerCamera()
     Refs.HUD:Invoke("Initialize", Camera)
     Refs.Camera:Invoke("Initialize", Camera)
+    Refs.Camera:Invoke("SetModeGamma", State.Game.Mode or Config.DefaultMode)
     Refs.Selection:Invoke("Initialize", Refs.Player, Refs.PlayerMesh)
     Refs.HitReaction:Invoke("Initialize", Refs.PlayerMesh)
     Refs.Cinematics:Invoke("PlayStart")
@@ -414,9 +416,11 @@ function TickComponent(Self, DeltaSeconds)
     end
 
     if Game.Phase == GamePhase.Selecting then
-        if Refs.Level and (Input.IsKeyPressed(EKeyCode.Up) or Input.IsKeyPressed(EKeyCode.Down)) then
+        if Refs.Level and (Input.IsKeyPressed(EKeyCode.Up) or Input.IsKeyPressed(EKeyCode.Down)
+            or Input.IsKeyPressed(EKeyCode.W) or Input.IsKeyPressed(EKeyCode.S)) then
             Game.Mode = Game.Mode == "Night" and "Day" or "Night"
             Refs.Level:Invoke("SetMode", Game.Mode)
+            Refs.Camera:Invoke("SetModeGamma", Game.Mode)
             local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
             if CameraManager then
                 local Shake = Config.ModeShake

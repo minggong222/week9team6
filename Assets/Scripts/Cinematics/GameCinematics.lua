@@ -166,6 +166,7 @@ function PlayCameraSequence(Duration)
 
     local Cine = Sequence.CineActor
     local Camera = Cine:GetCameraComponent()
+    Camera:SetColorGradingGamma(ReturnCamera:GetColorGradingGamma())
 
     -- 현재 카메라의 구도를 시작점으로 사용한다.
     local StartLocation = ReturnCamera:GetWorldLocation()

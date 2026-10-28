@@ -15,6 +15,12 @@ function Initialize(Camera)
     end
 end
 
+function SetModeGamma(Mode)
+    if Refs.Camera then
+        Refs.Camera:SetColorGradingGamma(Mode == "Night" and Config.NightGamma or Config.DayGamma)
+    end
+end
+
 function ApplyGameplayCamera()
     local Camera = Refs.Camera
     if not Camera then return end
@@ -66,6 +72,7 @@ function StartCreditsCamera()
 
     local Cine = State.CreditsActor
     local Camera = Cine:GetCameraComponent()
+    Camera:SetColorGradingGamma(ReturnCamera:GetColorGradingGamma())
     State.CreditsLocation = ReturnCamera:GetWorldLocation()
     State.CreditsRotation = ReturnCamera:GetWorldRotation()
     State.CreditsElapsed = 0
