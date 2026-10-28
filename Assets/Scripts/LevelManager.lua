@@ -289,9 +289,9 @@ function TickComponent(Self, DeltaSeconds)
         end
     end
 
-    -- 사망 후에도 교통 유지, 선택·준비·클리어에서는 정지
+    -- 사망·크레딧 화면에서도 교통 유지, 선택·준비·클리어에서는 정지
     local Phase = GetPhase()
-    if Phase == "Playing" or Phase == "Dead" then
+    if Phase == "Playing" or Phase == "Dead" or Phase == "Credits" then
         Refs.Traffic:Invoke("Update", DeltaSeconds)
         if Refs.Layout.HasMapPool then
             Refs.Train:Invoke("Update", DeltaSeconds)

@@ -79,6 +79,8 @@ function Update(Phase)
     elseif Phase == "SelectingCharacter" then
         CameraManager:StartCameraFade(FromAlpha, 0, FadeDuration, Black)
         CameraManager:SetLetterBox(LetterBoxHeight, LetterBoxDuration)
+    elseif Phase == "Credits" then
+        CameraManager:SetLetterBox(LetterBoxHeight, LetterBoxDuration)
     else
         StopEffects()
     end

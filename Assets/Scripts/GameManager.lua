@@ -1,5 +1,5 @@
 -- 게임 규칙과 시스템 간 호출 순서 관리
-local GamePhase = { Selecting = "SelectingCharacter", Ready = "Ready", Playing = "Playing", Dead = "Dead", Clear = "Clear" }
+local GamePhase = { Selecting = "SelectingCharacter", Ready = "Ready", Playing = "Playing", Dead = "Dead", Clear = "Clear", Credits = "Credits" }
 local Config = { CellSize = 3.0, GoalRow = 150 }
 
 -- 전역 테이블은 기존 외부 호출과의 호환용. 게임 단계·점수 변경은 이 매니저 담당
@@ -32,6 +32,8 @@ local function UpdateHUD()
         Refs.HUD:Invoke("ShowScore", Game.Score, Game.HUDScale)
     elseif Game.Phase == GamePhase.Dead or Game.Phase == GamePhase.Clear then
         Refs.HUD:Invoke("ShowResult", Game.Phase, Game.Score, Game.HUDScale)
+    elseif Game.Phase == GamePhase.Credits then
+        Refs.HUD:Invoke("ShowCredits", Game.HUDScale, State.CreditsCamera)
     else
         Refs.HUD:Invoke("Hide")
     end
@@ -228,6 +230,20 @@ function TickComponent(Self, DeltaSeconds)
         return
     end
 
+    if Game.Phase == GamePhase.Credits then
+        if Input.IsKeyPressed(EKeyCode.C) or Input.IsKeyPressed(EKeyCode.Backspace) then
+            Refs.Camera:Invoke("StopCreditsCamera")
+            State.CreditsCamera = nil
+            Game.Phase = State.CreditsReturnPhase
+            State.CreditsReturnPhase = nil
+            UpdateScreen()
+        else
+            Refs.Camera:Invoke("UpdateCreditsCamera", DeltaSeconds)
+            UpdateHUD()
+        end
+        return
+    end
+
     --------------------------------------------------------------------------------------
     -- 임시 F3로 정상 속도와 슬로모션 전환
     local bF3Down = Input.IsKeyPressed(EKeyCode.F3)
@@ -380,6 +396,14 @@ function TickComponent(Self, DeltaSeconds)
     --------------------------------------------------------------------------------------
     local CanSelectCharacter = Game.Phase == GamePhase.Dead
         or (Game.Phase == GamePhase.Playing and (Game.Score or 0) == 0)
+    if CanSelectCharacter and Input.IsKeyPressed(EKeyCode.C) then
+        State.CreditsReturnPhase = Game.Phase
+        if Game.Phase == GamePhase.Playing and Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
+        State.CreditsCamera = Refs.Camera:Invoke("StartCreditsCamera")
+        Game.Phase = GamePhase.Credits
+        UpdateScreen()
+        return
+    end
     if CanSelectCharacter and Input.IsKeyPressed(EKeyCode.Backspace) then
         ReturnToCharacterSelection()
         return
@@ -440,6 +464,7 @@ function TickComponent(Self, DeltaSeconds)
 end
 
 function EndPlay(Self)
+    Refs.Camera:Invoke("StopCreditsCamera")
     Refs.Cinematics:Invoke("StopCinematics")
     if Refs.PlayerHitbox and State.BeginOverlapHandle then
         Refs.PlayerHitbox.OnComponentBeginOverlap:Remove(State.BeginOverlapHandle)

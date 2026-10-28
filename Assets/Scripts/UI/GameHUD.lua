@@ -38,17 +38,18 @@ function Initialize(Camera)
 end
 
 -- 화면 비율 기반 배치로 직교·원근 투영 및 창 종횡비 변경 시에도 같은 구도 유지
-local function BeginLayout(HUDScale)
-    if not Refs.ScoreText or not Refs.Camera then return nil end
+local function BeginLayout(HUDScale, ViewCamera)
+    local Camera = ViewCamera or Refs.Camera
+    if not Refs.ScoreText or not Camera then return nil end
     local Distance = 2.0
-    local Aspect = math.max(Refs.Camera:GetAspectRatio(), 0.1)
-    local Height = Refs.Camera:GetIsOrthogonal() and Refs.Camera:GetOrthoWidth() / Aspect
-        or 2 * Distance * math.tan(math.rad(Refs.Camera:GetFieldOfView()) / 2)
+    local Aspect = math.max(Camera:GetAspectRatio(), 0.1)
+    local Height = Camera:GetIsOrthogonal() and Camera:GetOrthoWidth() / Aspect
+        or 2 * Distance * math.tan(math.rad(Camera:GetFieldOfView()) / 2)
     local Width = Height * Aspect
 
-    local Rotation = Refs.Camera:GetWorldRotation()
+    local Rotation = Camera:GetWorldRotation()
     local Q = Rotation:Quaternion()
-    local Center = Refs.Camera:GetWorldLocation() + Q:GetForwardVector() * Distance
+    local Center = Camera:GetWorldLocation() + Q:GetForwardVector() * Distance
     local Scale = math.max(0.5, math.min(1.5, HUDScale or Config.Scale))
 
     local function Place(Component, Text, Size, X, Y)
@@ -81,7 +82,7 @@ function ShowScore(Score, HUDScale)
     Place(Refs.HUDTitle, "SCORE", Config.Hint, 0.13, 0.92)
     Place(Refs.ScoreText, string.format("%03d", Score or 0), Config.Score, 0.13, 0.81)
     Place(Refs.HUDDetail, "", Config.Hint, 0.5, 0.5)
-    Place(Refs.HUDHint, (Score or 0) == 0 and "BACKSPACE : CHARACTERS" or "", Config.Hint, 0.5, 0.06)
+    Place(Refs.HUDHint, (Score or 0) == 0 and "BACKSPACE : CHARACTERS     C : CREDITS" or "", 0.020, 0.5, 0.06)
 end
 
 function ShowResult(Phase, Score, HUDScale)
@@ -91,8 +92,18 @@ function ShowResult(Phase, Score, HUDScale)
     Place(Refs.HUDTitle, Phase == "Dead" and "GAME OVER" or "GAME CLEAR", 0.065, 0.5, 0.72)
     Place(Refs.ScoreText, string.format("%03d", Score or 0), Config.Score, 0.5, 0.55)
     Place(Refs.HUDDetail, "FINAL SCORE", Config.Hint, 0.5, 0.48)
-    Place(Refs.HUDHint, Phase == "Dead" and "R : RETRY\nBACKSPACE : CHARACTERS" or "R : RETRY",
-        Config.Hint, 0.5, 0.34)
+    Place(Refs.HUDHint, Phase == "Dead" and "R : RETRY\n\nBACKSPACE : CHARACTERS\n\nC : CREDITS" or "R : RETRY",
+        0.020, 0.5, 0.32)
+end
+
+function ShowCredits(HUDScale, Camera)
+    local Place = BeginLayout(HUDScale, Camera)
+    if not Place then return end
+
+    Place(Refs.HUDTitle, "만든 사람들", 0.050, 0.5, 0.80)
+    Place(Refs.ScoreText, "유현서\n\n김경재\n\n김민곤\n\n현동윤", 0.036, 0.5, 0.62)
+    Place(Refs.HUDDetail, "크래프톤 정글 게임테크랩\n\n4기 9주차 6조", 0.016, 0.5, 0.74)
+    Place(Refs.HUDHint, "C / BACKSPACE : BACK", 0.020, 0.5, 0.14)
 end
 
 function Hide()
