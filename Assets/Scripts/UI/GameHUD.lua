@@ -102,7 +102,7 @@ function ShowCredits(HUDScale, Camera)
 
     Place(Refs.HUDTitle, "만든 사람들", 0.050, 0.5, 0.80)
     Place(Refs.ScoreText, "유현서\n\n김경재\n\n김민곤\n\n현동윤", 0.036, 0.5, 0.62)
-    Place(Refs.HUDDetail, "크래프톤 정글 게임테크랩\n\n4기 9주차 6조", 0.016, 0.5, 0.74)
+    Place(Refs.HUDDetail, "Krafton Jungle Game Tech Lab 4기\nWeek9 Team6", 0.016, 0.5, 0.74)
     Place(Refs.HUDHint, "C / BACKSPACE : BACK", 0.020, 0.5, 0.14)
 end
 
