@@ -11,6 +11,10 @@ State = {
 
 Refs = {}
 
+local function GetSettings()
+    return Refs.Layout.NightMode and Config.Night or Config.Day
+end
+
 function BeginPlay(Self)
     Self:SetComponentTickEnabled(false)
 end
@@ -20,6 +24,22 @@ local function RiverRandom()
         (State.RandomState * 48271) % 2147483647
 
     return State.RandomState / 2147483647
+end
+
+local function SpawnDelay()
+    return GetSettings().MinSpawnDelay + RiverRandom() * (GetSettings().MaxSpawnDelay - GetSettings().MinSpawnDelay)
+end
+
+-- 지연 후 재등장할 때도 다른 통나무와 겹치지 않도록 실제 간격을 확인한다.
+local function CanSpawnLog(Log)
+    local Y = Log.Component:GetRelativeLocation().Y
+    for _, Other in ipairs(Log.Lane.Logs) do
+        if Other ~= Log and Other.Active then
+            local Distance = math.abs(Other.Component:GetRelativeLocation().Y - Y)
+            if Distance < Log.HalfLength + Other.HalfLength + GetSettings().MinLogGap then return false end
+        end
+    end
+    return true
 end
 
 local function RiverInteger(Min, Max)
@@ -66,6 +86,18 @@ local function CreateLogComponent(Slot, Index)
     return Component
 end
 
+-- 메시의 긴 로컬 X축만 조절하고, 탑승 판정에도 같은 길이를 사용한다.
+local function RandomizeLogLength(Log)
+    Log.HalfLength = GetSettings().MinLogHalfLength
+        + RiverRandom() * (GetSettings().MaxLogHalfLength - GetSettings().MinLogHalfLength)
+
+    Log.Component:SetRelativeScale3D(FVector.new(
+        Config.LogScale.X * Log.HalfLength / Log.BaseHalfLength,
+        Config.LogScale.Y,
+        Config.LogScale.Z
+    ))
+end
+
 function Initialize(Self, Level, Player, PlayerScript, Layout)
     Refs.Self = Self
     Refs.Level = Level
@@ -73,6 +105,32 @@ function Initialize(Self, Level, Player, PlayerScript, Layout)
     Refs.PlayerScript = PlayerScript
     Refs.Layout = Layout
 
+    for _, Settings in ipairs({ Config.Day, Config.Night }) do
+        assert(Settings.MinSpawnDelay >= 0 and Settings.MaxSpawnDelay >= Settings.MinSpawnDelay,
+            "Invalid log spawn delay")
+        assert(Settings.MinLogGap >= 0, "Invalid log gap")
+        assert(Settings.MaxInitialLogsPerRow >= 0
+            and Settings.MaxInitialLogsPerRow == math.floor(Settings.MaxInitialLogsPerRow), "Invalid initial log count")
+        assert(
+            Settings.LogsPerRow >= 1
+            and Settings.LogsPerRow == math.floor(Settings.LogsPerRow),
+            "Invalid logs per row"
+        )
+
+        assert(
+            Settings.MinSpeed > 0
+            and Settings.MaxSpeed >= Settings.MinSpeed,
+            "Invalid river speed range"
+        )
+
+        assert(
+            Settings.MinLogHalfLength > 0
+            and Settings.MaxLogHalfLength >= Settings.MinLogHalfLength
+            and Settings.PlayerHalfWidth >= 0,
+            "Invalid river collision dimensions"
+        )
+
+    end
     State.Slots = {}
     State.LanesByIndex = {}
     State.RidingLog = nil
@@ -88,24 +146,6 @@ function Initialize(Self, Level, Player, PlayerScript, Layout)
 
     assert(Refs.LogMesh, "River log mesh is missing")
 
-    assert(
-        Config.LogsPerRow >= 1
-        and Config.LogsPerRow == math.floor(Config.LogsPerRow),
-        "Invalid logs per row"
-    )
-
-    assert(
-        Config.MinSpeed > 0
-        and Config.MaxSpeed >= Config.MinSpeed,
-        "Invalid river speed range"
-    )
-
-    assert(
-        Config.LogHalfLength > 0
-        and Config.PlayerHalfWidth >= 0,
-        "Invalid river collision dimensions"
-    )
-
     -- 각 맵 슬롯이 재사용될 때 통나무도 재사용한다.
     for Slot = 1, Layout.RowCount do
         local Lane = {
@@ -117,14 +157,19 @@ function Initialize(Self, Level, Player, PlayerScript, Layout)
             Logs = {}
         }
 
-        for Index = 1, Config.LogsPerRow do
+        for Index = 1, math.max(Config.Day.LogsPerRow, Config.Night.LogsPerRow) do
             local Component = CreateLogComponent(
                 Slot,
                 Index
             )
 
+            local Bounds = Component:CalcBounds()
+            local BaseHalfLength = (Bounds.Max.Y - Bounds.Min.Y) / 2
+            assert(BaseHalfLength > 0, "River log has no length")
+
             Lane.Logs[#Lane.Logs + 1] = {
                 Component = Component,
+                BaseHalfLength = BaseHalfLength,
                 Lane = Lane,
                 Active = false,
                 DeltaY = 0
@@ -161,33 +206,42 @@ function SpawnRow(Id, Index)
     Lane.Index = Index
     Lane.Active = true
 
-    Lane.Direction =
-        RiverRandom() < 0.5 and -1 or 1
+    local RandomDirection = RiverRandom() < 0.5 and -1 or 1
+    local PreviousLane = State.LanesByIndex[Index - 1]
+    Lane.Direction = PreviousLane and PreviousLane.Active
+        and -PreviousLane.Direction or RandomDirection
 
-    Lane.Speed = Config.MinSpeed
+    Lane.Speed = GetSettings().MinSpeed
         + RiverRandom()
-        * (Config.MaxSpeed - Config.MinSpeed)
+        * (GetSettings().MaxSpeed - GetSettings().MinSpeed)
 
     State.LanesByIndex[Index] = Lane
 
     local HalfWidth = Refs.Layout.HalfWidth
-    local Spacing = (HalfWidth * 2) / #Lane.Logs
+    local InitialCount = math.min(GetSettings().MaxInitialLogsPerRow, GetSettings().LogsPerRow)
+    local Spacing = InitialCount > 0 and HalfWidth * 2 / InitialCount or 0
+    Lane.NextSpawnTime = SpawnDelay()
 
+    for _, Log in ipairs(Lane.Logs) do Log.Active = false end
     for LogIndex, Log in ipairs(Lane.Logs) do
-        local Y = -HalfWidth
-            + Spacing * (LogIndex - 0.5)
-
-        Log.Active = true
+        Log.Enabled = LogIndex <= GetSettings().LogsPerRow
+        Log.Active = false
         Log.DeltaY = 0
+        RandomizeLogLength(Log)
         Log.FloatPhase = RiverRandom() * math.pi * 2
 
-        Log.Component:SetRelativeLocation(FVector.new(
-            Index * Refs.Layout.CellSize,
-            Y,
-            Config.LogCenterZ
-        ))
-
-        Log.Component:SetVisibility(true, true)
+        -- 초기 배치만 강 내부에 둔다. 이후 생성은 반드시 진입 쪽 바깥에서 시작한다.
+        local Y = -Lane.Direction * (HalfWidth + Log.HalfLength)
+        if LogIndex <= InitialCount then
+            Y = -HalfWidth + Spacing * (LogIndex - 0.5)
+        end
+        Log.Component:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, Y, Config.LogCenterZ))
+        Log.Active = LogIndex <= InitialCount and CanSpawnLog(Log)
+        Log.Component:SetVisibility(Log.Active, true)
+        if not Log.Active then
+            Log.Component:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize,
+                -Lane.Direction * (HalfWidth + Log.HalfLength), Config.LogCenterZ))
+        end
     end
 end
 
@@ -271,8 +325,8 @@ function ResolveLanding(Position)
             )
 
             if DistanceY
-                <= Config.LogHalfLength
-                    + Config.PlayerHalfWidth then
+                <= Log.HalfLength
+                    + GetSettings().PlayerHalfWidth then
 
                 State.RidingLog = Log
 
@@ -299,7 +353,7 @@ function ResolveLanding(Position)
 
     Refs.Level:Invoke(
         "RequestGameOver",
-        "강물에 빠졌습니다."
+        "강물에 빠졌습니다.", nil, "Drowning"
     )
 
     return false
@@ -314,7 +368,24 @@ function Update(DeltaSeconds)
 
     for _, Lane in ipairs(State.Slots) do
         if Lane.Active then
+            Lane.NextSpawnTime = Lane.NextSpawnTime - DeltaSeconds
+            if Lane.NextSpawnTime <= 0 then
+                for _, Log in ipairs(Lane.Logs) do
+                    if Log.Enabled and not Log.Active then
+                        Log.Component:SetRelativeLocation(FVector.new(Lane.Index * Refs.Layout.CellSize,
+                            -Lane.Direction * (Refs.Layout.HalfWidth + Log.HalfLength), Config.LogCenterZ))
+                        if CanSpawnLog(Log) then
+                            Log.Active = true
+                            Log.Component:SetVisibility(true, true)
+                            Lane.NextSpawnTime = SpawnDelay()
+                        end
+                        break
+                    end
+                end
+            end
+
             for _, Log in ipairs(Lane.Logs) do
+                Log.DeltaY = 0
                 if Log.Active then
                     local Current =
                         Log.Component:GetRelativeLocation()
@@ -326,18 +397,19 @@ function Update(DeltaSeconds)
 
                     local Boundary =
                         Refs.Layout.HalfWidth
-                        + Config.LogHalfLength
+                        + Log.HalfLength
 
                     local bWrapped = false
 
                     -- 통나무가 화면 바깥으로 나가면
                     -- 반대쪽에서 다시 나타나게 한다.
-                    if NextY > Boundary then
-                        NextY = -Boundary
+                    if NextY > Boundary or NextY < -Boundary then
+                        local Sign = NextY > Boundary and -1 or 1
+                        RandomizeLogLength(Log)
+                        NextY = Sign * (Refs.Layout.HalfWidth + Log.HalfLength)
                         bWrapped = true
-                    elseif NextY < -Boundary then
-                        NextY = Boundary
-                        bWrapped = true
+                        Log.Active = false
+                        Log.Component:SetVisibility(false, true)
                     end
 
                     local DeltaY = bWrapped
@@ -352,7 +424,7 @@ function Update(DeltaSeconds)
                         if Phase == "Playing" then
                             Refs.Level:Invoke(
                                 "RequestGameOver",
-                                "탑승한 통나무를 놓쳤습니다."
+                                "탑승한 통나무를 놓쳤습니다.", nil, "Drowning"
                             )
                         end
                     end
@@ -407,7 +479,7 @@ function Update(DeltaSeconds)
 
                             Refs.Level:Invoke(
                                 "RequestGameOver",
-                                "강물의 가장자리를 벗어났습니다."
+                                "강물의 가장자리를 벗어났습니다.", nil, "Drowning"
                             )
                         else
                             Root:SetWorldLocation(FVector.new(

@@ -233,6 +233,7 @@ function ReactionMesh:GetRelativeLocation() return Vector() end
 function ReactionMesh:GetRelativeRotation() return {} end
 function ReactionMesh:SetRelativeLocation() end
 function ReactionMesh:SetRelativeRotation() end
+function ReactionMesh:SetVisibility(V) self.Visible = V end
 Reaction.Initialize(ReactionMesh)
 Reaction.PlayHitReaction()
 Reaction.Update(0.06)

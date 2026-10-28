@@ -39,19 +39,16 @@ function PlayHitReaction(Direction, Distance, MinY, MaxY)
     end
 end
 
--- 압축과 Knockback은 HitStop·슬로모션에 영향을 받지 않는 실제 시간을 사용한다.
-function Update(DeltaSeconds)
-    local Knockback = State.Knockback
-    if Knockback then
-        Knockback.Elapsed = math.min(Knockback.Elapsed + DeltaSeconds, Config.KnockbackDuration)
-        local Alpha = Knockback.Elapsed / Config.KnockbackDuration
-        local Progress = 1 - (1 - Alpha) * (1 - Alpha)
-        local Start, Target = Knockback.Start, Knockback.Target
-        Refs.PlayerRoot:SetWorldLocation(FVector.new(Start.X,
-            Start.Y + (Target.Y - Start.Y) * Progress, Start.Z), false)
-        if Alpha >= 1 then State.Knockback = nil end
-    end
+-- HitStop 대기는 실제 시간으로 계산해 시간이 멈춘 상태에서도 끝나도록 한다.
+function PlayDrowning(Hold)
+    PlayHitReaction()
+    if not Refs.Mesh then return end
+    assert(Hold >= 0 and Config.Drowning.Duration > 0 and Config.Drowning.Depth > 0,
+        "Invalid drowning settings")
+    State.Drowning = { Elapsed = 0, Hold = Hold, Start = Refs.Mesh:GetRelativeLocation() }
+end
 
+local function UpdateSquash(DeltaSeconds)
     if State.SquashElapsed == nil or not Refs.Mesh or not State.Scale then return end
 
     State.SquashElapsed = math.min(State.SquashElapsed + DeltaSeconds, Config.SquashDuration)
@@ -64,7 +61,41 @@ function Update(DeltaSeconds)
     if Alpha >= 1 then State.SquashElapsed = nil end
 end
 
+-- 압축과 Knockback은 HitStop·슬로모션에 영향을 받지 않는 실제 시간을 사용한다.
+function Update(DeltaSeconds)
+    UpdateSquash(DeltaSeconds)
+    local Drowning = State.Drowning
+    if Drowning then
+        Drowning.Elapsed = Drowning.Elapsed + DeltaSeconds
+        if Drowning.Elapsed <= Drowning.Hold then return end
+        local Alpha = math.min(1, (Drowning.Elapsed - Drowning.Hold) / Config.Drowning.Duration)
+        local Progress = Alpha * Alpha * (3 - 2 * Alpha)
+        Refs.Mesh:SetRelativeLocation(FVector.new(Drowning.Start.X, Drowning.Start.Y,
+            Drowning.Start.Z - Config.Drowning.Depth * Progress))
+        if Alpha >= 1 then
+            Refs.Mesh:SetVisibility(false)
+            State.Drowning = nil
+        end
+        return
+    end
+
+    local Knockback = State.Knockback
+    if Knockback then
+        Knockback.Elapsed = math.min(Knockback.Elapsed + DeltaSeconds, Config.KnockbackDuration)
+        local Alpha = Knockback.Elapsed / Config.KnockbackDuration
+        local Progress = 1 - (1 - Alpha) * (1 - Alpha)
+        local Start, Target = Knockback.Start, Knockback.Target
+        Refs.PlayerRoot:SetWorldLocation(FVector.new(Start.X,
+            Start.Y + (Target.Y - Start.Y) * Progress, Start.Z), false)
+        if Alpha >= 1 then State.Knockback = nil end
+    end
+
+
+end
+
 function ResetPlayerPose()
+    State.Drowning = nil
+    if Refs.Mesh then Refs.Mesh:SetVisibility(true) end
     State.Knockback = nil
     State.SquashElapsed = nil
     if Refs.Mesh and State.Scale then

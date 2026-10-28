@@ -95,8 +95,8 @@ local function PickRowType(Index)
         and Choice < RiverChance then
 
         local Count = TerrainInteger(
-            RiverConfig.MinRows,
-            RiverConfig.MaxRows
+            (Refs.Layout.NightMode and RiverConfig.Night or RiverConfig.Day).MinRows,
+            (Refs.Layout.NightMode and RiverConfig.Night or RiverConfig.Day).MaxRows
         )
 
         State.RiverRowsRemaining = Count - 1
@@ -151,6 +151,7 @@ local function GenerateMapRow(Row, Index, Kind)
     else
         local Mesh = assert(FloorMeshes[Kind], "Missing floor mesh for kind: " .. tostring(Kind))
         Row.Floor:SetStaticMesh(Mesh)
+        Row.Floor:SetCastShadow(Kind ~= "river")
         Row.Floor:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, 0, Kind == "river" and RiverConfig.WaterZ or 0))
         if Kind == "river" then Row.Floor:SetRelativeScale3D(FVector.new(RiverConfig.WaterRowScale.X, RiverConfig.WaterRowScale.Y, RiverConfig.WaterRowScale.Z))
         else Row.Floor:SetRelativeScale3D(FVector.new(1, 1, 1)) end
@@ -161,6 +162,7 @@ local function GenerateMapRow(Row, Index, Kind)
     for _, Tile in ipairs(Row.WaterTiles) do
         if Kind == "river" and RiverConfig.WaterMeshMode == "Tile" then
             Tile.Component:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, Tile.Column * Refs.Layout.CellSize, RiverConfig.WaterZ))
+            Tile.Component:SetCastShadow(false)
             Tile.Component:SetVisibility(true, true)
         else
             Tile.Component:SetVisibility(false, true)
@@ -323,7 +325,11 @@ function Initialize(Layout)
 
     assert(RiverConfig.WaterMeshMode == "Tile" or RiverConfig.WaterMeshMode == "Row", "Unknown water mesh mode")
 
-    assert(RiverConfig.MinRows >= 1 and RiverConfig.MaxRows >= RiverConfig.MinRows, "Invalid river row range")
+    for _, Settings in ipairs({ RiverConfig.Day, RiverConfig.Night }) do
+        assert(Settings.MinRows >= 1 and Settings.MaxRows >= Settings.MinRows
+            and Settings.MinRows == math.floor(Settings.MinRows)
+            and Settings.MaxRows == math.floor(Settings.MaxRows), "Invalid river row range")
+    end
     CaptureMapPool()
 end
 
