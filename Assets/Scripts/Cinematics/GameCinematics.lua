@@ -77,6 +77,11 @@ function Update(Phase)
     -- BeginPlay 호출 순서상 Manager가 아직 없으면 다음 Update에서 다시 확인한다.
     if not CameraManager or State.Phase == Phase then return end
 
+    local Camera = CameraManager:GetViewTargetCamera()
+    if Camera then
+        Camera:SetVignetteIntensity(Phase == "Dead" and Config.DeathVignetteIntensity or 0)
+    end
+
     local FromAlpha = CameraManager:GetFadeAmount()
     if State.Phase == nil then FromAlpha = 1 end
 

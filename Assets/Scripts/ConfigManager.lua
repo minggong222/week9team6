@@ -222,6 +222,7 @@ ConfigManager.Player = {
 
 ConfigManager.Cinematics = {
     FadeDuration = 0.15,
+    DeathVignetteIntensity = 0.5,
     LetterBoxHeight = 0.08,
     LetterBoxDuration = 0.25,
     Black = { 0, 0, 0, 255 },

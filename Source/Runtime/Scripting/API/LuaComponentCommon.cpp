@@ -24,7 +24,8 @@ void LuaRegisterComponentCommon(sol::state& State)
         "GetOrthoWidth", &UCameraComponent::GetOrthoWidth,
         "SetOrthoWidth", &UCameraComponent::SetOrthoWidth,
         "GetColorGradingGamma", &UCameraComponent::GetColorGradingGamma,
-        "SetColorGradingGamma", &UCameraComponent::SetColorGradingGamma
+        "SetColorGradingGamma", &UCameraComponent::SetColorGradingGamma,
+        "SetVignetteIntensity", &UCameraComponent::SetVignetteIntensity
         // "GetMoveSpeed", &UCameraComponent::GetMoveSpeed,
         // "SetMoveSpeed", &UCameraComponent::SetMoveSpeed,
         // "GetMouseSensitivity", &UCameraComponent::GetMouseSensitivity,
