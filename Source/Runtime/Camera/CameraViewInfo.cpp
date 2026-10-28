@@ -96,7 +96,7 @@ FMatrix FCameraPOV::GetProjectionMatrix() const
     {
         for (int32 Column = 0; Column < 4; ++Column)
         {
-            Result.M[Row][Column] = OrthographicMatrix.M[Row][Column] + (PerspectiveMatrix.M[Row][Column] - OrthographicMatrix.M[Row][Column] * Alpha);
+            Result.M[Row][Column] = OrthographicMatrix.M[Row][Column] + (PerspectiveMatrix.M[Row][Column] - OrthographicMatrix.M[Row][Column]) * Alpha;
         }
     }
     
