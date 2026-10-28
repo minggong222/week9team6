@@ -91,8 +91,17 @@ void FSettingsPanel::OnRender()
 
 	ImGui::Dummy(ImVec2(0.0f, SectionGap));
 	ImGui::SeparatorText("Post Processing");
-	ImGui::Checkbox("Gamma Correction", &Settings.bEnableGammaCorrection);
-	ImGui::SliderFloat("Color Grading Gamma", &Settings.ColorGradingGamma, 0.25f, 4.0f, "%.2f");
+	ImGui::Checkbox("Output Gamma Encoding (Debug)", &Settings.bEnableGammaCorrection);
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("Show flag for output encoding (1/2.2).\nDoes not control color grading Gamma.");
+	}
+	ImGui::SliderFloat("Editor Preview Gamma", &Settings.ColorGradingGamma, 0.25f, 4.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("Preview override for editor viewports only; not saved with the scene.\n"
+			"PIE / Standalone use Gamma from the active CameraComponent.");
+	}
 
 	//////////////////////////////////////////////////////////
 

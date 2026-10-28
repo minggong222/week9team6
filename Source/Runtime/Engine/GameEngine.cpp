@@ -229,6 +229,7 @@ void UGameEngine::RenderGameFrame()
 	FSceneView SceneView = GameViewport.CalcSceneView(ViewRect);
 
 	FSceneRenderOptions Options;
+	Options.ColorGradingGamma = SceneView.ColorGradingGamma;
 	Options.bDrawPrimitives = true;
 	Options.bCacheShadows = true;
 	Options.PcfMode = EPcfMode::Sample8;

@@ -40,6 +40,8 @@ namespace
 
         Result.OrthoWidth = Start.OrthoWidth + (Target.OrthoWidth - Start.OrthoWidth) * Alpha;
 
+        Result.ColorGradingGamma = Start.ColorGradingGamma + (Target.ColorGradingGamma - Start.ColorGradingGamma) * Alpha;
+
         Result.PerspectiveBlend = Start.PerspectiveBlend + (Target.PerspectiveBlend - Start.PerspectiveBlend) * Alpha;
 
         Result.bIsPerspective = Result.PerspectiveBlend >= 0.5f;

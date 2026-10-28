@@ -11,6 +11,7 @@ class UCameraComponent : public USceneComponent
 	DECLARE_CLASS(UCameraComponent, USceneComponent)
 	REFLECT_START(ClassName)
 		PROPERTY_FLAGS(bUseForPlayerView, CPF_Edit)
+		PROPERTY_FLAGS(ColorGradingGamma, CPF_Edit)
 	REFLECT_END()
 public:
 	UCameraComponent() = default;
@@ -47,6 +48,9 @@ public:
 	float GetOrthoWidth() const { return OrthoWidth; }
 	void SetOrthoWidth(float InOrthoWidth) { OrthoWidth = InOrthoWidth; }
 
+	float GetColorGradingGamma() const { return ColorGradingGamma; }
+	bool SetColorGradingGamma(float InGamma);
+
 	FCameraPOV GetCameraPOV() const;
 
 	// 마우스 조작 설정
@@ -80,6 +84,7 @@ protected:
 
 	bool bIsOrthogonal = false;
 	float OrthoWidth = 16.0f;
+	float ColorGradingGamma = 1.0f;
 	
 	float MoveSpeed = 10.0f;
 	float MouseSensitivity = 0.05f;

@@ -27,6 +27,7 @@ struct FSceneView
 	float NearClip = 0.1f;
 	float FarClip = 10000.0f;
 	float OrthoWidth = 10.0f;
+	float ColorGradingGamma = 1.0f;
 	bool bIsPerspective = true;
 	float PerspectiveBlend = 1.0f;
 	bool bIsWireframe = false;

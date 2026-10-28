@@ -830,7 +830,6 @@ void UEditorEngine::BuildSceneRenderOptions(FGameViewportClient* ViewClient, FSc
 
 	Options.bEnableFXAA = SettingsPanel->GetSettings().bEnableFXAA;
 	Options.bEnableGammaCorrection = SettingsPanel->GetSettings().bEnableGammaCorrection;
-	Options.ColorGradingGamma = SettingsPanel->GetSettings().ColorGradingGamma;
 	Options.bCacheShadows = SettingsPanel->GetSettings().bCacheShadows;
 	Options.PcfMode = SettingsPanel->GetSettings().PcfMode;
 	Options.RenderingPath = SettingsPanel->GetSettings().RenderingPath;
@@ -874,8 +873,11 @@ void UEditorEngine::RenderGameFrame(FGameViewportClient* GameClient, const FScen
 {
 	if (!GameClient) return;
 
+	FSceneRenderOptions Options = RenderOptions;
+	Options.ColorGradingGamma = SceneView.ColorGradingGamma;
+
 	FSceneViewTargets& Targets = GameClient->GetViewTargets();
-	const bool bRendered = RenderScene(Targets, SceneView, SceneRenderer, GameClient->GetWorld(), RenderOptions,
+	const bool bRendered = RenderScene(Targets, SceneView, SceneRenderer, GameClient->GetWorld(), Options,
 		[this, &Targets, &SceneView, bIsSIEMode](FSceneOverlayCallbacks& Overlays)
 	{
 		if (!bIsSIEMode) return;

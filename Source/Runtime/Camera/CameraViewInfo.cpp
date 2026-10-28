@@ -29,6 +29,11 @@ bool FCameraPOV::IsValid() const
         return false;
     }
 
+    if (!std::isfinite(ColorGradingGamma) || ColorGradingGamma <= 0.0f)
+    {
+        return false;
+    }
+
     if (!std::isfinite(PerspectiveBlend) || PerspectiveBlend < 0.0f || PerspectiveBlend > 1.0f)
     {
         return false;
