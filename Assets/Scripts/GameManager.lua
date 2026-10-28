@@ -5,6 +5,20 @@ local Config = dofile("Assets/Scripts/ConfigManager.lua").Game
 -- 전역 테이블은 기존 외부 호출과의 호환용. 게임 단계·점수 변경은 이 매니저 담당
 State = { Game = _G.CrossyGameState or { Phase = GamePhase.Ready, Score = 0, MaxRow = 0 } }
 Refs = {}
+State.HiScores = { Day = 0, Night = 0 }
+
+function GetHiScore(Mode)
+    return State.HiScores[Mode or State.Game.Mode or Config.DefaultMode] or 0
+end
+
+function UpdateHighScore()
+    local Game = State.Game
+    local Mode = Game.Mode or Config.DefaultMode
+    if Game.Score > GetHiScore(Mode) then
+        State.HiScores[Mode] = Game.Score
+        Game.NewRecord = true
+    end
+end
 _G.CrossyGameState = State.Game
 print("[GameManager] SCRIPT LOADED")
 
@@ -25,13 +39,17 @@ end
 -- HUD에 표시할 값만 전달. HUD의 다른 시스템 직접 조회 방지
 local function UpdateHUD()
     local Game = State.Game
+    if Game.Phase == GamePhase.Playing or Game.Phase == GamePhase.Dead or Game.Phase == GamePhase.Clear then
+        UpdateHighScore()
+    end
+    local HiScore = GetHiScore()
     if Game.Phase == GamePhase.Selecting then
         local Name, Index, Count = Refs.Selection:Invoke("GetSelection")
         Refs.HUD:Invoke("ShowSelection", Name, Index, Count, Game.HUDScale, Game.Mode or Config.DefaultMode)
     elseif Game.Phase == GamePhase.Playing then
-        Refs.HUD:Invoke("ShowScore", Game.Score, Game.HUDScale)
+        Refs.HUD:Invoke("ShowScore", Game.Score, Game.HUDScale, HiScore, Game.NewRecord)
     elseif Game.Phase == GamePhase.Dead or Game.Phase == GamePhase.Clear then
-        Refs.HUD:Invoke("ShowResult", Game.Phase, Game.Score, Game.HUDScale)
+        Refs.HUD:Invoke("ShowResult", Game.Phase, Game.Score, Game.HUDScale, HiScore, Game.NewRecord)
     elseif Game.Phase == GamePhase.Credits then
         Refs.HUD:Invoke("ShowCredits", Game.HUDScale, State.CreditsCamera)
     else
@@ -41,6 +59,9 @@ end
 
 -- 연출과 HUD를 각각 갱신한다. 재시작의 Ready 처리도 FadeOut보다 먼저 끝낸다.
 local function UpdateScreen()
+    if State.Game.Phase == GamePhase.Selecting then
+        Refs.Camera:Invoke("SetSelectionMode", State.Game.Mode or Config.DefaultMode)
+    end
     Refs.Cinematics:Invoke("Update", State.Game.Phase)
     UpdateHUD()
 end
@@ -72,7 +93,7 @@ end
 function StartGame()
     local Game = State.Game
     Game.Phase = GamePhase.Playing
-    Game.Score, Game.MaxRow = 0, 0
+    Game.Score, Game.MaxRow, Game.NewRecord = 0, 0, false
     Game.GameOverRequested, Game.ClearRequested = false, false
     RequestPlayerReset(false)
     UpdateScreen()
@@ -110,7 +131,7 @@ local function ResetRun()
 
     Refs.HitReaction:Invoke("ResetPlayerPose")
     if Refs.Level then Refs.Level:Invoke("ResetLevel", true) end
-    State.Game.Score, State.Game.MaxRow = 0, 0
+    State.Game.Score, State.Game.MaxRow, State.Game.NewRecord = 0, 0, false
     State.Game.GameOverRequested, State.Game.ClearRequested = false, false
     RequestPlayerReset(true)
 end

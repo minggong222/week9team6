@@ -566,6 +566,8 @@ FUberOutput Uber_PS(VS_OUT Input)
     Diffuse = 1.0f;
 #endif
 
+    // 선택창 배경처럼 조명을 받지 않는 개별 머티리얼을 지원한다.
+    if (SurfaceParams.y > 0.5f) { Diffuse = 1.0f; Specular = 0.0f; }
     Output.LitColor = float4(Albedo * Diffuse + Specular + Emissive.rgb,
         SurfaceColor.a * BaseColor.a);
     Output.NormalRoughness = float4(ShadingNormal, 0.8f);

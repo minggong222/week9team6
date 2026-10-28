@@ -283,7 +283,7 @@ void UGameEngine::RenderSceneText(UWorld* World, const FSceneView& SceneView)
 			!Text->GetOwner() || Text->GetOwner()->GetWorld() != World)
 			continue;
 		TextRenderer->OnRender(Text->GetText(), Text->GetWorldMatrix(), Text->GetTextSize(),
-			*Text->GetFont(), SceneView.ViewProjectionMatrix);
+			*Text->GetFont(), SceneView.ViewProjectionMatrix, Text->GetTextColor());
 	}
 }
 

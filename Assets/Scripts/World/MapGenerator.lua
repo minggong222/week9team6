@@ -18,7 +18,10 @@ function PlayTreeHit(BlockingComponent)
     -- 연속 충돌에서도 원래 자세를 기준으로 다시 시작한다.
     RestoreTreeHit(Mesh)
     State.TreeEffects[Mesh] = {
-        Elapsed = 0, Scale = Mesh:GetRelativeScale3D(), Rotation = Mesh:GetRelativeRotation()
+        Elapsed = 0, Scale = Mesh:GetRelativeScale3D(), Rotation = Mesh:GetRelativeRotation(),
+        -- 지형 생성 난수와 분리해 피격 횟수가 이후 맵 배치에 영향을 주지 않도록 한다.
+        PitchPhase = math.random() * 2 * math.pi,
+        RollPhase = math.random() * 2 * math.pi
     }
 end
 
@@ -36,8 +39,8 @@ function UpdateTreeHits(DeltaSeconds)
             local Base, Rotation = Effect.Scale, Effect.Rotation
             -- 메시만 변형해 충돌 박스와 안전 경로는 흔들리지 않게 한다.
             Mesh:SetRelativeScale3D(FVector.new(Base.X * Scale, Base.Y * Scale, Base.Z * Scale))
-            Mesh:SetRelativeRotation(FRotator.new(Rotation.Pitch + math.sin(Phase) * Angle,
-                Rotation.Yaw, Rotation.Roll + math.sin(Phase * 1.3) * Angle))
+            Mesh:SetRelativeRotation(FRotator.new(Rotation.Pitch + math.sin(Phase + Effect.PitchPhase) * Angle,
+                Rotation.Yaw, Rotation.Roll + math.sin(Phase * 1.3 + Effect.RollPhase) * Angle))
         end
     end
 end

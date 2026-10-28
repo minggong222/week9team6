@@ -18,8 +18,8 @@ ConfigManager.Level = {
             Train = { Intensity = 0, Color = { 220, 235, 255 } }
         },
         Night = {
-            Sky = { Intensity = 0.1, Color = { 117, 109, 176 } },
-            Sun = { Intensity = 0.5, Color = { 132, 143, 227 } },
+            Sky = { Intensity = 0.25, Color = { 117, 109, 176 } },
+            Sun = { Intensity = 0.2, Color = { 132, 143, 227 } },
             Car = { Intensity = 4, Color = { 255, 235, 195 }, AttenuationRadius = 15 },
             Train = { Intensity = 18, Color = { 220, 235, 255 } }
         }
@@ -44,9 +44,9 @@ ConfigManager.Traffic = {
         MaxSpawnInterval = 2.5
     },
     Night = {
-        MinSpeed = 10.0,
-        MaxSpeed = 40.0,
-        MinSpawnInterval = 0.5,
+        MinSpeed = 16.0,
+        MaxSpeed = 30.0,
+        MinSpawnInterval = 0.35,
         MaxSpawnInterval = 2.5
     },
     Headlight = {
@@ -119,7 +119,7 @@ ConfigManager.Map = {
         ShakeFrequency = 4
     },
     Day = {
-        RoadChance = 0.60,
+        RoadChance = 0.50,
         RailChance = 0.05,
         TreesPerRow = 5,
         TreeWeights = { 5, 15, 20, 30, 20, 10 }
@@ -150,8 +150,18 @@ ConfigManager.Camera = {
 }
 
 ConfigManager.HUD = {
-    ScorePulseDuration = 0.20,
-    ScorePulseAmount = 0.2,
+    PlayingScoreSize = 0.075,
+    ScoreColumns = {
+        Playing = { Score = 0.13, HiScore = 0.27 },
+        Result = { Score = 0.43, HiScore = 0.57 }
+    },
+    RainbowPeriod = 3.0,
+    RecordColors = {
+        { 255, 179, 186 }, { 255, 223, 186 }, { 255, 255, 186 },
+        { 186, 255, 201 }, { 186, 225, 255 }, { 210, 190, 255 }, { 255, 190, 235 }
+    },
+    ScorePulseDuration = 0.15,
+    ScorePulseAmount = 0.25,
     GameOverSwingPeriod = 2.0,
     GameOverSwingAngle = 7.0,
     Scale = 1.0,
@@ -162,6 +172,21 @@ ConfigManager.HUD = {
 }
 
 ConfigManager.Selection = {
+    Spotlight = {
+        Intensity = 30,
+        Color = { 255, 240, 220 },
+        AttenuationRadius = 30,
+        InnerConeAngle = 30,
+        OuterConeAngle = 50,
+        CastShadows = true,
+        ShadowSlopeBias = 0.05,
+        Location = { X = 5, Y = 0, Z = 0 },
+        Rotation = { Pitch = 5, Yaw = 10, Roll = 0 }
+    },
+    Background = {
+        Mesh = "Models/Crossy/Selection/background.obj", Distance = 40, SizeMargin = 1.5,
+        Day = { Color = { 180, 210, 230 } }, Night = { Color = { 20, 25, 50 } }
+    },
     RowX = -200.0,
     Spacing = 5.0,
     Size = 2.0

@@ -183,7 +183,8 @@ assert(RightLight.Intensity == 9 and RightLight.Color[3] == 60 and not RightLigh
 local Sky, Sun = Component(), Component()
 Lighting.RegisterLight("Sky", Sky)
 Lighting.RegisterLight("Sun", Sun)
-assert(Sky.Intensity == 0.1 and Sun.Intensity == 0.5)
+assert(Sky.Intensity == Defaults.Level.Lighting.Night.Sky.Intensity
+    and Sun.Intensity == Defaults.Level.Lighting.Night.Sun.Intensity)
 Lighting.SetLighting("Sky", 0.3, 100, 120, 140, 255)
 Lighting.SetLighting("Sun", 0.6, 200, 210, 220, 255)
 assert(Sky.Intensity == 0.3 and Sky.Color[1] == 100)
@@ -424,8 +425,14 @@ assert(Kind == "grass" and Map.GetRows()[1].TreeCount == 8)
 local Hitbox = Components.MapTreeHitbox_1_1
 local HitMesh = Components.MapTreeMesh_1_1
 HitMesh.Scale, HitMesh.Rotation = Vector(2, 3, 4), { Pitch = 5, Yaw = 10, Roll = 15 }
+local TerrainSeedBeforeHit = Map.State.RandomState
 Map.PlayTreeHit(Hitbox)
+local Effect = Map.State.TreeEffects[HitMesh]
+local PitchPhase, RollPhase = Effect.PitchPhase, Effect.RollPhase
+assert(PitchPhase >= 0 and PitchPhase < 2 * math.pi and RollPhase >= 0 and RollPhase < 2 * math.pi)
+assert(Map.State.RandomState == TerrainSeedBeforeHit)
 Map.UpdateTreeHits(MapConfig.Map.HitSquash.Duration / 2)
+assert(Effect.PitchPhase == PitchPhase and Effect.RollPhase == RollPhase)
 assert(math.abs(HitMesh.Scale.X - 1.8) < 0.000001 and math.abs(HitMesh.Scale.Z - 3.6) < 0.000001)
 assert(HitMesh.Rotation.Pitch ~= 5 or HitMesh.Rotation.Roll ~= 15)
 Map.PlayTreeHit(Hitbox)
@@ -440,4 +447,37 @@ MapConfig.Map.Night.RailChance = 1
 Map.ResetGeneration(1)
 Id, Index, Kind = Map.GenerateNextRow(3, 3)
 assert(Kind == "rail" and Map.GetRows()[1].TreeCount == 0)
+-- 선택 조명·배경은 플레이어 카메라 하위에 생성하고 모드 색상과 표시 상태를 따른다.
+local SelectionCamera = Component()
+function SelectionCamera:GetWorldLocation() return self.Position end
+function SelectionCamera:GetWorldRotation() return {} end
+function SelectionCamera:SetWorldLocation(Value) self.Position = Value end
+function SelectionCamera:SetWorldRotation(Value) self.Rotation = Value end
+function SelectionCamera:SetIsOrthogonal() end
+function SelectionCamera:SetOrthoWidth(Value) self.Width = Value end
+function SelectionCamera:GetOrthoWidth() return self.Width or 12 end
+function SelectionCamera:GetAspectRatio() return 2 end
+function World:GetPlayerPawn() return Actor end
+function Actor:AddComponent(_, Name)
+    local C = MapComponent()
+    function C:SetCastShadow(Value) self.CastShadow = Value end
+    function C:SetUnlitColor(Value) self.Color = Value end
+    Components[Name] = C
+    return C
+end
+local SelectionView = Load("Camera/GameCamera.lua")
+SelectionView.Initialize(SelectionCamera)
+local Spot = assert(Components.CharacterSelectionSpotlight)
+local Back = assert(Components.CharacterSelectionBackground)
+assert(Spot.Parent == SelectionCamera and Back.Parent == SelectionCamera)
+assert(not Spot.Visible and not Back.Visible and not Back.CastShadow)
+SelectionView.ShowSelectionCamera(Vector(-208, 0, 8))
+assert(Spot.Visible and Back.Visible and Back.Scale.Y / Back.Scale.Z == 2)
+SelectionView.SetSelectionMode("Night")
+assert(Back.Color[1] == Defaults.Selection.Background.Night.Color[1])
+SelectionView.SetSelectionMode("Day")
+assert(Back.Color[1] == Defaults.Selection.Background.Day.Color[1])
+SelectionView.Refs.Camera = nil
+SelectionView.ApplyGameplayCamera()
+assert(not Spot.Visible and not Back.Visible)
 print('PASS merge regression: death squash, train warning/audio settings, night mode: 200 car headlights, car speed/interval, train speed/wait, spotlight direction/visibility/reuse')
