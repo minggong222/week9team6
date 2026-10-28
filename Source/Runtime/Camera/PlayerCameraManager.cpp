@@ -39,7 +39,9 @@ namespace
 
         Result.OrthoWidth = Start.OrthoWidth + (Target.OrthoWidth - Start.OrthoWidth) * Alpha;
 
-        Result.bIsPerspective = Start.bIsPerspective;
+        Result.PerspectiveBlend = Start.PerspectiveBlend + (Target.PerspectiveBlend - Start.PerspectiveBlend) * Alpha;
+
+        Result.bIsPerspective = Result.PerspectiveBlend >= 0.5f;
 
         return Result;
     }
@@ -202,7 +204,7 @@ bool APlayerCameraManager::SetViewTarget(UCameraComponent* InCamera, float Blend
         return false;
     }
 
-    const bool bCanBlend = std::isfinite(BlendTime) && BlendTime > 0.0f && bHasFinalPOV && FinalPOV.IsValid() && FinalPOV.bIsPerspective == NewTarget.POV.bIsPerspective;
+    const bool bCanBlend = std::isfinite(BlendTime) && BlendTime > 0.0f && bHasFinalPOV && FinalPOV.IsValid();
 
     if (bCanBlend)
     {
@@ -362,8 +364,8 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
     {
         const float SafeDeltaTime = (std::isfinite(DeltaTime) && DeltaTime > 0.0f) ? DeltaTime : 0.0f;
         TransitionElapsed = std::min(TransitionElapsed + SafeDeltaTime, TransitionDuration);
-        const float Alpha = std::clamp(TransitionElapsed / TransitionDuration, 0.0f, 1.0f);
-
+        const float LinearAlpha = std::clamp(TransitionElapsed / TransitionDuration, 0.0f, 1.0f);
+        const float Alpha = LinearAlpha * LinearAlpha * (3.0f - 2.0f * LinearAlpha);
         FinalPOV = BlendCameraPOV(TransitionStartPOV, TargetPOV, Alpha);
 
         if (Alpha >= 1.0f)

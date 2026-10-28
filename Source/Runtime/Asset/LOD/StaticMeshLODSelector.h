@@ -16,7 +16,9 @@ inline uint32 SelectSphereLOD(const FLODSelectionInput& Input, const FLODViewCon
     const float NearDistance = Depth - View.NearZ;
     if (NearDistance <= 0.0f || NearDistance * NearDistance <= Sphere.RadiusSquared) return 0;
     const float Numerator = Sphere.RadiusSquared * View.ProjectionScaleSquared;
-    const float DistanceFactor = Orthographic ? 1.0f : Depth * Depth;
+    const float ClipW = View.PerspectiveBlend * Depth + (1.0f - View.PerspectiveBlend);
+
+    const float DistanceFactor = ClipW * ClipW;
     uint32 DesiredLOD = 3;
     if (Numerator >= State->LODThresholdSq[0] * DistanceFactor) DesiredLOD = 0;
     else if (Numerator >= State->LODThresholdSq[1] * DistanceFactor) DesiredLOD = 1;
