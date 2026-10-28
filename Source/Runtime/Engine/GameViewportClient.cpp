@@ -207,6 +207,7 @@ FSceneView FGameViewportClient::CalcSceneView(const FRect& InViewRect)
 	OutView.NearClip = POV.NearClip;
 	OutView.FarClip = POV.FarClip;
 	OutView.OrthoWidth = POV.OrthoWidth;
+	OutView.PerspectiveBlend = POV.PerspectiveBlend;
 	OutView.bIsPerspective = POV.bIsPerspective;
 	OutView.bIsWireframe = false;
 

@@ -28,6 +28,7 @@ struct FSceneView
 	float FarClip = 10000.0f;
 	float OrthoWidth = 10.0f;
 	bool bIsPerspective = true;
+	float PerspectiveBlend = 1.0f;
 	bool bIsWireframe = false;
 	bool bGameView = false;
 
@@ -41,7 +42,8 @@ struct FSceneView
 		Context.CameraForward = ViewForward;
 		Context.ViewProjection = ViewProjectionMatrix;
 		Context.NearZ = NearClip;
-		Context.bOrthographic = !bIsPerspective;
+		Context.PerspectiveBlend = PerspectiveBlend;
+		Context.bOrthographic = PerspectiveBlend < 0.5f;
 		Context.bGameView = bGameView;
 		const float ScaleX = ProjectionMatrix.M[1][0];
 		const float ScaleY = ProjectionMatrix.M[2][1];

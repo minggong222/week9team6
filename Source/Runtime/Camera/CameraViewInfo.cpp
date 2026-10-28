@@ -29,6 +29,11 @@ bool FCameraPOV::IsValid() const
         return false;
     }
 
+    if (!std::isfinite(PerspectiveBlend) || PerspectiveBlend < 0.0f || PerspectiveBlend > 1.0f)
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -82,11 +87,20 @@ FMatrix FCameraPOV::GetOrthogonalMatrix() const
 
 FMatrix FCameraPOV::GetProjectionMatrix() const
 {
-    if (bIsPerspective)
+    const FMatrix PerspectiveMatrix = GetPerspectiveMatrix();
+    const FMatrix OrthographicMatrix = GetOrthogonalMatrix();
+    const float Alpha = std::clamp(PerspectiveBlend, 0.0f, 1.0f);
+    FMatrix Result = FMatrix::Identity;
+
+    for (int32 Row = 0; Row < 4; ++Row)
     {
-        return GetPerspectiveMatrix();
+        for (int32 Column = 0; Column < 4; ++Column)
+        {
+            Result.M[Row][Column] = OrthographicMatrix.M[Row][Column] + (PerspectiveMatrix.M[Row][Column] - OrthographicMatrix.M[Row][Column]) * Alpha;
+        }
     }
-    return GetOrthogonalMatrix();
+    
+    return Result;
 }
 
 FMatrix FCameraPOV::GetViewProjectionMatrix() const
