@@ -1,5 +1,5 @@
 -- 카메라 구도만 관리. 선택 시스템의 내부 상태 접근 제외
-local Config = { Pitch = 40.0, Yaw = -35.0, Width = 36.0, Distance = 32.0, LookAhead = 5.0, MoveSpeed = 8.0 }
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Camera
 State = {}
 Refs = {}
 
@@ -32,7 +32,7 @@ function ShowSelectionCamera(TargetLocation)
     local Camera = Refs.Camera
     if Camera and State.InitialLocation then
         Camera:SetIsOrthogonal(true)
-        Camera:SetOrthoWidth(12.0)
+        Camera:SetOrthoWidth(Config.SelectionWidth)
         Camera:SetWorldLocation(TargetLocation, false)
         Camera:SetWorldRotation(State.InitialRotation, false)
     end

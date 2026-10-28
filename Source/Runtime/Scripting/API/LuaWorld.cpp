@@ -1,6 +1,8 @@
 #include "EnginePCH.h"
 #include "sol/sol.hpp"
 #include "Engine/World.h"
+#include "Engine/Level.h"
+#include "Components/LightComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
@@ -42,6 +44,23 @@ void LuaRegisterWorld(sol::state& State)
             }
 
             return World.SpawnActor(Class, Name ? FName(*Name) : NAME_None, Transform ? &*Transform : nullptr);
+        },
+        // 레벨 조명을 Lua 매니저가 찾아 실행 중 설정할 수 있도록 제공한다.
+        "GetLightComponents", [](const UWorld& World) {
+            TArray<ULightComponent*> Lights;
+            for (ULevel* Level : World.GetLevels())
+            {
+                if (!Level) continue;
+                for (AActor* Actor : Level->GetActors())
+                {
+                    if (!Actor) continue;
+                    for (UActorComponent* Component : Actor->GetComponents())
+                    {
+                        if (auto* Light = Cast<ULightComponent>(Component)) Lights.Add(Light);
+                    }
+                }
+            }
+            return sol::as_table(Lights);
         },
         "GetPlayerPawn", &UWorld::GetPlayerPawn,
         "GetMainCamera", &UWorld::GetMainCamera,

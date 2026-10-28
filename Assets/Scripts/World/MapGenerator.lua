@@ -1,10 +1,5 @@
 -- 지형·나무·벽 슬롯만 소유. 차량·기차 상태는 각 시스템에서 별도 보관
-local Config = {
-    RoadChance = 0.60, RailChance = 0.05, TreesPerRow = 5,
-    TreeWeights = { 5, 15, 20, 30, 20, 10 },
-    TreeHitboxExtent = FVector.new(0.45, 0.45, 1.0),
-    StaticRoadRows = { 1, 2, 6, 7, 8, 11, 12, 16, 17, 18, 21, 22, 26, 27, 31, 32, 33 }
-}
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Map
 State = { Rows = {}, RandomState = 1, LastRow = 0, SafeColumn = 0, ReusedRows = 0 }
 Refs = {}
 
@@ -45,7 +40,8 @@ local function GenerateMapRow(Row, Index, Kind)
     if not Row.Floor then return end
     Row.Floor:SetStaticMesh(Kind == "rail" and Refs.RailMesh or (Kind == "road" and Refs.RoadMesh or Refs.GrassMesh))
     Row.Floor:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, 0, 0))
-    Row.Floor:SetVisibility(true, true)
+    -- 잔디는 단일 배경 바닥으로 표시하여 행 타일의 경계선과 옆면을 없앤다.
+    Row.Floor:SetVisibility(Kind ~= "grass", true)
     -- 바닥 끝(마지막 이동 칸의 바깥쪽)부터 벽 배치. 터널은 행마다 독립 배치
     for Side, Wall in ipairs(Row.Walls) do
         local Sign = Side == 1 and -1 or 1
@@ -133,7 +129,7 @@ local function CaptureMapPool()
                 or UBoxComponent.Cast(Actor:AddComponent(UClass.Find("UBoxComponent"), Name))
             assert(Hitbox, "Could not create tree hitbox")
             Hitbox:SetupAttachment(Tree)
-            Hitbox:SetBoxExtent(Config.TreeHitboxExtent)
+            Hitbox:SetBoxExtent(FVector.new(Config.TreeHitboxExtent.X, Config.TreeHitboxExtent.Y, Config.TreeHitboxExtent.Z))
             Hitbox:SetRelativeLocation(FVector.new(0, 0, Config.TreeHitboxExtent.Z))
             Hitbox:SetCollisionObjectType(ECollisionChannel.WorldStatic)
             Hitbox:SetCollisionResponseToAllChannels(ECollisionResponse.Ignore)
@@ -223,19 +219,10 @@ end
 function UpdateBounds(HighestRow)
     if not State.HasMapPool then return end
     local CenterX = (HighestRow + (Refs.Layout.RowsAhead - Refs.Layout.RowsBehind) / 2) * Refs.Layout.CellSize
-    for _, Name in ipairs({ "MapBackdrop", "MapBoundaryLeft", "MapBoundaryRight" }) do
-        local Component = USceneComponent.Cast(Actor:FindComponentByName(Name))
-        if Component then
-            local Location = Component:GetRelativeLocation()
-            Location.X, Location.Z = CenterX, 0.01
-            if Name ~= "MapBackdrop" then
-                local Sign = Name == "MapBoundaryLeft" and -1 or 1
-                Location.Y = Sign * (Refs.Layout.HalfWidth + Refs.Layout.CellSize / 2 + Refs.Layout.BoundaryWidth / 2)
-                local Scale = Component:GetRelativeScale3D()
-                Scale.Y = Refs.Layout.BoundaryWidth / Refs.Layout.CellSize
-                Component:SetRelativeScale3D(Scale)
-            end
-            Component:SetRelativeLocation(Location)
-        end
+    local Component = USceneComponent.Cast(Actor:FindComponentByName("MapBackdrop"))
+    if Component then
+        local Location = Component:GetRelativeLocation()
+        Location.X, Location.Z = CenterX, 0.01
+        Component:SetRelativeLocation(Location)
     end
 end

@@ -1,8 +1,6 @@
 -- 카메라 효과와 음향 연출 진입점. 게임 규칙과 상태 전환은 GameManager 담당
-local Black = FColor.new(0, 0, 0, 255)
-local FadeDuration = 0.15
-local LetterBoxHeight = 0.08
-local LetterBoxDuration = 0.25
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Cinematics
+local Black = FColor.new(Config.Black[1], Config.Black[2], Config.Black[3], Config.Black[4])
 State = {}
 
 
@@ -34,34 +32,35 @@ function PlayDeath()
     local World = Actor:GetWorld()
     local CameraManager = World:GetPlayerCameraManager()
     if CameraManager then
-        CameraManager:StartCameraZoom(0.9, 0.25, 0.15)
-        CameraManager:StartCameraShake(0.35, 1.5, 1.25, 8.0)
+        CameraManager:StartCameraZoom(Config.DeathZoom.Scale, Config.DeathZoom.InDuration, Config.DeathZoom.OutDuration)
+        CameraManager:StartCameraShake(Config.DeathShake.Duration, Config.DeathShake.Location,
+            Config.DeathShake.Rotation, Config.DeathShake.Frequency)
     end
 
-    World:PlayHitStop(0, 0.25, 1.5)
+    World:PlayHitStop(Config.HitStop.Scale, Config.HitStop.Hold, Config.HitStop.Recovery)
 
     Audio.PlaySFX("Audio/Splat.wav")
 end
 
 function FadeIn(Duration, Color)
     local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
-    return CameraManager and CameraManager:StartCameraFade(1, 0, Duration or FadeDuration, Color or Black) or false
+    return CameraManager and CameraManager:StartCameraFade(1, 0, Duration or Config.FadeDuration, Color or Black) or false
 end
 
 function FadeOut(Duration, Color)
     local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
     return CameraManager and CameraManager:StartCameraFade(CameraManager:GetFadeAmount(), 1,
-        Duration or FadeDuration, Color or Black) or false
+        Duration or Config.FadeDuration, Color or Black) or false
 end
 
 function SetLetterBox(Height, Duration)
     local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
-    return CameraManager and CameraManager:SetLetterBox(Height, Duration or LetterBoxDuration) or false
+    return CameraManager and CameraManager:SetLetterBox(Height, Duration or Config.LetterBoxDuration) or false
 end
 
 function PlayRestart()
-    if not FadeOut(FadeDuration) then return 0 end
-    return FadeDuration
+    if not FadeOut(Config.FadeDuration) then return 0 end
+    return Config.FadeDuration
 end
 
 function StopEffects(KeepZoom)
@@ -84,11 +83,11 @@ function Update(Phase)
     if Phase == "Playing" then
         -- 재시작 대기가 끝난 프레임은 완전 암전에서 새 화면을 드러낸다.
         if State.Phase == "Ready" then FromAlpha = 1 end
-        CameraManager:StartCameraFade(FromAlpha, 0, FadeDuration, Black)
-        CameraManager:SetLetterBox(0, LetterBoxDuration)
+        CameraManager:StartCameraFade(FromAlpha, 0, Config.FadeDuration, Black)
+        CameraManager:SetLetterBox(0, Config.LetterBoxDuration)
     elseif Phase == "SelectingCharacter" then
-        CameraManager:StartCameraFade(FromAlpha, 0, FadeDuration, Black)
-        CameraManager:SetLetterBox(LetterBoxHeight, LetterBoxDuration)
+        CameraManager:StartCameraFade(FromAlpha, 0, Config.FadeDuration, Black)
+        CameraManager:SetLetterBox(Config.LetterBoxHeight, Config.LetterBoxDuration)
     else
         -- 사망 화면 갱신은 PlayDeath 직후이므로 진행 중인 줌을 유지한다.
         StopEffects(Phase == "Dead")
