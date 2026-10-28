@@ -8,6 +8,7 @@
 #include "Math/Rect.h"
 #include "Asset/LOD/StaticMeshLODSelector.h"
 #include <algorithm>
+#include <optional>
 
 // Immutable description of one camera view for the duration of a render.
 struct FSceneView
@@ -33,6 +34,7 @@ struct FSceneView
 	float PerspectiveBlend = 1.0f;
 	bool bIsWireframe = false;
 	bool bGameView = false;
+	std::optional<float> SequenceFade; // Per-view editor preview; unset uses runtime camera effects.
 
 	FViewContext ToViewContext() const
 	{

@@ -22,6 +22,7 @@ public:
     void Apply();
     // An empty value releases Sequence control when no Fade section is active.
     void SetFadeApplyCallback(std::function<void(std::optional<float>)> Callback);
+    void SetCameraApplyCallback(std::function<void(std::optional<FSequenceEvaluatedValue>)> Callback);
     void ReleaseAppliedValues();
     const std::vector<FSequenceEvaluatedValue>& GetEvaluatedValues() const { return EvaluatedValues; }
     // The caller chooses real or game-scaled seconds; do not apply TimeScale again here.
@@ -52,6 +53,7 @@ private:
     std::shared_ptr<const FSequence> Sequence;
     std::vector<FSequenceEvaluatedValue> EvaluatedValues;
     std::function<void(std::optional<float>)> FadeApplyCallback;
+    std::function<void(std::optional<FSequenceEvaluatedValue>)> CameraApplyCallback;
     EPlaybackState PlaybackState = EPlaybackState::Stopped;
     float CurrentTime = 0.0f;
     float PlaybackStart = 0.0f;

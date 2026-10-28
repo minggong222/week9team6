@@ -80,7 +80,7 @@ function Initialize(Camera)
 end
 
 -- 화면 비율 기반 배치로 직교·원근 투영 및 창 종횡비 변경 시에도 같은 구도 유지
-local function BeginLayout(HUDScale, ViewCamera)
+local function BeginLayout(HUDScale, ViewCamera, LayoutScale)
     local Camera = ViewCamera or Refs.Camera
     if not Refs.ScoreText or not Camera then return nil end
     local Distance = 2.0
@@ -94,12 +94,13 @@ local function BeginLayout(HUDScale, ViewCamera)
     local Center = Camera:GetWorldLocation() + Q:GetForwardVector() * Distance
     local Scale = math.max(0.5, math.min(1.5, HUDScale or Config.Scale))
 
+    local FitScale = LayoutScale or 1
     local function Place(Component, Text, Size, X, Y)
         if not Component then return end
         if Component:GetText() ~= Text then Component:SetText(Text) end
-        Component:SetTextSize(Height * Size * Scale)
-        Component:SetWorldLocation(Center + Q:GetRightVector() * ((X - 0.5) * Width)
-            + Q:GetUpVector() * ((Y - 0.5) * Height), false)
+        Component:SetTextSize(Height * Size * Scale * FitScale)
+        Component:SetWorldLocation(Center + Q:GetRightVector() * ((X - 0.5) * Width * FitScale)
+            + Q:GetUpVector() * ((Y - 0.5) * Height * FitScale), false)
         Component:SetWorldRotation(Rotation, false)
         Component:SetVisibility(Text ~= "")
     end
@@ -111,10 +112,10 @@ function ShowSelection(Name, Index, Count, HUDScale, Mode)
     HideRecordDisplay()
     GameOverSwing.Active = false
     ResetScorePulse()
-    local Place = BeginLayout(HUDScale)
+    local Place = BeginLayout(HUDScale, nil, Config.SelectionScale)
     if not Place then return end
 
-    Place(Refs.HUDTitle, "CHOOSE YOUR CHARACTER", Config.Title, 0.5, 0.88)
+    Place(Refs.HUDTitle, "CHOOSE YOUR CHARACTER", Config.Title, 0.5, 0.82)
     Place(Refs.ScoreText, "<  " .. Name:upper() .. "  >", Config.Name, 0.5, 0.25)
     Place(Refs.HUDDetail, string.format("%02d / %02d     |     %s MODE", Index, Count, (Mode or Config.DefaultMode):upper()), Config.Hint, 0.5, 0.18)
     Place(Refs.HUDHint, "A/D, LEFT/RIGHT : CHARACTER     W/S, UP/DOWN : MODE     ENTER : PLAY", Config.Hint, 0.5, 0.09)
@@ -184,7 +185,7 @@ function ShowResult(Phase, Score, HUDScale, HiScore, NewRecord)
     local Place = BeginLayout(HUDScale)
     if not Place then return end
 
-    Place(Refs.HUDTitle, IsGameOver and "GAME OVER" or "GAME CLEAR", 0.08, 0.5, 0.82)
+    Place(Refs.HUDTitle, IsGameOver and "GAME OVER" or "GAME CLEAR", 0.08, 0.5, 0.70)
     if IsGameOver and Refs.HUDTitle then
         -- 카메라의 시선 축을 기준으로 기울여 화면 중앙에서 좌우로 흔들리게 한다.
         local Rotation = Refs.Camera:GetWorldRotation()
@@ -192,11 +193,11 @@ function ShowResult(Phase, Score, HUDScale, HiScore, NewRecord)
         Refs.HUDTitle:SetWorldRotation(FRotator.new(Rotation.Pitch, Rotation.Yaw, Rotation.Roll + Angle), false)
     end
     local Columns = Config.ScoreColumns.Result
-    Place(Refs.HUDDetail, "SCORE", Config.Hint, Columns.Score, 0.65)
-    Place(Refs.ScoreText, string.format("%03d", Score or 0), Config.Score * 0.8, Columns.Score, 0.56)
-    Place(Refs.HiScoreTitle, "HI-SCORE", Config.Hint, Columns.HiScore, 0.65)
-    Place(Refs.HiScoreText, string.format("%03d", HiScore or 0), Config.Score * 0.8, Columns.HiScore, 0.56)
-    Place(Refs.RecordText, NewRecord and "New Record!" or "", Config.Hint, Columns.Score, 0.51)
+    Place(Refs.HUDDetail, "SCORE", Config.Hint, Columns.Score, 0.60)
+    Place(Refs.ScoreText, string.format("%03d", Score or 0), Config.Score * 0.8, Columns.Score, 0.51)
+    Place(Refs.HiScoreTitle, "HI-SCORE", Config.Hint, Columns.HiScore, 0.60)
+    Place(Refs.HiScoreText, string.format("%03d", HiScore or 0), Config.Score * 0.8, Columns.HiScore, 0.51)
+    Place(Refs.RecordText, NewRecord and "New Record!" or "", Config.Hint, Columns.Score, 0.46)
     Place(Refs.HUDHint, Phase == "Dead" and "R : RETRY\n\nBACKSPACE : CHARACTERS\n\nC : CREDITS" or "R : RETRY",
         0.020, 0.5, 0.32)
 end

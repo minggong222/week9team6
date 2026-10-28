@@ -61,6 +61,8 @@ public:
 	const FColor& GetFadeColor() const { return SequenceFadeOwner ? SequenceFadeColor : FadeColor; }
 	bool SetSequenceFade(const void* Owner, float Amount);
 	void ReleaseSequenceFade(const void* Owner);
+	bool SetSequenceCamera(const void* Owner, UCameraComponent* Camera, const FCameraPOV& POV);
+	void ReleaseSequenceCamera(const void* Owner);
 
 	// 상하 띠 각각의 높이를 화면 높이의 0~0.5 비율로 지정한다.
 	bool SetLetterBox(float Height, float Duration);
@@ -79,6 +81,8 @@ private:
 
 	APlayerController* PlayerController = nullptr;
 	FViewTarget ViewTarget;
+	FViewTarget SequenceViewTarget;
+	const void* SequenceCameraOwner = nullptr;
 
 	FCameraPOV FinalPOV;
 	bool bHasFinalPOV = false;

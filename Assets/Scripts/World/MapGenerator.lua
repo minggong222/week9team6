@@ -1,6 +1,9 @@
 -- 지형·나무·벽 슬롯만 소유. 차량·기차 상태는 각 시스템에서 별도 보관
-local Config = dofile("Assets/Scripts/ConfigManager.lua").Map
-State = { Rows = {}, RandomState = 1, LastRow = 0, SafeColumn = 0, ReusedRows = 0 }
+local AllConfig = dofile("Assets/Scripts/ConfigManager.lua")
+
+local Config = AllConfig.Map
+local RiverConfig = AllConfig.River
+State = { Rows = {}, RandomState = 1, LastRow = 0, SafeColumn = 0, ReusedRows = 0 , RiverRowsRemaining = 0, ForceGrassAfterRiver = false, LastKind = nil }
 Refs = {}
 State.TreeMeshesByHitbox, State.TreeEffects = {}, {}
 
@@ -66,13 +69,67 @@ local function TerrainInteger(Min, Max)
     return Min + math.floor(TerrainRandom() * (Max - Min + 1))
 end
 
+
 local function PickRowType(Index)
-    if Index < 3 then return "grass" end
+    if Index < 3 then
+        return "grass"
+    end
+
+    if State.RiverRowsRemaining > 0 then
+        State.RiverRowsRemaining =
+            State.RiverRowsRemaining - 1
+
+        return "river"
+    end
+
+    if State.ForceGrassAfterRiver then
+        State.ForceGrassAfterRiver = false
+        return "grass"
+    end
+
     local Settings = GetSettings()
+    local RiverChance = Settings.RiverChance or 0.0
     local Choice = TerrainRandom()
-    if Choice < Settings.RailChance then return "rail" end
-    return Choice < Settings.RailChance + Settings.RoadChance and "road" or "grass"
+
+    if State.LastKind == "grass"
+        and Choice < RiverChance then
+
+        local Count = TerrainInteger(
+            (Refs.Layout.NightMode and RiverConfig.Night or RiverConfig.Day).MinRows,
+            (Refs.Layout.NightMode and RiverConfig.Night or RiverConfig.Day).MaxRows
+        )
+
+        State.RiverRowsRemaining = Count - 1
+        State.ForceGrassAfterRiver = true
+
+        return "river"
+    end
+
+    if Choice < RiverChance then
+        return "grass"
+    end
+
+    local RemainingChance = 1.0 - RiverChance
+    Choice = (Choice - RiverChance) / RemainingChance
+
+    local RailThreshold =
+        Settings.RailChance / RemainingChance
+
+    local RoadThreshold =
+        (Settings.RailChance + Settings.RoadChance)
+        / RemainingChance
+
+    if Choice < RailThreshold then
+        return "rail"
+    end
+
+    if Choice < RoadThreshold then
+        return "road"
+    end
+
+    return "grass"
 end
+
 
 local function PickTreeCount()
     local Settings = GetSettings()
@@ -89,14 +146,33 @@ end
 local function GenerateMapRow(Row, Index, Kind)
     Row.Index, Row.Kind, Row.Active, Row.TreeCount = Index, Kind, true, 0
     if not Row.Floor then return end
-    Row.Floor:SetStaticMesh(Kind == "rail" and Refs.RailMesh or (Kind == "road" and Refs.RoadMesh or Refs.GrassMesh))
-    Row.Floor:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, 0, 0))
-    -- 잔디는 단일 배경 바닥으로 표시하여 행 타일의 경계선과 옆면을 없앤다.
-    Row.Floor:SetVisibility(Kind ~= "grass", true)
+    local FloorMeshes = {grass = Refs.GrassMesh, road = Refs.RoadMesh, rail = Refs.RailMesh, river = Refs.WaterMesh}
+    if Kind == "river" and RiverConfig.WaterMeshMode == "Tile" then Row.Floor:SetVisibility(false, true)
+    else
+        local Mesh = assert(FloorMeshes[Kind], "Missing floor mesh for kind: " .. tostring(Kind))
+        Row.Floor:SetStaticMesh(Mesh)
+        Row.Floor:SetCastShadow(Kind ~= "river")
+        Row.Floor:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, 0, Kind == "river" and RiverConfig.WaterZ or 0))
+        if Kind == "river" then Row.Floor:SetRelativeScale3D(FVector.new(RiverConfig.WaterRowScale.X, RiverConfig.WaterRowScale.Y, RiverConfig.WaterRowScale.Z))
+        else Row.Floor:SetRelativeScale3D(FVector.new(1, 1, 1)) end
+        Row.Floor:SetVisibility(Kind ~= "grass", true)
+    end
+
+    -- 해당 행이 강물일 때만 물 타일을 표시한다.
+    for _, Tile in ipairs(Row.WaterTiles) do
+        if Kind == "river" and RiverConfig.WaterMeshMode == "Tile" then
+            Tile.Component:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, Tile.Column * Refs.Layout.CellSize, RiverConfig.WaterZ))
+            Tile.Component:SetCastShadow(false)
+            Tile.Component:SetVisibility(true, true)
+        else
+            Tile.Component:SetVisibility(false, true)
+        end
+    end
+
     -- 바닥 끝(마지막 이동 칸의 바깥쪽)부터 벽 배치. 터널은 행마다 독립 배치
     for Side, Wall in ipairs(Row.Walls) do
         local Sign = Side == 1 and -1 or 1
-        Wall:SetStaticMesh(Kind == "grass" and Refs.DirtWallMesh or Refs.TunnelMesh)
+        Wall:SetStaticMesh((Kind == "grass" or Kind == "river") and Refs.DirtWallMesh or Refs.TunnelMesh)
         Wall:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, Sign * (Refs.Layout.HalfWidth + Refs.Layout.CellSize / 2), 0))
         Wall:SetRelativeRotation(FRotator.new(0, Sign == 1 and 0 or 180, 0))
         Wall:SetVisibility(true, true)
@@ -143,6 +219,7 @@ local function RecycleMapRow(Row)
         Row.Floor:SetVisibility(false, true)
         for _, Wall in ipairs(Row.Walls) do Wall:SetVisibility(false, true) end
         for _, Tree in ipairs(Row.Trees) do Tree:SetVisibility(false, true) end
+        for _, Tile in ipairs(Row.WaterTiles or {}) do Tile.Component:SetVisibility(false, true) end
     end
 end
 
@@ -178,11 +255,12 @@ local function CaptureMapPool()
     Refs.DirtWallMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/crossy-dirt-wall.obj")
     Refs.TunnelMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/crossy-tunnel.obj")
     assert(Refs.DirtWallMesh and Refs.TunnelMesh, "Map wall meshes are missing")
-
+    Refs.WaterMesh = UAssetManager:GetAssetByPath(RiverConfig.WaterMeshPath)
+    assert(Refs.WaterMesh, "River water mesh is missing")
     for Slot = 1, Refs.Layout.RowsBehind + Refs.Layout.RowsAhead + 1 do
         local Floor = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapFloor_" .. Slot))
         assert(Floor, "Map pool is incomplete; regenerate the scene")
-        local Row = { Slot = Slot, Floor = Floor, Trees = {}, TreeHitboxes = {}, Active = false, TreeCount = 0 }
+        local Row = { Slot = Slot, Floor = Floor, Trees = {}, TreeHitboxes = {}, WaterTiles = {}, Active = false, TreeCount = 0 }
         Row.Walls = {}
         for Side = 1, 2 do
             local Name = "MapWall_" .. Slot .. "_" .. Side
@@ -191,6 +269,22 @@ local function CaptureMapPool()
             assert(Wall, "Could not create map wall")
             Wall:SetupAttachment(Actor:GetRootComponent())
             Row.Walls[Side] = Wall
+        end
+
+        if RiverConfig.WaterMeshMode == "Tile" then local HalfColumns = math.floor(Refs.Layout.HalfWidth / Refs.Layout.CellSize)
+            for Column = -HalfColumns, HalfColumns do
+                local TileIndex = Column + HalfColumns + 1
+                local Name = "MapWater_" .. Slot .. "_" .. TileIndex
+                local Water = UStaticMeshComponent.Cast(Actor:FindComponentByName(Name)) or UStaticMeshComponent.Cast(Actor:AddComponent(UClass.Find("UStaticMeshComponent"), Name))
+                assert(Water, "Could not create river water tile")
+                Water:SetupAttachment(Actor:GetRootComponent())
+                Water:SetStaticMesh(Refs.WaterMesh)
+                Water:SetCollisionEnabled(ECollisionEnabled.NoCollision)
+                Water:SetRelativeRotation(FRotator.new(0, 90, 0))
+                Water:SetRelativeScale3D(FVector.new(RiverConfig.WaterTileScale.X, RiverConfig.WaterTileScale.Y, RiverConfig.WaterTileScale.Z))
+                Water:SetVisibility(false, true)
+                Row.WaterTiles[#Row.WaterTiles + 1] = {Component = Water, Column = Column}
+            end
         end
 
         for Index = 1, TreePoolSize do
@@ -220,17 +314,21 @@ function Initialize(Layout)
     Refs.Layout = Layout
     State.HasMapPool = Layout.HasMapPool
     for _, Settings in ipairs({ Config.Day, Config.Night }) do
-        assert(Settings.RoadChance >= 0 and Settings.RailChance >= 0
-            and Settings.RoadChance + Settings.RailChance <= 1, "Invalid map probabilities")
-        assert(Settings.TreesPerRow >= 0 and Settings.TreesPerRow == math.floor(Settings.TreesPerRow),
-            "Tree count must be a non-negative integer")
+        local RiverChance = Settings.RiverChance or 0.0
+        assert(Settings.RoadChance >= 0 and Settings.RailChance >= 0 and RiverChance >= 0 and Settings.RoadChance + Settings.RailChance + RiverChance <= 1, "Invalid map probabilities")
+        assert(Settings.TreesPerRow >= 0 and Settings.TreesPerRow == math.floor(Settings.TreesPerRow), "Tree count must be a non-negative integer")
         assert(#Settings.TreeWeights > 0 and #Settings.TreeWeights <= Settings.TreesPerRow + 1, "Invalid tree counts")
         local Total = 0
-        for _, Weight in ipairs(Settings.TreeWeights) do
-            assert(Weight >= 0, "Invalid tree weight")
-            Total = Total + Weight
-        end
+        for _, Weight in ipairs(Settings.TreeWeights) do assert(Weight >= 0, "Invalid tree weight") Total = Total + Weight end
         assert(Total > 0, "At least one tree weight must be positive")
+    end
+
+    assert(RiverConfig.WaterMeshMode == "Tile" or RiverConfig.WaterMeshMode == "Row", "Unknown water mesh mode")
+
+    for _, Settings in ipairs({ RiverConfig.Day, RiverConfig.Night }) do
+        assert(Settings.MinRows >= 1 and Settings.MaxRows >= Settings.MinRows
+            and Settings.MinRows == math.floor(Settings.MinRows)
+            and Settings.MaxRows == math.floor(Settings.MaxRows), "Invalid river row range")
     end
     CaptureMapPool()
 end
@@ -249,8 +347,14 @@ function GetRows()
 end
 
 function ResetGeneration(Seed)
-    State.RandomState, State.SafeColumn, State.ReusedRows = Seed, 0, 0
+    State.RandomState = Seed
+    State.SafeColumn = 0
+    State.ReusedRows = 0
     State.LastRow = -Refs.Layout.RowsBehind - 1
+
+    State.RiverRowsRemaining = 0
+    State.ForceGrassAfterRiver = false
+    State.LastKind = nil
 end
 
 function RecycleRow(Id, CountReuse)
@@ -281,6 +385,8 @@ function GenerateNextRow(MinRow, MaxRow)
     while State.LastRow < MaxRow do
         State.LastRow = State.LastRow + 1
         local Kind = PickRowType(State.LastRow)
+        State.LastKind = Kind
+
         if State.LastRow >= MinRow then
             for Id, Row in ipairs(State.Rows) do
                 if not Row.Active then

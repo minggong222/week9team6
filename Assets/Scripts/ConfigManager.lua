@@ -41,7 +41,7 @@ ConfigManager.Traffic = {
         MinSpeed = 6.0,
         MaxSpeed = 20.0,
         MinSpawnInterval = 0.5,
-        MaxSpawnInterval = 2.5
+        MaxSpawnInterval = 3.0
     },
     Night = {
         MinSpeed = 16.0,
@@ -121,12 +121,16 @@ ConfigManager.Map = {
     Day = {
         RoadChance = 0.50,
         RailChance = 0.05,
+        RiverChance = 0.10,
+
         TreesPerRow = 5,
         TreeWeights = { 5, 15, 20, 30, 20, 10 }
     },
     Night = {
-        RoadChance = 0.60,
-        RailChance = 0.10,
+        RoadChance = 0.50,
+        RailChance = 0.12,
+        RiverChance = 0.15,
+
         TreesPerRow = 7,
         TreeWeights = { 5, 10, 15, 15, 20, 15, 15, 5 }
     },
@@ -144,15 +148,16 @@ ConfigManager.Camera = {
     Distance = 32.0,
     LookAhead = 5.0,
     MoveSpeed = 8.0,
-    SelectionWidth = 12.0,
+    SelectionWidth = 16.6667,
     DayGamma = 1.0, 
     NightGamma = 1.7
 }
 
 ConfigManager.HUD = {
+    SelectionScale = 0.8,
     PlayingScoreSize = 0.075,
     ScoreColumns = {
-        Playing = { Score = 0.13, HiScore = 0.27 },
+        Playing = { Score = 0.12, HiScore = 0.22 },
         Result = { Score = 0.43, HiScore = 0.57 }
     },
     RainbowPeriod = 3.0,
@@ -185,7 +190,12 @@ ConfigManager.Selection = {
     },
     Background = {
         Mesh = "Models/Crossy/Selection/background.obj", Distance = 40, SizeMargin = 1.5,
-        Day = { Color = { 180, 210, 230 } }, Night = { Color = { 20, 25, 50 } }
+        Day = {
+            Color = { 58, 177, 224 }
+        },
+        Night = {
+            Color = { 20, 25, 50 }
+        }
     },
     RowX = -200.0,
     Spacing = 5.0,
@@ -221,6 +231,7 @@ ConfigManager.Characters = {
 }
 
 ConfigManager.HitReaction = {
+    Drowning = { Duration = 0.6, Depth = 3.0 },
     SquashRatio = 0.05,
     SquashDuration = 0.12,
     KnockbackDuration = 0.75
@@ -265,14 +276,82 @@ ConfigManager.Cinematics = {
     ModeShake = {
         Duration = 0.25,
         Location = 0.15,
-        Rotation = 0.8,
-        Frequency = 18
+        Rotation = 0,
+        Frequency = 6
     },
     HitStop = {
         Scale = 0,
         Hold = 0.75,
         Recovery = 1
     }
+}
+
+ConfigManager.River = {
+    LandingSound = "Audio/Plonk.wav",
+    LandingSoundVolume = 0.8,
+    StreamSound = "Audio/Stream.wav",
+    StreamSoundVolume = 0.35,
+    StreamAudibleRows = 6,
+    Day = {
+        MinRows = 1,
+        MaxRows = 3,
+        LogsPerRow = 5,
+        MaxInitialLogsPerRow = 4,
+        MinSpawnDelay = 1.5,
+        MaxSpawnDelay = 3.5,
+        MinLogGap = 0.8,
+        MinSpeed = 4.5,
+        MaxSpeed = 10.0,
+        MinLogHalfLength = 1.25,
+        MaxLogHalfLength = 4.0,
+        PlayerHalfWidth = 0.7,
+    },
+    Night = {
+        MinRows = 1,
+        MaxRows = 4,
+        LogsPerRow = 4,
+        MaxInitialLogsPerRow = 3,
+        MinSpawnDelay = 1.0,
+        MaxSpawnDelay = 2.5,
+        MinLogGap = 0.8,
+        MinSpeed = 7.0,
+        MaxSpeed = 20.0,
+        MinLogHalfLength = 1.0,
+        MaxLogHalfLength = 2.5,
+        PlayerHalfWidth = 0.7,
+    },
+    -- 물 에셋이 작은 타일이면 "Tile",
+    -- 가로 폭 전체를 덮는 메시라면 "Row"
+    WaterMeshMode = "Tile",
+
+    WaterMeshPath = "Models/Crossy/River/ground_riverStraight.obj",
+    LogMeshPath = "Models/Crossy/River/log.obj",
+
+    -- 물이 작은 타일인 경우 각 타일의 크기 조절
+    WaterTileScale = { X = 3.0, Y = 3.0, Z = 0.01 },
+
+    -- 물이 전체 강 행 메시인 경우 크기 조절
+    WaterRowScale = { X = 1.0, Y = 1.0, Z = 1.0 },
+
+    -- 잔디 배경 윗면(-0.07)보다 약 0.01 높여 깊이 충돌을 완화한다.
+    WaterZ = -0.06,
+
+    -- 실제 모델 크기에 맞춰 설정
+    LogScale = { X = 5.0, Y = 5.0, Z = 6.0 },
+    LogYaw = 90.0,
+    LogCenterZ = -0.8,
+
+    -- 통나무가 물 위에서 위아래로 움직이는 정도
+    LogFloatAmplitude = 0.08,
+
+    -- 통나무가 위아래로 움직이는 속도
+    LogFloatSpeed = 1.8,
+
+    -- 플레이어가 올라탔을 때 가라앉는 거리
+    LogSinkOffset = 0.15,
+
+    -- 통나무 메시 원점에서 플레이어 발 높이까지의 거리
+    LogTopOffset = 0.55
 }
 
 ConfigManager.Game.DefaultMode = ConfigManager.Level.NightMode and "Night" or "Day"

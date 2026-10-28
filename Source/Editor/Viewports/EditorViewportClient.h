@@ -11,6 +11,8 @@
 #include "Render/Texture2D.h"
 
 #include <functional>
+#include <optional>
+#include "Camera/CameraViewInfo.h"
 
 class UWorld;
 class FGizmo;
@@ -45,7 +47,7 @@ public:
 
   // 월드 조회 및 설정
   virtual UWorld *GetWorld() const override { return World; }
-  void SetWorld(UWorld *InWorld) { if (World != InWorld) RenderData.ResetScene(); World = InWorld; }
+  void SetWorld(UWorld *InWorld) { if (World != InWorld) { ClearSequencePreview(); RenderData.ResetScene(); } World = InWorld; }
 
   // 입력 이벤트
   virtual void MouseMove(FViewport *Viewport, int32 X, int32 Y) override;
@@ -75,6 +77,12 @@ public:
   }
 
   float GetViewFOV() const { return ViewFOV; }
+  void SetSequencePreview(std::optional<FCameraPOV> POV);
+  void SetSequencePilot(bool Enabled, std::function<void(const FCameraPOV&)> OnEdited = {});
+  void ClearSequencePreview();
+  bool IsSequencePreviewActive() const { return PreSequenceView.has_value(); }
+  void SetSequencePreviewExitCallback(std::function<void()> Callback) { SequencePreviewReleased = std::move(Callback); }
+  void SetSequenceFade(std::optional<float> Amount);
   void SetViewFOV(float InFOV) { ViewFOV = InFOV; }
 
   float GetOrthoWidth() const { return OrthoWidth; }
@@ -140,6 +148,11 @@ public:
   void Resize(uint32 InWidth, uint32 InHeight);
 
 protected:
+  std::optional<FCameraPOV> PreSequenceView;
+  bool bSequencePilot = false;
+  std::function<void(const FCameraPOV&)> SequenceCameraEdited;
+  std::function<void()> SequencePreviewReleased;
+  std::optional<float> SequenceFade;
   UWorld *World = nullptr;
   int32 ViewIndex = 0;
   ELevelViewportType ViewportType = ELevelViewportType::Perspective;

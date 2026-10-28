@@ -48,6 +48,7 @@
 
 
 inline constexpr int32 InvalidViewIndex = -1;
+class FSequencerPanel;
 
 class UEditorEngine : public UEngine
 {
@@ -168,6 +169,8 @@ private:
 	FEditorControlsPanel* EditorControlsPanel = nullptr;
 	FSettingsPanel* SettingsPanel = nullptr;
 	FViewportsPanel* ViewportsPanel = nullptr;
+	FSequencerPanel* Sequencer = nullptr;
+	void ResetSequencePreview();
 	FSplitRatio ViewportSplitRatio{0.5f, 0.5f};
 	ELayoutMode ViewportLayoutMode = ELayoutMode::QuadSplit;
 	int32 SingleViewportIndex = 0;

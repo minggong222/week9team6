@@ -2,10 +2,19 @@
 #include "Editor/HitoriEd/EditorFileUtils.h"
 
 #include "Core/EngineLog.h"
-#include <commdlg.h>
+#include "EditorAssetFileDialog.h"
 #include "Serialization/JsonArchive.h"
  
 FString FEditorFileUtils::CurrentScenePath = "";
+
+namespace
+{
+	std::filesystem::path& SceneDialogFolder()
+	{
+		static auto Folder = std::filesystem::absolute("Scenes").lexically_normal();
+		return Folder;
+	}
+}
 
 bool FEditorFileUtils::NewScene(UWorld* World)
 {
@@ -108,60 +117,26 @@ bool FEditorFileUtils::LoadScene(UWorld* World)
 
 FString FEditorFileUtils::OpenSaveSceneDialog()
 {
-	char FilePath[MAX_PATH] = {};
-
-	OPENFILENAMEA ofn = {};
-	ofn.lStructSize = sizeof(OPENFILENAMEA);
-	ofn.hwndOwner = nullptr;
-	ofn.lpstrFile = FilePath;
-	ofn.nMaxFile = MAX_PATH;
-
-	ofn.lpstrFilter = "Scene Files (*.scene)\0*.scene\0";
-	ofn.lpstrDefExt = "scene";
-	ofn.lpstrInitialDir = "Scene/";
-
-	ofn.Flags =
-		OFN_PATHMUSTEXIST |
-		OFN_OVERWRITEPROMPT |
-		OFN_NOCHANGEDIR;
-
-	if (GetSaveFileNameA(&ofn))
-	{
-		return FString(FilePath);
-	}
-
-	return FString();
+    std::error_code Error;
+    std::filesystem::create_directories(SceneDialogFolder(), Error);
+    if (Error) return FString();
+    std::filesystem::path Path;
+    const HRESULT Status = EditorAssetFileDialog::Show(true, EditorAssetFileDialog::SceneId,
+        SceneDialogFolder(), L"Scene Files (*.scene)", L"*.scene", L"scene", L"Untitled.scene", Path);
+    if (FAILED(Status)) return FString();
+    SceneDialogFolder() = Path.parent_path();
+    return Path.string();
 }
 
 FString FEditorFileUtils::OpenLoadSceneDialog()
 {
-	char FilePath[MAX_PATH] = {};
-
-	OPENFILENAMEA ofn = {};
-	ofn.lStructSize = sizeof(OPENFILENAMEA);
-	ofn.hwndOwner = nullptr;
-
-	ofn.lpstrFile = FilePath;
-	ofn.nMaxFile = MAX_PATH;
-
-	ofn.lpstrFilter =
-		"Scene Files (*.scene)\0*.scene\0"
-		"All Files (*.*)\0*.*\0";
-
-	ofn.lpstrDefExt = "scene";
-	ofn.lpstrInitialDir = "Scene/";
-
-	ofn.Flags =
-		OFN_FILEMUSTEXIST |
-		OFN_PATHMUSTEXIST |
-		OFN_NOCHANGEDIR;
-
-	if (GetOpenFileNameA(&ofn))
-	{
-		return FString(FilePath);
-	}
-
-	return FString();
+    std::error_code Error;
+    std::filesystem::create_directories(SceneDialogFolder(), Error);
+    if (Error) return FString();
+    std::filesystem::path Path;
+    const HRESULT Status = EditorAssetFileDialog::Show(false, EditorAssetFileDialog::SceneId,
+        SceneDialogFolder(), L"Scene Files (*.scene)", L"*.scene", L"scene", L"", Path);
+    if (FAILED(Status)) return FString();
+    SceneDialogFolder() = Path.parent_path();
+    return Path.string();
 }
-
-

@@ -1,0 +1,17 @@
+# Created by Kenney (www.kenney.nl)
+
+newmtl dirtDark
+Kd 0.7098039 0.4078431 0.2705882
+
+newmtl grass
+Ka 0.000000 0.000000 0.000000
+Ks 0.330000 0.330000 0.330000
+Kd 1.0 1.0 1.0
+map_Kd ../RoadTiles/kenney-color-Grass.png
+
+newmtl water
+Kd 0.6901961 0.9568627 1
+
+newmtl dirt
+Kd 0.8862745 0.5137255 0.3411765
+

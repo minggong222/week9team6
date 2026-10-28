@@ -644,6 +644,8 @@ bool FSceneRenderer::AddCameraOverlayPass(FRenderGraphBuilder& Graph, FRenderer*
 		Constants.LetterBoxHeight = CameraManager->GetLetterBoxHeight();
 	}
 
+	if (View.SequenceFade)
+		Constants.FadeColor = FVector4(0, 0, 0, *View.SequenceFade);
 	if (Constants.FadeColor.W <= 0.0f && Constants.LetterBoxHeight <= 0.0f && Constants.VignetteIntensity <= 0.0f)
 	{
 		return true;

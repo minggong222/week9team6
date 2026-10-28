@@ -100,16 +100,21 @@ function StartGame()
     print("Game Started")
 end
 
-function GameOver(HitDirection)
+function GameOver(HitDirection, DeathType)
     -- 같은 프레임의 여러 충돌도 한 번만 처리
     if State.Game.Phase ~= GamePhase.Playing then return end
     State.Game.Phase = GamePhase.Dead
 
     if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
-    local MinY, MaxY
-    if Refs.Level then MinY, MaxY = Refs.Level:Invoke("GetMovementBounds") end
-    Refs.HitReaction:Invoke("PlayHitReaction", HitDirection, Config.CellSize, MinY, MaxY)
-    Refs.Cinematics:Invoke("PlayDeath")
+    if DeathType == "Drowning" then
+        local Hold = Refs.Cinematics:Invoke("PlayDeath")
+        Refs.HitReaction:Invoke("PlayDrowning", Hold)
+    else
+        local MinY, MaxY
+        if Refs.Level then MinY, MaxY = Refs.Level:Invoke("GetMovementBounds") end
+        Refs.HitReaction:Invoke("PlayHitReaction", HitDirection, Config.CellSize, MinY, MaxY)
+        Refs.Cinematics:Invoke("PlayDeath")
+    end
     UpdateScreen()
     print("Game Over!")
 end
@@ -441,10 +446,12 @@ function TickComponent(Self, DeltaSeconds)
     end
 
     if Game.Phase == GamePhase.Selecting then
+        local ModeChanged = false
         if Refs.Level and (Input.IsKeyPressed(EKeyCode.Up) or Input.IsKeyPressed(EKeyCode.Down)
             or Input.IsKeyPressed(EKeyCode.W) or Input.IsKeyPressed(EKeyCode.S)) then
             Game.Mode = Game.Mode == "Night" and "Day" or "Night"
             Refs.Level:Invoke("SetMode", Game.Mode)
+            ModeChanged = true
             Refs.Camera:Invoke("SetModeGamma", Game.Mode)
             local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
             if CameraManager then
@@ -457,6 +464,7 @@ function TickComponent(Self, DeltaSeconds)
             Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
             UpdateScreen()
         end
+        if Changed or ModeChanged then Audio.PlaySFX("Audio/Jump2.wav") end
         if Confirmed then
             EnterSelectedCharacter()
             return
