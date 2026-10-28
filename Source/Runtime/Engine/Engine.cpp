@@ -80,6 +80,10 @@ void UEngine::DestroyWorldContext(UWorld* InWorld)
 			}
 			if (InWorld && ContextType == EWorldType::PIE)
 			{
+				// 레벨 밖의 카메라도 삭제 전에 컴포넌트 등록을 해제한다.
+				if (ACameraActor* Camera = InWorld->GetMainCamera())
+					Camera->UnregisterAllComponents();
+
 				InWorld->ClearWorld();
 				ACameraActor* Camera = InWorld->GetMainCamera();
 				const bool bOwnsCamera = Camera && !Camera->GetLevel();

@@ -5,6 +5,7 @@
 void LuaRegisterMathVector(sol::state& State)
 {
     State.new_usertype<FVector>(
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "FVector",
         sol::constructors<
             FVector(),
@@ -18,19 +19,18 @@ void LuaRegisterMathVector(sol::state& State)
         "Size", &FVector::Size,
         "SizeSquared", &FVector::SizeSquared,
         "Length", &FVector::Length,
-        "Set", &FVector::Set,
-        "Normalized", &FVector::Normalized,
+        // "Set", &FVector::Set,
+        // "Normalized", &FVector::Normalized,
         "GetSafeNormal", sol::overload(
             [](const FVector& V) { return V.GetSafeNormal(); },
             [](const FVector& V, float Tolerance) { return V.GetSafeNormal(Tolerance); },
             &FVector::GetSafeNormal
         ),
-        "Dot", sol::resolve<float(const FVector&) const>(&FVector::Dot),
-        "Cross", sol::resolve<FVector(const FVector&) const>(&FVector::Cross),
+        // "Dot", sol::resolve<float(const FVector&) const>(&FVector::Dot),
+        // "Cross", sol::resolve<FVector(const FVector&) const>(&FVector::Cross),
         "Distance", &FVector::Distance,
-        "GetAbs", &FVector::GetAbs,
-        "GetClampedToMaxSize", &FVector::GetClampedToMaxSize,
-
+        // "GetAbs", &FVector::GetAbs,
+        // "GetClampedToMaxSize", &FVector::GetClampedToMaxSize,
         sol::meta_function::unary_minus, sol::resolve<FVector() const>(&FVector::operator-),
         sol::meta_function::subtraction, sol::resolve<FVector(const FVector&) const>(&FVector::operator-),
         sol::meta_function::addition, &FVector::operator+,
@@ -52,6 +52,7 @@ void LuaRegisterMathVector(sol::state& State)
     );
 
     State.new_usertype<FVector2>(
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "FVector2",
         sol::constructors<
             FVector2(),
@@ -69,6 +70,7 @@ void LuaRegisterMathVector(sol::state& State)
     );
 
     State.new_usertype<FVector4>(
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "FVector4",
         sol::constructors<
             FVector4(),
@@ -84,17 +86,17 @@ void LuaRegisterMathVector(sol::state& State)
         "W", &FVector4::W,
         "Size", &FVector4::Size,
         "Length", &FVector4::Length,
-        "Set", sol::overload(
-            sol::resolve<void(float, float, float, float)>(&FVector4::Set),
-            sol::resolve<void(const FVector&, float)>(&FVector4::Set),
-            sol::resolve<void(const FVector4&)>(&FVector4::Set),
-            [](FVector4& V, const FVector& Other) { V.Set(Other); }
-        ),
-        "Normalized", &FVector4::Normalized,
-        "Dot", &FVector4::Dot,
-        "Cross", &FVector4::Cross,
+        // "Set", sol::overload(
+            // sol::resolve<void(float, float, float, float)>(&FVector4::Set),
+            // sol::resolve<void(const FVector&, float)>(&FVector4::Set),
+            // sol::resolve<void(const FVector4&)>(&FVector4::Set),
+            // [](FVector4& V, const FVector& Other) { V.Set(Other); }
+        // ),
+        // "Normalized", &FVector4::Normalized,
+        // "Dot", &FVector4::Dot,
+        // "Cross", &FVector4::Cross,
         "Distance", &FVector4::Distance,
-        "GetAbs", &FVector4::GetAbs,
+        // "GetAbs", &FVector4::GetAbs,
         sol::meta_function::unary_minus, sol::resolve<FVector4()>(&FVector4::operator-),
         sol::meta_function::addition, &FVector4::operator+,
         sol::meta_function::subtraction, sol::resolve<FVector4(const FVector4&) const>(&FVector4::operator-),

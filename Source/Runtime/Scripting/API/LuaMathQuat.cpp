@@ -5,6 +5,7 @@
 void LuaRegisterMathQuat(sol::state& State)
 {
     State.new_usertype<FQuat>(
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "FQuat",
         sol::constructors<
             FQuat(),
@@ -16,14 +17,14 @@ void LuaRegisterMathQuat(sol::state& State)
         "Y", &FQuat::Y,
         "Z", &FQuat::Z,
         "W", &FQuat::W,
-        "RotateVector", &FQuat::RotateVector,
-        "Normalized", &FQuat::Normalized,
-        "Inverse", &FQuat::Inverse,
-        "ToFRotator", &FQuat::ToFRotator,
+        // "RotateVector", &FQuat::RotateVector,
+        // "Normalized", &FQuat::Normalized,
+        // "Inverse", &FQuat::Inverse,
+        // "ToFRotator", &FQuat::ToFRotator,
         "GetForwardVector", &FQuat::GetForwardVector,
         "GetRightVector", &FQuat::GetRightVector,
         "GetUpVector", &FQuat::GetUpVector,
-        "MakeFromAxisAngle", &FQuat::MakeFromAxisAngle,
+        // "MakeFromAxisAngle", &FQuat::MakeFromAxisAngle,
         sol::meta_function::multiplication, &FQuat::operator*
     );
 

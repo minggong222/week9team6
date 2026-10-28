@@ -95,6 +95,7 @@ local function GameClear()
 end
 
 local function ResetRun()
+    Actor:GetWorld():ResetTimeEffects()
     State.Game.Phase = GamePhase.Ready
     if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
     if Refs.Player and State.StartPosition then
@@ -238,11 +239,11 @@ function TickComponent(Self, DeltaSeconds)
         State.TimeDilationF3WasDown = true
 
         local World = Actor:GetWorld()
-        local Current = World:GetTimeDilation()
+        local Current = World:GetGlobalTimeDilation()
 
         local Target = Current < 0.99 and 1.0 or 0.25
 
-        if World:SetTimeDilation(Target) then
+        if World:SetGlobalTimeDilation(Target) then
             print("[TimeDilationTest] " .. tostring(Target))
         end
     end
@@ -372,6 +373,13 @@ function TickComponent(Self, DeltaSeconds)
 
         return
     end
+    -- 임시 HitStop 테스트: 즉시 0.5초 정지한 뒤 5.0초 동안 원래 속도로 복귀한다.
+    if Input.IsKeyPressed(EKeyCode.F9) then
+        if Actor:GetWorld():PlayHitStop(0.0, 0.5, 5.0) then
+            print("[HitStopTest] HitStop started")
+        end
+    end
+
     --------------------------------------------------------------------------------------
     if Game.Phase ~= GamePhase.Selecting and Input.IsKeyPressed(EKeyCode.Backspace) then
         ReturnToCharacterSelection()

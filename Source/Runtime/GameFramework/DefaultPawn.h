@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GameFramework/Pawn.h"
+#include "Render/Mesh.h"
 #include <array>
 
 class UCameraComponent;

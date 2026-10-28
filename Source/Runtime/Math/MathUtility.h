@@ -7,6 +7,7 @@
 // Preserve the original engine PI precision; rendering uses the precise variant.
 #define PI (3.141592f)
 #define PI_PRECISE (3.14159265358979323846f)
+#define TWO_PI (6.2831853071795864769f)
 #define HALF_CIRCLE_DEGREES (180.0f)
 #define DEGREES_TO_RADIANS (PI / HALF_CIRCLE_DEGREES)
 #define RADIANS_TO_DEGREES (HALF_CIRCLE_DEGREES / PI)

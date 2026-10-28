@@ -1,10 +1,6 @@
 #pragma once
 
 #include "SceneComponent.h"
-#include "../Render/Shader.h"
-#include "../Render/Mesh.h"
-#include "Render/RenderPacket.h"
-#include "Render/GeometryGenerator.h"
 #include "Core/Delegates/Delegate.h"
 #include "Collision/HitResult.h"
 #include "Collision/CollisionTypes.h"
@@ -12,6 +8,11 @@
 #include <array>
 
 class FPrimitiveSceneProxy;
+class FRenderQueue;
+class UStaticMesh;
+class UMaterial;
+struct FStaticMeshData;
+struct FViewContext;
 
 enum class EPrimitiveType
 {
@@ -62,11 +63,7 @@ public:
 
 	virtual bool LineTraceComponent(const FRay& WorldRay, FHitResult& OutHit);
 	virtual bool LineTraceComponentLocal(const FRay& LocalRay, float& OutT);
-	virtual FBox CalcLocalBounds() const override
-	{
-		const FStaticMeshData* Data = GetMeshData();
-		return Data ? Data->AABB : Super::CalcLocalBounds();
-	}
+	virtual FBox CalcLocalBounds() const override;
 
 	FPrimitiveSceneProxy* GetSceneProxy() const { return SceneProxy; }
 

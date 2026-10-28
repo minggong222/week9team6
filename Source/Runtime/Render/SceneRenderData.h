@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Render/RenderPacket.h"
+#include "Render/RenderStats.h"
 #include "Render/ObjectConstants.h"
 #include "Engine/PrimitiveSceneProxy.h"
 #include "Engine/LightSceneProxy.h"
@@ -12,34 +13,6 @@
 #include <iterator>
 #include <vector>
 #include "Math/QuadTree.h"
-
-struct FRenderStats
-{
-	uint32 TotalPrimitives = 0;
-	uint32 VisiblePrimitives = 0;
-	uint32 DrawCalls = 0;
-	uint64 Triangles = 0;
-	uint32 LODCounts[4] = {};
-	uint64 LODTriangles[4] = {};
-
-	uint32 DirectionalCount = 0;
-	uint32 PointCount = 0;
-	uint32 SpotCount = 0;
-	uint32 RectCount = 0;
-	float AtlasCapacity = 0.0f;
-	float ShadowTiles = 0.0f;
-	uint32 ShadowViewsRedrawn = 0; // 이번 프레임에 다시 그린 그림자 뷰(큐브 면, cascade) 수
-	uint32 ShadowViewsCached = 0;  // 캐시를 재사용해 건너뛴 그림자 뷰 수
-	uint32 ShadowLightsSkippedOutsideView = 0;
-	uint32 ShadowLightsSkippedNoReceiver = 0;
-	uint32 ShadowLightsSkippedNoCaster = 0;
-	uint32 ShadowCastersSkippedSmall = 0;
-
-	uint32 CascadeViewsRedrawn = 0;
-	uint32 CascadeViewsCached = 0;
-
-	void Reset() { *this = FRenderStats(); }
-};
 
 // 뷰 하나의 데이터를 프레임 사이에도 보관한다. SceneRenderer는 현재 프레임 동안 이를 빌려 쓴다.
 struct FSceneRenderData

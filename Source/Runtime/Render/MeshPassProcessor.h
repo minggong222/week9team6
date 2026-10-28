@@ -13,6 +13,7 @@
 #include <Engine\PrimitiveSceneProxy.h>
 
 struct FSceneView;
+enum class EPSOType : uint8;
 struct FSceneRenderData;
 class FScene;
 struct FLightRenderParameters;

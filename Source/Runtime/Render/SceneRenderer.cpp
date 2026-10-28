@@ -1,4 +1,5 @@
 ﻿#include "EnginePCH.h"
+#include "Render/Material.h"
 #include "Math/MathUtility.h"
 #include "Render/SceneRenderer.h"
 #include "Render/Renderer.h"

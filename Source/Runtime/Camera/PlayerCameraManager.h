@@ -67,7 +67,7 @@ public:
 	FCameraModifier* AddCameraModifier(TUniquePtr<FCameraModifier> Modifier);
 	bool RemoveCameraModifier(FCameraModifier* Modifier);
 	void ClearCameraModifiers();
-	FCameraShakeModifier* StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency);
+	FCameraShakeModifier* StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency, int32 Priority = 0);
 private:
 	void UpdateCameraEffects(float DeltaTime);
 

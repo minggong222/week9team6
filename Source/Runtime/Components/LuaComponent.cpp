@@ -1,9 +1,11 @@
 #include "EnginePCH.h"
+#include "GameFramework/Actor.h"
 #include "LuaComponent.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
 #include "Engine/Engine.h"
 #include "Scripting/LuaInstance.h"
+#include "Scripting/LuaManager.h"
 
 namespace
 {

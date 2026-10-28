@@ -3,10 +3,18 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Engine/GameViewportClient.h"
+#include "Scripting/LuaManager.h"
+
+UGameInstance::UGameInstance()
+	: LuaManager(MakeUnique<FLuaManager>())
+{
+}
+
+UGameInstance::~UGameInstance() = default;
 
 void UGameInstance::Init()
 {
-	LuaManager.Initialize(GetEngine()->GetLuaRegistry());
+	LuaManager->Initialize(GetEngine()->GetLuaRegistry());
 }
 
 void UGameInstance::Shutdown()
@@ -71,5 +79,5 @@ UEngine* UGameInstance::GetEngine() const
 
 FLuaManager* UGameInstance::GetLuaManager()
 {
-	return &LuaManager;
+	return LuaManager.get();
 }

@@ -500,7 +500,7 @@ void UEditorEngine::TickWorldAndEditor(const float DeltaTime)
 			bStepRequested = false;
 		}
 		else if(ActiveWorld && (!bIsPaused || ActiveWorld == PlayWorld))
-			GetActiveWorld()->Tick(DeltaTime);
+			GetActiveWorld()->Tick(DeltaTime, EngineTimer::GetRealDeltaTime());
 
 	}
 	{
@@ -1262,8 +1262,17 @@ void UEditorEngine::DrawPIEWindows()
 void UEditorEngine::PreExit()
 {
 	EndPlayMap();
-	if(EditorWorld)
+	if (EditorWorld)
+	{
+		// 레벨 밖의 메인 카메라는 ClearWorld의 액터 정리 대상에 포함되지 않는다.
+		if (ACameraActor* Camera = EditorWorld->GetMainCamera())
+		{
+			Camera->UnregisterAllComponents();
+			Camera->RegisterAllActorTickFunctions(false);
+		}
+
 		EditorWorld->ClearWorld();
+	}
 	// PIE 창이 열린 채 종료하면 Device가 살아 있을 때 Swapchain과 타깃을 먼저 정리한다.
 	DestroyPIEWindow();
 	if(ImGuiRenderer)

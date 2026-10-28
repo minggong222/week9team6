@@ -243,7 +243,15 @@ bool APlayerCameraManager::RefreshViewTarget()
     if (!World)
     {
         ViewTarget.Reset();
+
+        FinalPOV = FCameraPOV{};
         bHasFinalPOV = false;
+
+        bIsTransitioning = false;
+        TransitionDuration = 0.0f;
+        TransitionElapsed = 0.0f;
+        TransitionStartPOV = FCameraPOV{};
+
         return false;
     }
 
@@ -253,7 +261,15 @@ bool APlayerCameraManager::RefreshViewTarget()
     }
 
     ViewTarget.Reset();
+
+    FinalPOV = FCameraPOV{};
     bHasFinalPOV = false;
+
+    bIsTransitioning = false;
+    TransitionDuration = 0.0f;
+    TransitionElapsed = 0.0f;
+    TransitionStartPOV = FCameraPOV{};
+
 
     // 1순위 플레이어 카메라 
     UCameraComponent* Camera = World->GetPlayerCamera();
@@ -370,10 +386,7 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
         }
         FCameraModifier* Modifier = It->get();
 
-        if (Modifier->IsEnabled())
-        {
-            Modifier->ModifyCamera(DeltaTime, FinalPOV);
-        }
+        Modifier->ApplyCamera(DeltaTime, FinalPOV);
 
         if (Modifier->IsFinished())
         {
@@ -473,6 +486,9 @@ FCameraModifier* APlayerCameraManager::AddCameraModifier(TUniquePtr<FCameraModif
 
     FCameraModifier* Result = Modifier.get();
     CameraModifiers.emplace_back(std::move(Modifier));
+    std::stable_sort(CameraModifiers.begin(), CameraModifiers.end(), [](const TUniquePtr<FCameraModifier>& A, const TUniquePtr<FCameraModifier>& B) {
+        return A->GetPriority() < B->GetPriority();
+        });
     return Result;
 }
 
@@ -499,9 +515,10 @@ void APlayerCameraManager::ClearCameraModifiers()
     CameraModifiers.clear();
 }
 
-FCameraShakeModifier* APlayerCameraManager::StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency)
+FCameraShakeModifier* APlayerCameraManager::StartCameraShake(float Duration, float LocationAmplitude, float RotationAmplitude, float Frequency, int32 Priority)
 {
     auto Modifier = MakeUnique<FCameraShakeModifier>();
+    Modifier->SetPriority(Priority);
     Modifier->Start(Duration, LocationAmplitude, RotationAmplitude, Frequency);
     if (Modifier->IsFinished())
     {

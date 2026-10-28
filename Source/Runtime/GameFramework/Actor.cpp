@@ -3,6 +3,7 @@
 #include "Engine/World.h"
 #include "Engine/Level.h"
 #include "Components/SceneComponent.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/ParticleSubUVComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Core/EngineLog.h"

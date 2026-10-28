@@ -3,11 +3,14 @@
 #include "Asset/RenderAsset.h"
 #include "Render/Buffer.h"
 #include "Render/StaticMeshData.h"
-#include "Render/MeshRenderData.h"
+#include "Math/Sphere.h"
+#include <array>
 #include <unordered_map>
 #include <vector>
 
 class FPrimitiveSceneProxy;
+class UMaterial;
+struct FMeshRenderState;
 
 struct FStaticMeshLODResource
 {

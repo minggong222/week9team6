@@ -42,7 +42,7 @@ public:
 
 	void SetTintSource(const ULightComponentBase* InSource) { TintSource = InSource; }
 
-	virtual const FStaticMeshData* GetMeshData() const override { return QuadMesh ? &QuadMesh->GetMeshData() : nullptr; }
+	virtual const FStaticMeshData* GetMeshData() const override;
 	virtual FBox CalcLocalBounds() const override;
 
 	void GetWorldTransformedMatrix(FMatrix* OutWorldMatrix) const;

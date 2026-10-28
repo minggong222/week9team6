@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Components/SceneComponent.h"
 #include "PathTracker.h"
 #include "UObject/Object.h"
 

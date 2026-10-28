@@ -17,12 +17,14 @@ void LuaRegisterComponentMesh(sol::state& State)
 
     State.new_usertype<UMeshComponent>("UMeshComponent", sol::no_constructor,
         sol::base_classes, sol::bases<UPrimitiveComponent, USceneComponent, UActorComponent, UObject>(),
+        // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "StaticClass", &UMeshComponent::StaticClass,
-        "Cast", &Cast<UMeshComponent>,
-        "GetMaterialSlotName", &UMeshComponent::GetMaterialSlotName,
-        "GetDefaultMaterial", &UMeshComponent::GetDefaultMaterial,
-        "GetOverrideMaterial", &UMeshComponent::GetOverrideMaterial,
-        "ClearOverrideMaterials", &UMeshComponent::ClearOverrideMaterials);
+        "Cast", &Cast<UMeshComponent>
+        // "GetMaterialSlotName", &UMeshComponent::GetMaterialSlotName,
+        // "GetDefaultMaterial", &UMeshComponent::GetDefaultMaterial,
+        // "GetOverrideMaterial", &UMeshComponent::GetOverrideMaterial,
+        // "ClearOverrideMaterials", &UMeshComponent::ClearOverrideMaterials
+    );
 
     State.new_usertype<UStaticMeshComponent>("UStaticMeshComponent", sol::no_constructor,
         sol::base_classes, sol::bases<UMeshComponent, UPrimitiveComponent, USceneComponent, UActorComponent, UObject>(),

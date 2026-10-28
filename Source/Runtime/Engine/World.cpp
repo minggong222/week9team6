@@ -1,6 +1,11 @@
 #include "EnginePCH.h"
+#include "Render/Mesh.h"
+#include "Render/Material.h"
 #include "World.h"
+#include "GameFramework/Actor.h"
+#include "Render/Renderer.h"
 #include "Engine/GameInstance.h"
+#include "Scripting/LuaManager.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Level.h"
@@ -54,11 +59,6 @@ DECLARE_CYCLE_STAT("Frustum Cull", STAT_FrustumCull);
 DECLARE_CYCLE_STAT("Gather Elements", STAT_GatherElements);
 DECLARE_CYCLE_STAT("Gather - LOD", STAT_GatherLOD);
 DECLARE_CYCLE_STAT("Gather - Submit", STAT_GatherSubmit);
-
-UWorld::~UWorld()
-{
-
-}
 
 FLuaManager* UWorld::GetLuaManager() const
 {
@@ -123,8 +123,13 @@ AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transf
 	return NewActor;
 }
 
-void UWorld::Tick(float DeltaTime)
+void UWorld::Tick(float DeltaTime, float RealDeltaTime)
 {
+	const bool bEditorWorld = WorldType == EWorldType::Editor;
+	const bool bUpdateTimeEffects = !bEditorWorld && bBegunPlay && !bIsEndingPlay && !bIsClearingWorld && !bIsPaused;
+	TimeManager.Tick(DeltaTime, RealDeltaTime < 0.0f ? DeltaTime : RealDeltaTime, bUpdateTimeEffects, !bEditorWorld);
+	const float DeltaSeconds = GetDeltaSeconds();
+
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UpdateAllTransforms);
 		Scene.UpdateAllTransforms();
@@ -144,7 +149,7 @@ void UWorld::Tick(float DeltaTime)
 			if (Comp->GetParticlesForView().IsEmpty())
 				Comp->SetParticles(10);
 
-			Comp->DispatchTickComponent(DeltaTime);
+			Comp->DispatchTickComponent(DeltaSeconds);
 		}
 
 		ProcessPendingComponentDestructions();
@@ -152,8 +157,6 @@ void UWorld::Tick(float DeltaTime)
 
 		return;
 	}
-
-	DeltaTime *= TimeDilation;
 
 	// 플레이 종료 또는 전체 월드 정리 중에는 게임 Tick을 실행하지 않는다.
 	if (!bBegunPlay || bIsEndingPlay || bIsClearingWorld)
@@ -172,7 +175,7 @@ void UWorld::Tick(float DeltaTime)
     if (!bIsPaused)
     {
         if (FLuaManager* Manager = GetLuaManager())
-            Manager->UpdateCoroutines(DeltaTime);
+            Manager->UpdateCoroutines(DeltaSeconds);
     }
 
 	ProcessPendingStarts();
@@ -181,7 +184,7 @@ void UWorld::Tick(float DeltaTime)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_ActorTick);
 
-		TickTaskManager.RunAllTickGroups(DeltaTime, bIsPaused);
+		TickTaskManager.RunAllTickGroups(DeltaSeconds, bIsPaused);
 	}
 
 	ProcessPendingComponentDestructions();
@@ -193,7 +196,7 @@ void UWorld::Tick(float DeltaTime)
 	for (ULevel* Level : Levels)
 	{
 		if (Level)
-			PathTracker.Tick(Level->GetActors(), DeltaTime);
+			PathTracker.Tick(Level->GetActors(), DeltaSeconds);
 	}
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UpdateAllTransforms);
@@ -1188,6 +1191,7 @@ void UWorld::EndPlay()
 	PlayerController = nullptr;
 	PlayerPawn = nullptr;
 	bIsPaused = false;
+	TimeManager.Reset();
 	bIsEndingPlay = false;
 	if (!bIsClearingWorld)
 	{
@@ -1202,16 +1206,6 @@ void UWorld::SetPaused(bool bPaused)
 	bIsPaused = bPaused;
 	if (bIsPaused && PlayerController)
 		PlayerController->ClearInputState();
-}
-
-bool UWorld::SetTimeDilation(float InTimeDilation)
-{
-	if (!std::isfinite(InTimeDilation) || InTimeDilation <= 0.0f)
-	{
-		return false;
-	}
-	TimeDilation = std::clamp(InTimeDilation, 0.01f, 10.0f);
-	return true;
 }
 
 UWorld* UWorld::CreateWorld(const EWorldType InWorldType, bool bInformEngineOfWorld, FName WorldName)
