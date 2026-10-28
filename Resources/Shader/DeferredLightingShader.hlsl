@@ -131,8 +131,18 @@ float4 mainPS(FPSInput Input) : SV_Target
         return float4(Lighting, 1.0f);
 
     // 직교 투영의 시선 광선은 평행하므로 시선 방향이 위치에 따라 달라지지 않는다.
-    float3 ToCamera = CameraPosition.w > 0.5f
-        ? CameraPosition.xyz - WorldPosition : -CameraForward.xyz;
+    float PerspectiveWeight = saturate(CameraPosition.w);
+
+    float3 PerspectiveToCamera = CameraPosition.xyz - WorldPosition;
+
+    PerspectiveToCamera *= rsqrt(max(dot(PerspectiveToCamera, PerspectiveToCamera), EPSILON_1E_8));
+
+    float3 OrthographicToCamera = -CameraForward.xyz;
+
+    OrthographicToCamera *= rsqrt(max(dot(OrthographicToCamera, OrthographicToCamera), EPSILON_1E_8));
+
+    float3 ToCamera = lerp(OrthographicToCamera, PerspectiveToCamera, PerspectiveWeight);
+
     float3 V = ToCamera * rsqrt(max(dot(ToCamera, ToCamera), EPSILON_1E_8));
 
     float3 LocalDiffuse = 0.0f;

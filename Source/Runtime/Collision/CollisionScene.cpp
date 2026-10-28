@@ -152,6 +152,7 @@ namespace
             }
 
             const float Step = std::max(Separation * 0.8f, MinStep);
+            Travel = std::min(Travel + Step, MaxDistance);
         }
 
         return false;

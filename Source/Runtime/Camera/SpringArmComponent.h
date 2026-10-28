@@ -45,8 +45,8 @@ private:
     FVector SocketOffset = FVector(0.0f, 0.0f, 0.0f);
 
     bool bDoCollisionTest = true;
-    float CollisionProbeSize = 12.0f;
-    float CollisionSafetyMargin = 2.0f;
+    float CollisionProbeSize = 6.0f;
+    float CollisionSafetyMargin = 1.0f;
 
     bool bEnableCameraLag = false;
     float CameraLagSpeed = 10.0f;

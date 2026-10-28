@@ -35,6 +35,7 @@ struct FForwardLightingConstants
 {
 	FAmbientLightRenderData Ambient;
 	FVector4 CameraPosition;
+	FVector4 CameraForward;
 	uint32 LightCounts[4];  // x: 포인트 개수, y: 스포트 개수, z: 방향광 개수, w: 렉트 개수
 	uint32 LightOffsets[4]; // 공유 조명 버퍼에서 각 종류가 시작되는 위치, 순서는 위와 같음
 	// 그림자 위치는 광원마다 FLightRenderParameters::ShadowIndex로 찾는다. 종류별 시작 위치는 두지 않는다.
@@ -97,14 +98,14 @@ static_assert(sizeof(FLightShadowRenderData) == 108);
 static_assert(offsetof(FLightShadowRenderData, WorldUnitsPerTexel) == 92);
 static_assert(sizeof(FAmbientLightRenderData) == 16);
 static_assert(offsetof(FForwardLightingConstants, CameraPosition) == 16);
-static_assert(offsetof(FForwardLightingConstants, LightCounts) == 32);
-static_assert(offsetof(FForwardLightingConstants, LightOffsets) == 48);
-static_assert(offsetof(FForwardLightingConstants, SkyColorIntensity) == 64);
-static_assert(offsetof(FForwardLightingConstants, CascadeShadowDistances) == 80);
-static_assert(offsetof(FForwardLightingConstants, CascadeShadowCount) == 96);
-static_assert(offsetof(FForwardLightingConstants, ShadowAtlasWidth) == 100);
-static_assert(offsetof(FForwardLightingConstants, ShadowAtlasHeight) == 104);
-static_assert(offsetof(FForwardLightingConstants, PcfMode) == 108);
-static_assert(offsetof(FForwardLightingConstants, ShadowDepthBias) == 112);
-static_assert(offsetof(FForwardLightingConstants, CascadeBlendRatio) == 116);
-static_assert(sizeof(FForwardLightingConstants) == 128);
+static_assert(offsetof(FForwardLightingConstants, LightCounts) == 48);
+static_assert(offsetof(FForwardLightingConstants, LightOffsets) == 64);
+static_assert(offsetof(FForwardLightingConstants, SkyColorIntensity) == 80);
+static_assert(offsetof(FForwardLightingConstants, CascadeShadowDistances) == 96);
+static_assert(offsetof(FForwardLightingConstants, CascadeShadowCount) == 112);
+static_assert(offsetof(FForwardLightingConstants, ShadowAtlasWidth) == 116);
+static_assert(offsetof(FForwardLightingConstants, ShadowAtlasHeight) == 120);
+static_assert(offsetof(FForwardLightingConstants, PcfMode) == 124);
+static_assert(offsetof(FForwardLightingConstants, ShadowDepthBias) == 128);
+static_assert(offsetof(FForwardLightingConstants, CascadeBlendRatio) == 132);
+static_assert(sizeof(FForwardLightingConstants) == 144);

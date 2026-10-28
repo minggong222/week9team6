@@ -33,6 +33,7 @@ cbuffer Lighting : register(b1)
 {
     FAmbientLightInfo Ambient;
     float4 CameraPosition;
+    float4 CameraForward;
     uint4 LightCounts; // x: 포인트 개수, y: 스포트 개수, z: 방향광 개수
     uint4 LightOffsets; // SceneLights에서 각 종류가 시작되는 위치, 순서는 위와 같음
     // 그림자는 광원마다 Light.ShadowIndex로 찾는다 (LightShadows).
@@ -104,6 +105,24 @@ struct FUberOutput
     float4 NormalRoughness : SV_Target1;
 #endif
 };
+
+float3 GetViewDirection(float3 P)
+{
+    float Alpha = saturate(CameraPosition.w);
+
+    // 원근 투영: 표면에서 카메라 위치를 향한다.
+    float3 PerspectiveDirection = CameraPosition.xyz - P;
+    PerspectiveDirection *= rsqrt(max(dot(PerspectiveDirection, PerspectiveDirection), EPSILON_1E_8));
+
+    // 직교 투영: 모든 표면에서 같은 시선 방향을 사용한다.
+    float3 OrthographicDirection = -CameraForward.xyz;
+    OrthographicDirection *= rsqrt(max(dot(OrthographicDirection, OrthographicDirection), EPSILON_1E_8));
+
+    // 원근과 직교의 시선 방향을 연속적으로 보간한다.
+    float3 Direction = lerp(OrthographicDirection, PerspectiveDirection,  Alpha);
+
+    return Direction * rsqrt(max(dot(Direction, Direction), EPSILON_1E_8));
+}
 
 float SampleDirectionalCascade(float3 PixelPosition, float3 P, float3 N, FLightRenderParameters Light, uint ShadowArrayIndex)
 {
@@ -382,8 +401,7 @@ void AddAllLocalLights(inout FLightResult Result, float3 PixelPosition, float3 P
 FLightResult CalculateLighting(float3 PixelPosition, float3 P, float ViewDepth, float3 Normal, bool bIncludeSpecular)
 {
     float3 N = normalize(Normal);
-    float3 ToCamera = CameraPosition.xyz - P;
-    float3 V = ToCamera * rsqrt(max(dot(ToCamera, ToCamera), EPSILON_1E_8));
+    float3 V = GetViewDirection(P);
     FLightResult Result = CalculateBaseLighting(PixelPosition, P, ViewDepth, N, V, bIncludeSpecular);
     AddAllLocalLights(Result, PixelPosition, P, N, V, bIncludeSpecular);
     return Result;
@@ -393,8 +411,7 @@ FLightResult CalculateLighting(float3 PixelPosition, float3 P, float ViewDepth, 
 FLightResult CalculateTiledLighting(float3 PixelPosition, float3 P, float ViewDepth, float3 Normal, bool bIncludeSpecular)
 {
     float3 N = normalize(Normal);
-    float3 ToCamera = CameraPosition.xyz - P;
-    float3 V = ToCamera * rsqrt(max(dot(ToCamera, ToCamera), EPSILON_1E_8));
+    float3 V = GetViewDirection(P);
     FLightResult Result = CalculateBaseLighting(PixelPosition, P, ViewDepth, N, V, bIncludeSpecular);
 
     if (GridMode == LIGHT_GRID_MODE_OFF)
