@@ -31,6 +31,15 @@ function PlayStart()
 end
 
 function PlayDeath()
+    local World = Actor:GetWorld()
+    local CameraManager = World:GetPlayerCameraManager()
+    if CameraManager then
+        CameraManager:StartCameraZoom(0.9, 0.15, 0.15)
+    end
+
+    World:PlayHitStop(0, 0.35, 1.5)
+    World:StartCameraShake(0.35, 1.25, 1.25, 8.0)
+
     Audio.PlaySFX("Audio/Collision.wav")
 end
 
@@ -55,9 +64,10 @@ function PlayRestart()
     return FadeDuration
 end
 
-function StopEffects()
+function StopEffects(KeepZoom)
     local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
     if CameraManager then
+        if not KeepZoom then CameraManager:StopCameraZoom() end
         CameraManager:StopCameraFade()
         CameraManager:StopLetterBox()
     end
@@ -79,10 +89,9 @@ function Update(Phase)
     elseif Phase == "SelectingCharacter" then
         CameraManager:StartCameraFade(FromAlpha, 0, FadeDuration, Black)
         CameraManager:SetLetterBox(LetterBoxHeight, LetterBoxDuration)
-    elseif Phase == "Credits" then
-        CameraManager:SetLetterBox(LetterBoxHeight, LetterBoxDuration)
     else
-        StopEffects()
+        -- 사망 화면 갱신은 PlayDeath 직후이므로 진행 중인 줌을 유지한다.
+        StopEffects(Phase == "Dead")
     end
     State.Phase = Phase
 end

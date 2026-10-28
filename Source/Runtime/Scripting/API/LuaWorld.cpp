@@ -22,7 +22,11 @@ void LuaRegisterWorld(sol::state& State)
         // "GetFadeColor", &APlayerCameraManager::GetFadeColor, // 현재 Lua에서는 미사용
         "SetLetterBox", &APlayerCameraManager::SetLetterBox,
         // "GetLetterBoxHeight", &APlayerCameraManager::GetLetterBoxHeight, // 현재 Lua에서는 미사용
-        "StopLetterBox", &APlayerCameraManager::StopLetterBox);
+        "StopLetterBox", &APlayerCameraManager::StopLetterBox,
+        "StartCameraZoom", [](APlayerCameraManager& Manager, float Scale, float ZoomInDuration, float ZoomOutDuration, sol::optional<int32> Priority) {
+            return Manager.StartCameraZoom(Scale, ZoomInDuration, ZoomOutDuration, Priority.value_or(0));
+        },
+        "StopCameraZoom", &APlayerCameraManager::StopCameraZoom);
 
     State.new_usertype<UWorld>("UWorld", sol::no_constructor,
         sol::base_classes, sol::bases<UObject>(),
