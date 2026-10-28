@@ -31,7 +31,7 @@ function PlayStart()
 end
 
 function PlayDeath()
-    Audio.PlaySFX("Audio/Collision.wav")
+    Audio.PlaySFX("Audio/Splat.wav")
 end
 
 function FadeIn(Duration, Color)
