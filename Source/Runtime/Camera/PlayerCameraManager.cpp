@@ -178,6 +178,7 @@ void APlayerCameraManager::Tick(float DeltaTime)
 
 void APlayerCameraManager::EndPlay()
 {
+    SequenceFadeOwner = nullptr;
     StopCameraFade();
     StopLetterBox();
     ViewTarget.Reset();
@@ -414,6 +415,7 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime, float ModifierDeltaTi
 
 bool APlayerCameraManager::StartCameraFade(float FromAlpha, float ToAlpha, float Duration, const FColor& Color)
 {
+    if (SequenceFadeOwner) return false;
     if (!std::isfinite(FromAlpha) || !std::isfinite(ToAlpha) || !std::isfinite(Duration) || Duration < 0.0f)
     {
         return false;
@@ -430,11 +432,25 @@ bool APlayerCameraManager::StartCameraFade(float FromAlpha, float ToAlpha, float
 
 void APlayerCameraManager::StopCameraFade()
 {
+    if (SequenceFadeOwner) return;
     FadeAmount = 0.0f;
     FadeFrom = 0.0f;
     FadeTarget = 0.0f;
     FadeDuration = 0.0f;
     FadeElapsed = 0.0f;
+}
+
+bool APlayerCameraManager::SetSequenceFade(const void* Owner, float Amount)
+{
+    if (!Owner || !std::isfinite(Amount) || (SequenceFadeOwner && SequenceFadeOwner != Owner)) return false;
+    SequenceFadeOwner = Owner;
+    SequenceFadeAmount = std::clamp(Amount, 0.0f, 1.0f);
+    return true;
+}
+
+void APlayerCameraManager::ReleaseSequenceFade(const void* Owner)
+{
+    if (SequenceFadeOwner == Owner) SequenceFadeOwner = nullptr;
 }
 
 bool APlayerCameraManager::SetLetterBox(float Height, float Duration)
@@ -472,7 +488,7 @@ void APlayerCameraManager::UpdateCameraEffects(float DeltaTime)
     }
 
     // POV 조회는 한 프레임에 여러 번 호출될 수 있으므로 효과 시간은 Tick에서만 진행한다.
-    if (FadeDuration > 0.0f && FadeElapsed < FadeDuration)
+    if (!SequenceFadeOwner && FadeDuration > 0.0f && FadeElapsed < FadeDuration)
     {
         FadeElapsed = std::min(FadeDuration, FadeElapsed + DeltaTime);
         const float Alpha = FadeElapsed / FadeDuration;

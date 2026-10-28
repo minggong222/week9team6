@@ -103,7 +103,7 @@ local function CheckPlayerCollision(Delta)
     end
 
     if Refs.Level:Invoke("IsGameManaged") then
-        Refs.Level:Invoke("RequestGameOver")
+        Refs.Level:Invoke("RequestGameOver", nil, State.Direction)
     end
 end
 

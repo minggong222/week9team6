@@ -57,8 +57,10 @@ public:
 	// 투명도 0은 원래 화면, 1은 지정 색상. 완료 후 끝 값을 유지한다.
 	bool StartCameraFade(float FromAlpha, float ToAlpha, float Duration, const FColor& Color);
 	void StopCameraFade();
-	float GetFadeAmount() const { return FadeAmount; }
-	const FColor& GetFadeColor() const { return FadeColor; }
+	float GetFadeAmount() const { return SequenceFadeOwner ? SequenceFadeAmount : FadeAmount; }
+	const FColor& GetFadeColor() const { return SequenceFadeOwner ? SequenceFadeColor : FadeColor; }
+	bool SetSequenceFade(const void* Owner, float Amount);
+	void ReleaseSequenceFade(const void* Owner);
 
 	// 상하 띠 각각의 높이를 화면 높이의 0~0.5 비율로 지정한다.
 	bool SetLetterBox(float Height, float Duration);
@@ -97,6 +99,9 @@ private:
 	float FadeTarget = 0.0f;
 	float FadeDuration = 0.0f;
 	float FadeElapsed = 0.0f;
+	const void* SequenceFadeOwner = nullptr;
+	float SequenceFadeAmount = 0.0f;
+	FColor SequenceFadeColor = FColor(0, 0, 0, 255);
 
 	float LetterBoxHeight = 0.0f;
 	float LetterBoxFrom = 0.0f;

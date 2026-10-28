@@ -130,7 +130,9 @@ void LuaRegisterComponentBase(sol::state& State)
         // },
         "TryMoveWithBlocking", [](USceneComponent& Component, const FVector& Delta, const FRotator& Rotation)
         {
-            return Component.TryMoveWithBlocking(Delta, Rotation);
+            UShapeComponent* BlockingShape = nullptr;
+            const bool bMoved = Component.TryMoveWithBlocking(Delta, Rotation, &BlockingShape);
+            return std::make_tuple(bMoved, static_cast<UPrimitiveComponent*>(BlockingShape));
         }
     );
 

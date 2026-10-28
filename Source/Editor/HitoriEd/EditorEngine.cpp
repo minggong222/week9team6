@@ -21,6 +21,8 @@
 
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
+#include "GameFramework/PlayerController.h"
 #include "GameFramework/Actor/LightActorBase.h"
 #include "GameFramework/Actor/PointLightActor.h"
 #include "GameFramework/Actor/SpotLightActor.h"
@@ -151,7 +153,13 @@ bool UEditorEngine::Init()
 	EditorControlsPanel = EditorUI->AddEditorPanel<FEditorControlsPanel>();
 	ViewportsPanel = EditorUI->AddEditorPanel<FViewportsPanel>();
 	ContentDrawerPanel = EditorUI->AddEditorPanel<FContentDrawerPanel>();
-	EditorUI->AddEditorPanel<FSequencerPanel>();
+	auto* SequencerPanel = EditorUI->AddEditorPanel<FSequencerPanel>();
+	SequencerPanel->SetCameraManagerProvider([this]() -> APlayerCameraManager*
+	{
+		UWorld* World = GetActiveWorld();
+		APlayerController* Controller = World ? World->GetPlayerController() : nullptr;
+		return Controller ? Controller->GetPlayerCameraManager() : nullptr;
+	});
     ContentDrawerPanel->SetWorld(EditorWorld);
     DetailsPanel->SetScriptCreatedCallback([this](const FString& ScriptPath)
     {

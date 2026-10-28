@@ -1,6 +1,11 @@
 -- 맵·교통·기차의 생성·회수 순서 및 게임 매니저 연결 관리
 local Config = dofile("Assets/Scripts/ConfigManager.lua").Level
-State = { HighestRow = 0, Seed = Config.InitialSeed, TrafficRandomState = 1, RailSlots = {} }
+-- 엔진이 초기화한 Lua 난수에서 실행별 시드를 얻는다. 파생 시드의 오프셋 범위도 확보한다.
+local function NewRunSeed()
+    return math.random(1, 2147378917)
+end
+
+State = { HighestRow = 0, Seed = NewRunSeed(), TrafficRandomState = 1, RailSlots = {} }
 State.LightingProfile = Config.NightMode and "Night" or "Day"
 Refs = { Lights = { Sky = {}, Sun = {}, Car = {}, Train = {} } }
 
@@ -116,10 +121,10 @@ local function StopPlayerMovement()
     if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
 end
 
-function RequestGameOver(Reason)
+function RequestGameOver(Reason, HitDirection)
     if GetPhase() ~= "Playing" then return end
     if Refs.Game then
-        Refs.Game:Invoke("GameOver")
+        Refs.Game:Invoke("GameOver", HitDirection)
     else
         State.Game.Phase = "Dead"
         StopPlayerMovement()
@@ -197,7 +202,7 @@ function ResetLevel(NewSeed)
     -- 차량 반환 -> 각 시스템의 행 정리 -> 난수 초기화 -> 행 생성 순서 유지
     Refs.Traffic:Invoke("DeactivateCars")
     for _, Row in ipairs(Refs.Map:Invoke("GetRows")) do RecycleRow(Row.Id, false) end
-    if NewSeed then State.Seed = State.Seed + 1 end
+    if NewSeed then State.Seed = NewRunSeed() end
     State.HighestRow = 0
     State.TrafficRandomState = (State.Seed + 104729) % 2147483647
     Refs.Map:Invoke("ResetGeneration", State.Seed)
@@ -206,12 +211,7 @@ function ResetLevel(NewSeed)
 
     if Refs.Layout.HasMapPool then
         GenerateMapRows(-Config.RowsBehind, Config.RowsAhead)
-    else
-        for Id = 1, Refs.Layout.RowCount do
-            local Index = Refs.Map:Invoke("GetStaticRowIndex", Id)
-            Refs.Map:Invoke("CreateRow", Id, Index, "road")
-            ConfigureRow(Id, Index, "road")
-        end
+
     end
     PublishLevelState()
 end
@@ -260,6 +260,7 @@ local function PrintLevelState()
 end
 
 function BeginPlay(Self)
+    State.Initialized = false
     InitializeLighting()
     assert(Config.DeathRowsBehind > 0 and Config.DeathRowsBehind <= Config.RowsBehind, "Death boundary must be inside the retained map")
     assert(Config.HalfWidth >= Config.CellSize and Config.HalfWidth <= 33 and Config.BoundaryWidth > 0, "Invalid map width")
@@ -315,9 +316,16 @@ function BeginPlay(Self)
 
     ResetLevel(false)
     if State.Game.EnableTraffic then EnableTraffic() end
+    State.Initialized = true
+end
+
+function PlayTreeHit(BlockingComponent)
+    if State.Initialized then Refs.Map:Invoke("PlayTreeHit", BlockingComponent) end
 end
 
 function TickComponent(Self, DeltaSeconds)
+    if not State.Initialized then return end
+    Refs.Map:Invoke("UpdateTreeHits", Actor:GetWorld():GetRealDeltaSeconds())
     if State.Game.EnableTraffic and not Refs.Traffic:Invoke("IsEnabled") then EnableTraffic() end
 
     -- GameManager가 없는 maptest는 기존처럼 자체 재시작·점수 처리

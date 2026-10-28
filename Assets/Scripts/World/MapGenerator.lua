@@ -2,6 +2,52 @@
 local Config = dofile("Assets/Scripts/ConfigManager.lua").Map
 State = { Rows = {}, RandomState = 1, LastRow = 0, SafeColumn = 0, ReusedRows = 0 }
 Refs = {}
+State.TreeMeshesByHitbox, State.TreeEffects = {}, {}
+
+local function RestoreTreeHit(Mesh)
+    local Effect = State.TreeEffects[Mesh]
+    if not Effect then return end
+    Mesh:SetRelativeScale3D(Effect.Scale)
+    Mesh:SetRelativeRotation(Effect.Rotation)
+    State.TreeEffects[Mesh] = nil
+end
+
+function PlayTreeHit(BlockingComponent)
+    local Mesh = State.TreeMeshesByHitbox[BlockingComponent:GetName()]
+    if not Mesh then return end
+    -- 연속 충돌에서도 원래 자세를 기준으로 다시 시작한다.
+    RestoreTreeHit(Mesh)
+    State.TreeEffects[Mesh] = {
+        Elapsed = 0, Scale = Mesh:GetRelativeScale3D(), Rotation = Mesh:GetRelativeRotation()
+    }
+end
+
+function UpdateTreeHits(DeltaSeconds)
+    local Settings = Config.HitSquash
+    for Mesh, Effect in pairs(State.TreeEffects) do
+        Effect.Elapsed = Effect.Elapsed + DeltaSeconds
+        local Alpha = math.min(1, Effect.Elapsed / Settings.Duration)
+        if Alpha >= 1 then
+            RestoreTreeHit(Mesh)
+        else
+            local Scale = 1 - (1 - Settings.Scale) * math.sin(math.pi * Alpha)
+            local Angle = Settings.ShakeAngle * math.sin(math.pi * Alpha)
+            local Phase = Effect.Elapsed * Settings.ShakeFrequency * 2 * math.pi
+            local Base, Rotation = Effect.Scale, Effect.Rotation
+            -- 메시만 변형해 충돌 박스와 안전 경로는 흔들리지 않게 한다.
+            Mesh:SetRelativeScale3D(FVector.new(Base.X * Scale, Base.Y * Scale, Base.Z * Scale))
+            Mesh:SetRelativeRotation(FRotator.new(Rotation.Pitch + math.sin(Phase) * Angle,
+                Rotation.Yaw, Rotation.Roll + math.sin(Phase * 1.3) * Angle))
+        end
+    end
+end
+
+local function GetSettings()
+    return Refs.Layout.NightMode and Config.Night or Config.Day
+end
+
+-- 두 모드 중 큰 용량으로 확보해 모드를 바꿔도 같은 풀을 재사용한다.
+local TreePoolSize = math.max(Config.Day.TreesPerRow, Config.Night.TreesPerRow)
 
 function BeginPlay(Self)
     Self:SetComponentTickEnabled(false)
@@ -19,20 +65,22 @@ end
 
 local function PickRowType(Index)
     if Index < 3 then return "grass" end
+    local Settings = GetSettings()
     local Choice = TerrainRandom()
-    if Choice < Config.RailChance then return "rail" end
-    return Choice < Config.RailChance + Config.RoadChance and "road" or "grass"
+    if Choice < Settings.RailChance then return "rail" end
+    return Choice < Settings.RailChance + Settings.RoadChance and "road" or "grass"
 end
 
 local function PickTreeCount()
+    local Settings = GetSettings()
     local Total = 0
-    for _, Weight in ipairs(Config.TreeWeights) do Total = Total + Weight end
+    for _, Weight in ipairs(Settings.TreeWeights) do Total = Total + Weight end
     local Choice = TerrainRandom() * Total
-    for Index, Weight in ipairs(Config.TreeWeights) do
+    for Index, Weight in ipairs(Settings.TreeWeights) do
         Choice = Choice - Weight
         if Choice < 0 then return Index - 1 end
     end
-    return #Config.TreeWeights - 1
+    return #Settings.TreeWeights - 1
 end
 
 local function GenerateMapRow(Row, Index, Kind)
@@ -83,7 +131,11 @@ end
 local function RecycleMapRow(Row)
     Row.Active = false
 
-    for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision) end
+    for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do
+        local Mesh = State.TreeMeshesByHitbox[Hitbox:GetName()]
+        if Mesh then RestoreTreeHit(Mesh) end
+        Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision)
+    end
     if Row.Floor then
         Row.Floor:SetVisibility(false, true)
         for _, Wall in ipairs(Row.Walls) do Wall:SetVisibility(false, true) end
@@ -91,13 +143,31 @@ local function RecycleMapRow(Row)
     end
 end
 
+-- 저장된 씬보다 나무 수를 늘려도 기존 메시 배치를 복사해 슬롯을 보충한다.
+local function GetOrCreateTree(Slot, Index)
+    local Name = "MapTree_" .. Slot .. "_" .. Index
+    local Tree = USceneComponent.Cast(Actor:FindComponentByName(Name))
+    if Tree then return Tree end
+
+    local Template = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapTreeMesh_" .. Slot .. "_1"))
+    assert(Template, "Missing tree mesh template for slot " .. Slot)
+    Tree = USceneComponent.Cast(Actor:AddComponent(UClass.Find("USceneComponent"), Name))
+    local Mesh = UStaticMeshComponent.Cast(Actor:AddComponent(UClass.Find("UStaticMeshComponent"),
+        "MapTreeMesh_" .. Slot .. "_" .. Index))
+    assert(Tree and Mesh, "Could not create tree slot")
+    Tree:SetupAttachment(Actor:GetRootComponent())
+    Mesh:SetupAttachment(Tree)
+    Mesh:SetStaticMesh(Template:GetStaticMesh())
+    Mesh:SetRelativeLocation(Template:GetRelativeLocation())
+    Mesh:SetRelativeRotation(Template:GetRelativeRotation())
+    Mesh:SetRelativeScale3D(Template:GetRelativeScale3D())
+    Mesh:SetCollisionEnabled(ECollisionEnabled.NoCollision)
+    Tree:SetVisibility(false, true)
+    return Tree
+end
+
 local function CaptureMapPool()
-    if not State.HasMapPool then
-        for Slot = 1, #Config.StaticRoadRows do
-            State.Rows[Slot] = { Slot = Slot, Active = false, TreeCount = 0 }
-        end
-        return
-    end
+    if not State.HasMapPool then return end
     Refs.GrassMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/kenney-grass-row.obj")
     Refs.RoadMesh = UAssetManager:GetAssetByPath("Models/Crossy/RoadTiles/kenney-road-row.obj")
     Refs.RailMesh = UAssetManager:GetAssetByPath("Models/Crossy/Trains/crossy-rail-row.obj")
@@ -120,9 +190,8 @@ local function CaptureMapPool()
             Row.Walls[Side] = Wall
         end
 
-        for Index = 1, Config.TreesPerRow do
-            local Tree = USceneComponent.Cast(Actor:FindComponentByName("MapTree_" .. Slot .. "_" .. Index))
-            assert(Tree, "Missing tree slot")
+        for Index = 1, TreePoolSize do
+            local Tree = GetOrCreateTree(Slot, Index)
             Row.Trees[Index] = Tree
             local Name = "MapTreeHitbox_" .. Slot .. "_" .. Index
             local Hitbox = UBoxComponent.Cast(Actor:FindComponentByName(Name))
@@ -136,6 +205,9 @@ local function CaptureMapPool()
             Hitbox:SetCollisionResponseToChannel(ECollisionChannel.Pawn, ECollisionResponse.Block)
             Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision)
             Row.TreeHitboxes[Index] = Hitbox
+            local Mesh = UStaticMeshComponent.Cast(Actor:FindComponentByName("MapTreeMesh_" .. Slot .. "_" .. Index))
+            assert(Mesh, "Missing tree mesh")
+            State.TreeMeshesByHitbox[Name] = Mesh
         end
         State.Rows[Slot] = Row
     end
@@ -144,19 +216,24 @@ end
 function Initialize(Layout)
     Refs.Layout = Layout
     State.HasMapPool = Layout.HasMapPool
-    assert(Config.RoadChance >= 0 and Config.RailChance >= 0 and Config.RoadChance + Config.RailChance <= 1, "Invalid map probabilities")
-    assert(#Config.TreeWeights > 0 and #Config.TreeWeights <= Config.TreesPerRow + 1, "Invalid tree counts")
-    local Total = 0
-    for _, Weight in ipairs(Config.TreeWeights) do
-        assert(Weight >= 0, "Invalid tree weight")
-        Total = Total + Weight
+    for _, Settings in ipairs({ Config.Day, Config.Night }) do
+        assert(Settings.RoadChance >= 0 and Settings.RailChance >= 0
+            and Settings.RoadChance + Settings.RailChance <= 1, "Invalid map probabilities")
+        assert(Settings.TreesPerRow >= 0 and Settings.TreesPerRow == math.floor(Settings.TreesPerRow),
+            "Tree count must be a non-negative integer")
+        assert(#Settings.TreeWeights > 0 and #Settings.TreeWeights <= Settings.TreesPerRow + 1, "Invalid tree counts")
+        local Total = 0
+        for _, Weight in ipairs(Settings.TreeWeights) do
+            assert(Weight >= 0, "Invalid tree weight")
+            Total = Total + Weight
+        end
+        assert(Total > 0, "At least one tree weight must be positive")
     end
-    assert(Total > 0, "At least one tree weight must be positive")
     CaptureMapPool()
 end
 
 function GetPoolSize()
-    return #State.Rows, State.HasMapPool and #State.Rows * Config.TreesPerRow or 0
+    return #State.Rows, State.HasMapPool and #State.Rows * TreePoolSize or 0
 end
 
 -- 내부 행 테이블 대신 매니저 조율에 사용할 값의 복사본 반환
@@ -183,6 +260,7 @@ function GetReusedRows()
 end
 
 function ReleaseCollisions()
+    for Mesh in pairs(State.TreeEffects) do RestoreTreeHit(Mesh) end
     for _, Row in ipairs(State.Rows) do
         for _, Hitbox in ipairs(Row.TreeHitboxes or {}) do
             Hitbox:SetCollisionEnabled(ECollisionEnabled.NoCollision)
@@ -193,10 +271,6 @@ end
 function CreateRow(Id, Index, Kind)
     GenerateMapRow(State.Rows[Id], Index, Kind)
     return Id, Index, Kind
-end
-
-function GetStaticRowIndex(Id)
-    return Config.StaticRoadRows[Id]
 end
 
 -- 매니저의 기존 도로·레일 연결 순서 유지를 위한 행 단위 반환

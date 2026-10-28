@@ -79,13 +79,15 @@ function StartGame()
     print("Game Started")
 end
 
-function GameOver()
+function GameOver(HitDirection)
     -- 같은 프레임의 여러 충돌도 한 번만 처리
     if State.Game.Phase ~= GamePhase.Playing then return end
     State.Game.Phase = GamePhase.Dead
 
     if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
-    Refs.HitReaction:Invoke("PlayHitReaction")
+    local MinY, MaxY
+    if Refs.Level then MinY, MaxY = Refs.Level:Invoke("GetMovementBounds") end
+    Refs.HitReaction:Invoke("PlayHitReaction", HitDirection, Config.CellSize, MinY, MaxY)
     Refs.Cinematics:Invoke("PlayDeath")
     UpdateScreen()
     print("Game Over!")
@@ -115,6 +117,8 @@ end
 
 local function Restart()
     if State.Restarting then return end
+    -- 암전이 시작되기 전에 HitStop·슬로모션을 해제해 재시작 시간이 늘어나지 않도록 한다.
+    Actor:GetWorld():ResetTimeEffects()
     local WasDead = State.Game.Phase == GamePhase.Dead
     State.Game.RestartCount = (State.Game.RestartCount or 0) + 1
     State.Restarting = true
@@ -199,7 +203,7 @@ function BeginPlay(Self)
     Refs.Camera:Invoke("Initialize", Camera)
     Refs.Camera:Invoke("SetModeGamma", State.Game.Mode or Config.DefaultMode)
     Refs.Selection:Invoke("Initialize", Refs.Player, Refs.PlayerMesh)
-    Refs.HitReaction:Invoke("Initialize", Refs.PlayerMesh)
+    Refs.HitReaction:Invoke("Initialize", Refs.PlayerMesh, Refs.Player)
     Refs.Cinematics:Invoke("PlayStart")
 
     -- 두 매니저의 BeginPlay 순서와 무관한 연결 및 기존 공개 인터페이스 유지

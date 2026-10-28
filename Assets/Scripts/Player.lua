@@ -317,13 +317,16 @@ function TickComponent(Component, DeltaSeconds)
             local Alpha = math.min(1.0, State.JumpElapsed / Config.JumpDuration)
             if Alpha > 1.0 - 0.000001 then Alpha = 1.0 end
             local Location = State.JumpStartLocation + State.JumpDirection * (Config.MoveDistance * Alpha)
-            if RootComponent:TryMoveWithBlocking(Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation()) then
+            local Moved, BlockingComponent = RootComponent:TryMoveWithBlocking(
+                Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation())
+            if Moved then
                 State.CurrentJumpHeight = 4.0 * Config.JumpHeight * Alpha * (1.0 - Alpha)
                 if Alpha >= 1.0 then
                     ResetJump(MeshComponent, true)
                     State.LandingSquashRemaining = Config.LandingSquashDuration
                 end
             else
+                if BlockingComponent and Refs.Level then Refs.Level:Invoke("PlayTreeHit", BlockingComponent) end
                 Audio.PlaySFX("Audio/Boing2.wav")
                 State.bIsReturning, State.ReturnElapsed = true, 0.0
                 State.ReturnStartLocation = RootComponent:GetWorldLocation()

@@ -3,6 +3,10 @@ local Config = dofile("Assets/Scripts/ConfigManager.lua").Traffic
 State = { CarPool = {}, AvailableCars = {}, PoolByActor = {}, Lanes = {}, Enabled = false, MaxCarLength = 0.0, CarLimit = 34.0 }
 Refs = {}
 
+local function GetDifficulty()
+    return Refs.Layout.NightMode and Config.Night or Config.Day
+end
+
 function BeginPlay(Self)
     Self:SetComponentTickEnabled(false)
 end
@@ -10,7 +14,11 @@ end
 function Initialize(Self, Level, Player, PlayerScript, Layout)
     Refs.Self, Refs.Level, Refs.Player, Refs.PlayerScript, Refs.Layout = Self, Level, Player, PlayerScript, Layout
     State.CarLimit = Layout.RoadHalfWidth
-    assert(Config.MapMinSpeed > 0 and Config.MapMaxSpeed >= Config.MapMinSpeed, "Invalid road speed range")
+    for _, Settings in ipairs({ Config.Day, Config.Night }) do
+        assert(Settings.MinSpeed > 0 and Settings.MaxSpeed >= Settings.MinSpeed, "Invalid road speed range")
+        assert(Settings.MinSpawnInterval > 0 and Settings.MaxSpawnInterval >= Settings.MinSpawnInterval,
+            "Invalid car spawn interval")
+    end
     assert(Config.PositiveYChance >= 0 and Config.PositiveYChance <= 1, "Invalid direction probability")
 end
 
@@ -20,13 +28,14 @@ local function TrafficRandom()
 end
 
 local function SpawnInterval(Speed)
-    local Minimum = Config.MinSpawnInterval
+    local Settings = GetDifficulty()
+    local Minimum = Settings.MinSpawnInterval
     -- 차량 길이·속도를 반영해 같은 도로에서 생성 직후 겹침 방지
     if Speed then
         if Speed <= 0 then return math.huge end
         Minimum = math.max(Minimum, (State.MaxCarLength + Config.MinCarGap) / Speed)
     end
-    local Maximum = math.max(Minimum, Config.MaxSpawnInterval * (Refs.Layout.NightMode and Config.NightSpawnIntervalMultiplier or 1))
+    local Maximum = math.max(Minimum, Settings.MaxSpawnInterval)
     return Minimum + TrafficRandom() * (Maximum - Minimum)
 end
 
@@ -191,9 +200,8 @@ function PrepareRow(Id, Index, Kind)
     local Direction, Speed
     if Kind == "road" or Kind == "rail" then
         Direction = TrafficRandom() < Config.PositiveYChance
-        local Min = Refs.Layout.HasMapPool and Config.MapMinSpeed or Config.MinSpeed
-        local Max = Refs.Layout.HasMapPool and Config.MapMaxSpeed or Config.MaxSpeed
-        Speed = (Min + TrafficRandom() * (Max - Min)) * (Refs.Layout.NightMode and Config.NightSpeedMultiplier or 1)
+        local Settings = GetDifficulty()
+        Speed = Settings.MinSpeed + TrafficRandom() * (Settings.MaxSpeed - Settings.MinSpeed)
     end
     if Kind == "road" then
         State.Lanes[Id] = { Index = Index, Kind = Kind, Active = true, Cars = {}, Direction = Direction, Speed = Speed, NextSpawnTime = NextSpawnTime }

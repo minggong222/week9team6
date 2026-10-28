@@ -6,6 +6,7 @@ local function Component()
         self.Parent = Parent
         Parent.Children[#Parent.Children + 1] = self
     end
+    function C:GetName() return self.Name or "" end
     function C:SetRelativeLocation(V) self.Position = V end
     function C:GetRelativeLocation() return self.Position end
     function C:SetRelativeRotation(V) self.Rotation = V end
@@ -66,8 +67,20 @@ Independent.Level.Lighting.Day.Car.Intensity = 99
 assert(Defaults.Level.Lighting.Day.Car.Intensity == 0)
 
 local Random = 0
+-- 엔진이 제공하는 math.random을 실제 플레이 시드의 입력으로 사용하는지 확인한다.
+local SeedCalls = 0
+Base.math = setmetatable({ random = function(Min, Max)
+    SeedCalls = SeedCalls + 1
+    assert(Min == 1 and Max < 2147483647 - 104729)
+    return 12345 + SeedCalls
+end }, { __index = math })
+local FirstRun = Load("LevelManager.lua")
+local SecondRun = Load("LevelManager.lua")
+assert(FirstRun.State.Seed == 12346 and SecondRun.State.Seed == 12347)
+Base.math = nil
 local Lighting = Load("LevelManager.lua")
 assert(Lighting.State.LightingProfile == "Day", "Default mode must be Day")
+Lighting.TickComponent({}, 0) -- 초기화 전 Tick은 다른 상태에 접근하지 않는다.
 Lighting.SetLightingProfile("Night")
 local Level = { Invoke = function(_, Name, ...)
     if Name == "RegisterLight" then return Lighting.RegisterLight(...) end
@@ -79,11 +92,11 @@ local Layout = { NightMode = true, HasMapPool = true, RoadHalfWidth = 34,
 local Traffic = Load('World/TrafficManager.lua')
 Traffic.Initialize({}, Level, {}, nil, Layout)
 local _, Speed = Traffic.PrepareRow(1, 1, 'road')
-assert(math.abs(Speed - 10.8) < 0.0001)
+assert(math.abs(Speed - Defaults.Traffic.Night.MinSpeed) < 0.0001)
 Random = 1
 _, Speed = Traffic.PrepareRow(1, 1, 'road')
-assert(Speed == 27)
-assert(Traffic.State.Lanes[1].NextSpawnTime == 1.75)
+assert(Speed == Defaults.Traffic.Night.MaxSpeed)
+assert(Traffic.State.Lanes[1].NextSpawnTime == Defaults.Traffic.Night.MaxSpawnInterval)
 
 -- 차량 풀을 실제로 생성해 모든 차체에 전조등이 부착되는지 확인한다.
 local Cars = {}
@@ -151,7 +164,7 @@ Train.Update(Train.GetLaneInfo(1).SecondsUntilSpawn)
 assert(Light.Visible == true and RightLight.Visible == true)
 Train.Update(100)
 assert(Light.Visible == false and RightLight.Visible == false)
-assert(Train.GetLaneInfo(1).SecondsUntilSpawn == 2.25)
+assert(Train.GetLaneInfo(1).SecondsUntilSpawn == math.max(Defaults.Train.Night.WarningTime, Defaults.Train.Night.WaitMin))
 Train.RemoveRow(1)
 Train.SpawnRail(1, 20, false)
 assert(Components.NightTrainLight_1_1 == Light and Components.NightTrainLight_1_2 == RightLight and Light.Position.Y == 10)
@@ -228,6 +241,54 @@ assert(math.abs(ReactionMesh.Scale.Z - 0.05) < 0.000001)
 Reaction.ResetPlayerPose()
 assert(ReactionMesh.Scale.Z == 1)
 
+-- 피격 이동은 실제 시간으로 정확히 한 칸이며 가장자리·경계 사망은 이동하지 않는다.
+local KnockbackRoot = { Position = Vector(6, 0, 0) }
+function KnockbackRoot:GetWorldLocation() return self.Position end
+function KnockbackRoot:SetWorldLocation(Value) self.Position = Value end
+Reaction.Initialize(ReactionMesh, { GetRootComponent = function() return KnockbackRoot end })
+Reaction.PlayHitReaction(Vector(0, 1, 0), 3, -24, 24)
+Reaction.Update(Defaults.HitReaction.KnockbackDuration / 2)
+assert(KnockbackRoot.Position.Y > 0 and KnockbackRoot.Position.Y < 3)
+Reaction.Update(Defaults.HitReaction.KnockbackDuration)
+assert(KnockbackRoot.Position.Y == 3)
+Reaction.ResetPlayerPose()
+
+for _, Direction in ipairs({ -1, 1 }) do
+    KnockbackRoot.Position = Vector(6, 0, 0)
+    Reaction.PlayHitReaction(Vector(0, Direction, 0), 3, -24, 24)
+    Reaction.Update(Defaults.HitReaction.KnockbackDuration / 2)
+    assert(math.abs(KnockbackRoot.Position.Y) > 0 and math.abs(KnockbackRoot.Position.Y) < 3)
+    Reaction.Update(Defaults.HitReaction.KnockbackDuration)
+    assert(KnockbackRoot.Position.X == 6 and KnockbackRoot.Position.Y == Direction * 3)
+    Reaction.ResetPlayerPose()
+end
+-- 가장자리에서 안쪽으로 맞으면 한 칸 이동하고, 바깥쪽으로 맞으면 유지한다.
+for _, Edge in ipairs({ -24, 24 }) do
+    local Direction = Edge < 0 and 1 or -1
+    KnockbackRoot.Position = Vector(6, Edge, 0)
+    Reaction.PlayHitReaction(Vector(0, Direction, 0), 3, -24, 24)
+    Reaction.Update(Defaults.HitReaction.KnockbackDuration)
+    assert(KnockbackRoot.Position.Y == Edge + Direction * 3)
+    Reaction.ResetPlayerPose()
+end
+for _, Edge in ipairs({ -24, 24, -23, 23 }) do
+    KnockbackRoot.Position = Vector(6, Edge, 0)
+    Reaction.PlayHitReaction(Vector(0, Edge < 0 and -1 or 1, 0), 3, -24, 24)
+    Reaction.Update(1)
+    assert(KnockbackRoot.Position.Y == Edge)
+    Reaction.ResetPlayerPose()
+end
+KnockbackRoot.Position = Vector(6, 0, 0)
+Reaction.PlayHitReaction(nil, 3, -24, 24)
+Reaction.Update(1)
+assert(KnockbackRoot.Position.Y == 0)
+Reaction.PlayHitReaction(Vector(0, 1, 0), 3, -24, 24)
+Reaction.Update(0.01)
+Reaction.ResetPlayerPose()
+KnockbackRoot.Position = Vector(0, 0, 0)
+Reaction.Update(1)
+assert(KnockbackRoot.Position.Y == 0)
+
 -- 선택 화면 입력으로 난이도·조명이 전환되고 Shake가 한 번 실행되는지 확인한다.
 Lighting.Refs.Layout = Layout
 local ResetCount, ShakeCount = 0, 0
@@ -276,4 +337,107 @@ PressedKey = "Down"
 Manager.TickComponent({}, 0)
 assert(Manager.State.Game.Mode == "Night" and Layout.NightMode)
 assert(ResetCount == 2 and ShakeCount == 2)
+-- HitStop으로 게임 시간이 멈춘 프레임에도 R 입력이 암전 전에 시간 효과를 해제한다.
+local Retry = Load("GameManager.lua")
+Retry.State.Game.Phase = "Dead"
+local TimeResetCount, FadeCount = 0, 0
+function World:ResetTimeEffects() TimeResetCount = TimeResetCount + 1 end
+Retry.Refs.HitReaction = { Invoke = function() end }
+Retry.Refs.HUD = { Invoke = function() end }
+Retry.Refs.Cinematics = { Invoke = function(_, Name)
+    if Name == "PlayRestart" then
+        assert(TimeResetCount == 1, "HitStop must end before FadeOut starts")
+        FadeCount = FadeCount + 1
+        return 0.15
+    end
+end }
+Base.EKeyCode.R = "R"
+PressedKey = "R"
+Retry.TickComponent({}, 0)
+assert(Retry.State.Restarting and FadeCount == 1 and TimeResetCount == 1)
+PressedKey = nil
+Retry.TickComponent({}, 0.1)
+assert(Retry.State.Restarting and FadeCount == 1)
+Retry.TickComponent({}, 0.06)
+assert(not Retry.State.Restarting and Retry.State.Game.Phase == "Playing")
+assert(TimeResetCount == 2 and FadeCount == 1)
+
+-- 서로 다른 모드의 지형 확률·나무 수를 적용하고 큰 쪽 풀을 재사용한다.
+local MapConfig = dofile("Assets/Scripts/ConfigManager.lua")
+MapConfig.Map.Day = { RoadChance = 1, RailChance = 0, TreesPerRow = 0, TreeWeights = { 1 } }
+MapConfig.Map.Night = { RoadChance = 0, RailChance = 0, TreesPerRow = 8,
+    TreeWeights = { 0, 0, 0, 0, 0, 0, 0, 0, 1 } }
+Base.dofile = function() return MapConfig end
+Base.USceneComponent = { Cast = function(V) return V end }
+Base.UBoxComponent = { Cast = function(V) return V end }
+Base.ECollisionEnabled = { NoCollision = 0, QueryOnly = 1 }
+Base.ECollisionChannel = { WorldStatic = 0, Pawn = 1 }
+Base.ECollisionResponse = { Ignore = 0, Block = 1 }
+local function MapComponent()
+    local C = Component()
+    function C:SetCollisionEnabled(V) self.Collision = V end
+    function C:SetCollisionObjectType() end
+    function C:SetCollisionResponseToAllChannels() end
+    function C:SetCollisionResponseToChannel() end
+    function C:SetBoxExtent() end
+    function C:SetRelativeScale3D(V) self.Scale = V end
+    function C:GetRelativeScale3D() return self.Scale or Vector(1, 1, 1) end
+    function C:GetRelativeRotation() return self.Rotation or {} end
+    function C:GetStaticMesh() return self.Mesh end
+    return C
+end
+Components.MapFloor_1 = MapComponent()
+for Index = 1, 5 do
+    Components["MapTree_1_" .. Index] = MapComponent()
+    Components["MapTreeHitbox_1_" .. Index] = MapComponent()
+    Components["MapTreeHitbox_1_" .. Index].Name = "MapTreeHitbox_1_" .. Index
+    Components["MapTreeMesh_1_" .. Index] = MapComponent()
+end
+Components.MapTreeMesh_1_1 = MapComponent()
+Components.MapTreeMesh_1_1:SetStaticMesh("tree-template")
+function Actor:AddComponent(_, Name)
+    Components[Name] = MapComponent()
+    Components[Name].Name = Name
+    return Components[Name]
+end
+local Map = Load("World/MapGenerator.lua")
+Base.dofile = nil
+local MapLayout = { NightMode = false, HasMapPool = true, RowsBehind = 0, RowsAhead = 0,
+    HalfWidth = 24, CellSize = 3 }
+Map.Initialize(MapLayout)
+local Rows, Trees = Map.GetPoolSize()
+assert(Rows == 1 and Trees == 8)
+for Index = 6, 8 do
+    local Tree = assert(Components["MapTree_1_" .. Index])
+    local Mesh = assert(Components["MapTreeMesh_1_" .. Index])
+    assert(Mesh.Parent == Tree and Mesh.Mesh == "tree-template")
+    assert(Mesh.Collision == Base.ECollisionEnabled.NoCollision)
+end
+Map.ResetGeneration(1)
+local Id, Index, Kind = Map.GenerateNextRow(3, 3)
+assert(Kind == "road" and Map.GetRows()[1].TreeCount == 0)
+Map.RecycleRow(Id, false)
+MapLayout.NightMode = true
+Map.ResetGeneration(1)
+Id, Index, Kind = Map.GenerateNextRow(3, 3)
+assert(Kind == "grass" and Map.GetRows()[1].TreeCount == 8)
+local Hitbox = Components.MapTreeHitbox_1_1
+local HitMesh = Components.MapTreeMesh_1_1
+HitMesh.Scale, HitMesh.Rotation = Vector(2, 3, 4), { Pitch = 5, Yaw = 10, Roll = 15 }
+Map.PlayTreeHit(Hitbox)
+Map.UpdateTreeHits(MapConfig.Map.HitSquash.Duration / 2)
+assert(math.abs(HitMesh.Scale.X - 1.8) < 0.000001 and math.abs(HitMesh.Scale.Z - 3.6) < 0.000001)
+assert(HitMesh.Rotation.Pitch ~= 5 or HitMesh.Rotation.Roll ~= 15)
+Map.PlayTreeHit(Hitbox)
+Map.UpdateTreeHits(MapConfig.Map.HitSquash.Duration)
+assert(HitMesh.Scale.X == 2 and HitMesh.Scale.Z == 4 and HitMesh.Rotation.Roll == 15)
+Map.PlayTreeHit(Hitbox)
+Map.UpdateTreeHits(0.05)
+
+Map.RecycleRow(Id, false)
+assert(HitMesh.Scale.X == 2 and HitMesh.Rotation.Pitch == 5)
+MapConfig.Map.Night.RailChance = 1
+Map.ResetGeneration(1)
+Id, Index, Kind = Map.GenerateNextRow(3, 3)
+assert(Kind == "rail" and Map.GetRows()[1].TreeCount == 0)
 print('PASS merge regression: death squash, train warning/audio settings, night mode: 200 car headlights, car speed/interval, train speed/wait, spotlight direction/visibility/reuse')
