@@ -121,12 +121,16 @@ ConfigManager.Map = {
     Day = {
         RoadChance = 0.50,
         RailChance = 0.05,
+        RiverChance = 0.10,
+
         TreesPerRow = 5,
         TreeWeights = { 5, 15, 20, 30, 20, 10 }
     },
     Night = {
         RoadChance = 0.60,
         RailChance = 0.10,
+        RiverChance = 0.10,
+
         TreesPerRow = 7,
         TreeWeights = { 5, 10, 15, 15, 20, 15, 15, 5 }
     },
@@ -273,6 +277,46 @@ ConfigManager.Cinematics = {
         Hold = 0.75,
         Recovery = 1
     }
+}
+
+ConfigManager.River = {
+    -- 물 에셋이 작은 타일이면 "Tile",
+    -- 가로 폭 전체를 덮는 메시라면 "Row"
+    WaterMeshMode = "Tile",
+
+    WaterMeshPath = "Models/Crossy/River/ground_riverStraight.obj",
+    LogMeshPath = "Models/Crossy/River/log.obj",
+
+    -- 물이 작은 타일인 경우 각 타일의 크기 조절
+    WaterTileScale = { X = 1.0, Y = 1.0, Z = 1.0 },
+
+    -- 물이 전체 강 행 메시인 경우 크기 조절
+    WaterRowScale = { X = 1.0, Y = 1.0, Z = 1.0 },
+
+    WaterZ = 0.02,
+
+    -- 연속된 강물 행 개수
+    MinRows = 2,
+    MaxRows = 4,
+
+    -- 통나무 설정
+    LogsPerRow = 5,
+    MinSpeed = 1.5,
+    MaxSpeed = 3.0,
+
+    -- 실제 모델 크기에 맞춰 설정
+    LogScale = { X = 1.0, Y = 1.0, Z = 1.0 },
+    LogYaw = 90.0,
+    LogCenterZ = 0.25,
+
+    -- 월드 좌표 기준의 통나무 반길이
+    LogHalfLength = 4.5,
+
+    -- 플레이어 중심에서 좌우로 인정할 너비
+    PlayerHalfWidth = 0.7,
+
+    -- 통나무 메시 원점에서 플레이어 발 높이까지의 거리
+    LogTopOffset = 0.55
 }
 
 ConfigManager.Game.DefaultMode = ConfigManager.Level.NightMode and "Night" or "Day"

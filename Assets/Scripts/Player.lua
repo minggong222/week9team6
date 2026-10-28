@@ -39,8 +39,13 @@ function RequestReset(Requested)
 end
 
 local function PublishJumping(IsJumping)
+    if IsJumping and Refs.Level then Refs.Level:Invoke("DetachPlayerFromLog") end
     local Manager = Refs.Game or Refs.Level
     if Manager then Manager:Invoke("SetPlayerJumping", IsJumping) end
+end
+
+local function NotifyLanded(RootComponent)
+    if Refs.Level then Refs.Level:Invoke("ResolveRiverLanding", RootComponent:GetWorldLocation()) end
 end
 
 function InitializeComponent(Component)
@@ -118,6 +123,7 @@ end
 function StopMovement()
     local Mesh = FindStaticMeshComponent(Actor)
     ResetJump(Mesh)
+    if Refs.Level then Refs.Level:Invoke("DetachPlayerFromLog") end
     State.bWasWDown = Input.IsKeyDown(EKeyCode.W) or Input.IsKeyDown(EKeyCode.Up)
     State.bWasSDown = Input.IsKeyDown(EKeyCode.S) or Input.IsKeyDown(EKeyCode.Down)
     State.bWasADown = Input.IsKeyDown(EKeyCode.A) or Input.IsKeyDown(EKeyCode.Left)
@@ -311,6 +317,7 @@ function TickComponent(Component, DeltaSeconds)
             if Alpha >= 1.0 then
                 ResetJump(MeshComponent, true)
                 State.LandingSquashRemaining = Config.LandingSquashDuration
+                NotifyLanded(RootComponent)
             end
         else
             State.JumpElapsed = State.JumpElapsed + Step
@@ -324,6 +331,7 @@ function TickComponent(Component, DeltaSeconds)
                 if Alpha >= 1.0 then
                     ResetJump(MeshComponent, true)
                     State.LandingSquashRemaining = Config.LandingSquashDuration
+                    NotifyLanded(RootComponent)
                 end
             else
                 if BlockingComponent and Refs.Level then Refs.Level:Invoke("PlayTreeHit", BlockingComponent) end
