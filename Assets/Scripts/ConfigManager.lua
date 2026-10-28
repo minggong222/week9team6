@@ -296,11 +296,11 @@ ConfigManager.River = {
     WaterZ = 0.02,
 
     -- 연속된 강물 행 개수
-    MinRows = 2,
-    MaxRows = 4,
+    MinRows = 1,
+    MaxRows = 2,
 
     -- 통나무 설정
-    LogsPerRow = 5,
+    LogsPerRow = 3,
     MinSpeed = 1.5,
     MaxSpeed = 3.0,
 
