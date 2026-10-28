@@ -45,7 +45,8 @@ local function GenerateMapRow(Row, Index, Kind)
     if not Row.Floor then return end
     Row.Floor:SetStaticMesh(Kind == "rail" and Refs.RailMesh or (Kind == "road" and Refs.RoadMesh or Refs.GrassMesh))
     Row.Floor:SetRelativeLocation(FVector.new(Index * Refs.Layout.CellSize, 0, 0))
-    Row.Floor:SetVisibility(true, true)
+    -- 잔디는 단일 배경 바닥으로 표시하여 행 타일의 경계선과 옆면을 없앤다.
+    Row.Floor:SetVisibility(Kind ~= "grass", true)
     -- 바닥 끝(마지막 이동 칸의 바깥쪽)부터 벽 배치. 터널은 행마다 독립 배치
     for Side, Wall in ipairs(Row.Walls) do
         local Sign = Side == 1 and -1 or 1

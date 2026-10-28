@@ -126,8 +126,11 @@ let previewRailRows = 0;
 for (let slot = 1; slot <= poolCount; slot++) {
     const index = slot - behind - 1, kind = rowType(index);
     if (kind === 'rail') previewRailRows++;
-    components.push(meshComponent(kind === 'rail' ? rail : (kind === 'road' ? road : grass), 'MapFloor_' + slot,
-        'DefaultSceneRoot', transform(index * grid)));
+    const floor = meshComponent(kind === 'rail' ? rail : (kind === 'road' ? road : grass), 'MapFloor_' + slot,
+        'DefaultSceneRoot', transform(index * grid));
+    // 잔디는 MapBackdrop으로 표시하고 도로·철길 타일만 렌더링한다.
+    floor.Properties.bVisible = kind !== 'grass';
+    components.push(floor);
     const train = kind === 'rail' ? pickTrain() : trains[0];
     const trainComponent = meshComponent(train, 'MapTrain_' + slot, 'DefaultSceneRoot', transform(index * grid, -16));
     trainComponent.Properties.bVisible = kind === 'rail';
