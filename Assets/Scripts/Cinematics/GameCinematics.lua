@@ -1,6 +1,6 @@
 -- 카메라 효과와 음향 연출 진입점. 게임 규칙과 상태 전환은 GameManager 담당
 local Black = FColor.new(0, 0, 0, 255)
-local FadeDuration = 0.3
+local FadeDuration = 0.15
 local LetterBoxHeight = 0.08
 local LetterBoxDuration = 0.25
 State = {}
@@ -34,11 +34,11 @@ function PlayDeath()
     local World = Actor:GetWorld()
     local CameraManager = World:GetPlayerCameraManager()
     if CameraManager then
-        CameraManager:StartCameraZoom(0.9, 0.15, 0.15)
+        CameraManager:StartCameraZoom(0.9, 0.25, 0.15)
+        CameraManager:StartCameraShake(0.35, 1.5, 1.25, 8.0)
     end
 
-    World:PlayHitStop(0, 0.35, 1.5)
-    World:StartCameraShake(0.35, 1.25, 1.25, 8.0)
+    World:PlayHitStop(0, 0.25, 1.5)
 
     Audio.PlaySFX("Audio/Collision.wav")
 end
