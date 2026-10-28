@@ -13,7 +13,9 @@ void LuaRegisterWorld(sol::state& State)
         "StartCameraFade", &APlayerCameraManager::StartCameraFade,
         "StopCameraFade", &APlayerCameraManager::StopCameraFade,
         "GetFadeAmount", &APlayerCameraManager::GetFadeAmount,
+        // "GetFadeColor", &APlayerCameraManager::GetFadeColor, // 현재 Lua에서는 미사용
         "SetLetterBox", &APlayerCameraManager::SetLetterBox,
+        // "GetLetterBoxHeight", &APlayerCameraManager::GetLetterBoxHeight, // 현재 Lua에서는 미사용
         "StopLetterBox", &APlayerCameraManager::StopLetterBox);
 
     State.new_usertype<UWorld>("UWorld", sol::no_constructor,
