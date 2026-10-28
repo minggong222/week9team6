@@ -31,10 +31,18 @@ local Env = setmetatable({ Actor = Actor, FVector = { new = Vector }, FRotator =
     ECollisionEnabled = { NoCollision = 0 }, UClass = { Find = function(V) return V end },
     UStaticMeshComponent = { Cast = function(V) return V end },
     UAssetManager = { GetAssetByPath = function(_, P) return P end } }, { __index = _G })
+local TestConfig = dofile('Assets/Scripts/ConfigManager.lua')
+local Night = TestConfig.River.Night
+Night.MinSpeed, Night.MaxSpeed = 12, 12
+Night.MinSpawnDelay, Night.MaxSpawnDelay = 0.25, 0.25
+Night.LogsPerRow, Night.MaxInitialLogsPerRow = 2, 1
+Night.MinLogHalfLength, Night.MaxLogHalfLength = 3, 3
+Env.dofile = function() return TestConfig end
 setfenv(assert(loadfile('Assets/Scripts/World/RiverManager.lua')), Env)()
 Env.Initialize({}, Level, Player, nil, { HasMapPool = true, RowCount = 3, HalfWidth = 24,
     CellSize = 3, Origin = Vector() })
-local Config = dofile('Assets/Scripts/ConfigManager.lua').River
+local RiverConfig = dofile('Assets/Scripts/ConfigManager.lua').River
+local Config = RiverConfig.Day
 Env.ResetRandom(123)
 Env.SpawnRow(1, 1)
 local Logs, Lengths = Env.State.Slots[1].Logs, {}
@@ -47,8 +55,8 @@ for Index, Log in ipairs(Logs) do
         assert(Log.Component.Position.Y == -Log.Lane.Direction * (24 + Log.HalfLength))
     end
     assert(Log.HalfLength >= Config.MinLogHalfLength and Log.HalfLength <= Config.MaxLogHalfLength)
-    assert(math.abs(Log.Component.Scale.X / Config.LogScale.X * Log.BaseHalfLength - Log.HalfLength) < 0.000001)
-    assert(Log.Component.Scale.Y == Config.LogScale.Y and Log.Component.Scale.Z == Config.LogScale.Z)
+    assert(math.abs(Log.Component.Scale.X / RiverConfig.LogScale.X * Log.BaseHalfLength - Log.HalfLength) < 0.000001)
+    assert(Log.Component.Scale.Y == RiverConfig.LogScale.Y and Log.Component.Scale.Z == RiverConfig.LogScale.Z)
 end
 assert(Lengths[1] ~= Lengths[2])
 Env.ResetRandom(123)
@@ -95,4 +103,21 @@ assert(not Waiting.Active)
 Blocking.Active = false
 Env.Update(0.01)
 assert(Waiting.Active and Waiting.Component.Visible)
+Env.Refs.Layout.NightMode = true
+Env.RemoveRow(1)
+Env.SpawnRow(1, 1)
+assert(Lane.Speed == 12 and Lane.NextSpawnTime == 0.25)
+local Enabled, Active = 0, 0
+for _, Log in ipairs(Logs) do
+    if Log.Enabled then Enabled = Enabled + 1 end
+    if Log.Active then Active = Active + 1 end
+    assert(Log.HalfLength == 3)
+end
+assert(Enabled == 2 and Active == 1)
+Env.Update(0.25)
+assert(Logs[2].Active)
+Env.Refs.Layout.NightMode = false
+Env.RemoveRow(1)
+Env.SpawnRow(1, 1)
+assert(Lane.Speed >= Config.MinSpeed and Lane.Speed <= Config.MaxSpeed)
 print('PASS river initial population, edge-only timed spawning, alternating river directions, random lengths and landing')

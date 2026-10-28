@@ -11,6 +11,10 @@ State = {
 
 Refs = {}
 
+local function GetSettings()
+    return Refs.Layout.NightMode and Config.Night or Config.Day
+end
+
 function BeginPlay(Self)
     Self:SetComponentTickEnabled(false)
 end
@@ -23,7 +27,7 @@ local function RiverRandom()
 end
 
 local function SpawnDelay()
-    return Config.MinSpawnDelay + RiverRandom() * (Config.MaxSpawnDelay - Config.MinSpawnDelay)
+    return GetSettings().MinSpawnDelay + RiverRandom() * (GetSettings().MaxSpawnDelay - GetSettings().MinSpawnDelay)
 end
 
 -- 지연 후 재등장할 때도 다른 통나무와 겹치지 않도록 실제 간격을 확인한다.
@@ -32,7 +36,7 @@ local function CanSpawnLog(Log)
     for _, Other in ipairs(Log.Lane.Logs) do
         if Other ~= Log and Other.Active then
             local Distance = math.abs(Other.Component:GetRelativeLocation().Y - Y)
-            if Distance < Log.HalfLength + Other.HalfLength + Config.MinLogGap then return false end
+            if Distance < Log.HalfLength + Other.HalfLength + GetSettings().MinLogGap then return false end
         end
     end
     return true
@@ -84,8 +88,8 @@ end
 
 -- 메시의 긴 로컬 X축만 조절하고, 탑승 판정에도 같은 길이를 사용한다.
 local function RandomizeLogLength(Log)
-    Log.HalfLength = Config.MinLogHalfLength
-        + RiverRandom() * (Config.MaxLogHalfLength - Config.MinLogHalfLength)
+    Log.HalfLength = GetSettings().MinLogHalfLength
+        + RiverRandom() * (GetSettings().MaxLogHalfLength - GetSettings().MinLogHalfLength)
 
     Log.Component:SetRelativeScale3D(FVector.new(
         Config.LogScale.X * Log.HalfLength / Log.BaseHalfLength,
@@ -101,11 +105,32 @@ function Initialize(Self, Level, Player, PlayerScript, Layout)
     Refs.PlayerScript = PlayerScript
     Refs.Layout = Layout
 
-    assert(Config.MinSpawnDelay >= 0 and Config.MaxSpawnDelay >= Config.MinSpawnDelay,
-        "Invalid log spawn delay")
-    assert(Config.MinLogGap >= 0, "Invalid log gap")
-    assert(Config.MaxInitialLogsPerRow >= 0
-        and Config.MaxInitialLogsPerRow == math.floor(Config.MaxInitialLogsPerRow), "Invalid initial log count")
+    for _, Settings in ipairs({ Config.Day, Config.Night }) do
+        assert(Settings.MinSpawnDelay >= 0 and Settings.MaxSpawnDelay >= Settings.MinSpawnDelay,
+            "Invalid log spawn delay")
+        assert(Settings.MinLogGap >= 0, "Invalid log gap")
+        assert(Settings.MaxInitialLogsPerRow >= 0
+            and Settings.MaxInitialLogsPerRow == math.floor(Settings.MaxInitialLogsPerRow), "Invalid initial log count")
+        assert(
+            Settings.LogsPerRow >= 1
+            and Settings.LogsPerRow == math.floor(Settings.LogsPerRow),
+            "Invalid logs per row"
+        )
+
+        assert(
+            Settings.MinSpeed > 0
+            and Settings.MaxSpeed >= Settings.MinSpeed,
+            "Invalid river speed range"
+        )
+
+        assert(
+            Settings.MinLogHalfLength > 0
+            and Settings.MaxLogHalfLength >= Settings.MinLogHalfLength
+            and Settings.PlayerHalfWidth >= 0,
+            "Invalid river collision dimensions"
+        )
+
+    end
     State.Slots = {}
     State.LanesByIndex = {}
     State.RidingLog = nil
@@ -121,25 +146,6 @@ function Initialize(Self, Level, Player, PlayerScript, Layout)
 
     assert(Refs.LogMesh, "River log mesh is missing")
 
-    assert(
-        Config.LogsPerRow >= 1
-        and Config.LogsPerRow == math.floor(Config.LogsPerRow),
-        "Invalid logs per row"
-    )
-
-    assert(
-        Config.MinSpeed > 0
-        and Config.MaxSpeed >= Config.MinSpeed,
-        "Invalid river speed range"
-    )
-
-    assert(
-        Config.MinLogHalfLength > 0
-        and Config.MaxLogHalfLength >= Config.MinLogHalfLength
-        and Config.PlayerHalfWidth >= 0,
-        "Invalid river collision dimensions"
-    )
-
     -- 각 맵 슬롯이 재사용될 때 통나무도 재사용한다.
     for Slot = 1, Layout.RowCount do
         local Lane = {
@@ -151,7 +157,7 @@ function Initialize(Self, Level, Player, PlayerScript, Layout)
             Logs = {}
         }
 
-        for Index = 1, Config.LogsPerRow do
+        for Index = 1, math.max(Config.Day.LogsPerRow, Config.Night.LogsPerRow) do
             local Component = CreateLogComponent(
                 Slot,
                 Index
@@ -205,19 +211,20 @@ function SpawnRow(Id, Index)
     Lane.Direction = PreviousLane and PreviousLane.Active
         and -PreviousLane.Direction or RandomDirection
 
-    Lane.Speed = Config.MinSpeed
+    Lane.Speed = GetSettings().MinSpeed
         + RiverRandom()
-        * (Config.MaxSpeed - Config.MinSpeed)
+        * (GetSettings().MaxSpeed - GetSettings().MinSpeed)
 
     State.LanesByIndex[Index] = Lane
 
     local HalfWidth = Refs.Layout.HalfWidth
-    local InitialCount = math.min(Config.MaxInitialLogsPerRow, #Lane.Logs)
+    local InitialCount = math.min(GetSettings().MaxInitialLogsPerRow, GetSettings().LogsPerRow)
     local Spacing = InitialCount > 0 and HalfWidth * 2 / InitialCount or 0
     Lane.NextSpawnTime = SpawnDelay()
 
     for _, Log in ipairs(Lane.Logs) do Log.Active = false end
     for LogIndex, Log in ipairs(Lane.Logs) do
+        Log.Enabled = LogIndex <= GetSettings().LogsPerRow
         Log.Active = false
         Log.DeltaY = 0
         RandomizeLogLength(Log)
@@ -319,7 +326,7 @@ function ResolveLanding(Position)
 
             if DistanceY
                 <= Log.HalfLength
-                    + Config.PlayerHalfWidth then
+                    + GetSettings().PlayerHalfWidth then
 
                 State.RidingLog = Log
 
@@ -364,7 +371,7 @@ function Update(DeltaSeconds)
             Lane.NextSpawnTime = Lane.NextSpawnTime - DeltaSeconds
             if Lane.NextSpawnTime <= 0 then
                 for _, Log in ipairs(Lane.Logs) do
-                    if not Log.Active then
+                    if Log.Enabled and not Log.Active then
                         Log.Component:SetRelativeLocation(FVector.new(Lane.Index * Refs.Layout.CellSize,
                             -Lane.Direction * (Refs.Layout.HalfWidth + Log.HalfLength), Config.LogCenterZ))
                         if CanSpawnLog(Log) then

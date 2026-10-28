@@ -14,7 +14,7 @@ end
 local Mesh = { Location = Vector(1, 2, 3), Scale = Vector(1, 1, 1), Visible = true }
 function Mesh:GetRelativeLocation() return self.Location end
 function Mesh:SetRelativeLocation(V) self.Location = V end
-function Mesh:GetRelativeScale3D() return self.Scale end
+function Mesh:GetRelativeScale3D() return Vector(self.Scale.X, self.Scale.Y, self.Scale.Z) end
 function Mesh:SetRelativeScale3D(V) self.Scale = V end
 function Mesh:GetRelativeRotation() return {} end
 function Mesh:SetRelativeRotation() end
@@ -29,9 +29,9 @@ Game.Refs.Cinematics = { Invoke = function(_, Name, ...) return Cinema[Name](...
 Game.Refs.HitReaction = { Invoke = function(_, Name, ...) return Reaction[Name](...) end }
 Game.GameOver(nil, 'Drowning')
 assert(Game.State.Game.Phase == 'Dead' and PlayedHold == Config.Cinematics.HitStop.Hold)
-assert(Reaction.State.SquashElapsed == nil and Reaction.State.Knockback == nil)
+assert(Reaction.State.SquashElapsed == 0 and Reaction.State.Knockback == nil)
 Reaction.Update(PlayedHold / 2)
-assert(Mesh.Location.Z == 3 and Mesh.Visible and Mesh.Scale.Z == 1)
+assert(Mesh.Location.Z == 3 and Mesh.Visible and Mesh.Scale.Z < 1)
 Reaction.Update(PlayedHold / 2)
 assert(Mesh.Location.Z == 3 and Mesh.Visible)
 Reaction.Update(Config.HitReaction.Drowning.Duration / 2)
@@ -40,10 +40,10 @@ assert(Mesh.Location.X == 1 and Mesh.Location.Y == 2 and Mesh.Visible)
 Reaction.Update(Config.HitReaction.Drowning.Duration)
 assert(not Mesh.Visible and Reaction.State.Drowning == nil)
 Reaction.ResetPlayerPose()
-assert(Mesh.Visible and Mesh.Location.Z == 3)
+assert(Mesh.Visible and Mesh.Location.Z == 3 and Mesh.Scale.Z == 1)
 Reaction.PlayDrowning(PlayedHold)
 Reaction.Update(PlayedHold + Config.HitReaction.Drowning.Duration / 2)
 Reaction.ResetPlayerPose()
 Reaction.Update(10)
-assert(Mesh.Visible and Mesh.Location.Z == 3)
+assert(Mesh.Visible and Mesh.Location.Z == 3 and Mesh.Scale.Z == 1)
 print('PASS drowning dispatch, configured HitStop hold, real-time sinking, hide and retry cancellation')

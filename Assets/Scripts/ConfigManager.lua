@@ -127,9 +127,9 @@ ConfigManager.Map = {
         TreeWeights = { 5, 15, 20, 30, 20, 10 }
     },
     Night = {
-        RoadChance = 0.60,
+        RoadChance = 0.50,
         RailChance = 0.10,
-        RiverChance = 0.10,
+        RiverChance = 0.20,
 
         TreesPerRow = 7,
         TreeWeights = { 5, 10, 15, 15, 20, 15, 15, 5 }
@@ -281,6 +281,34 @@ ConfigManager.Cinematics = {
 }
 
 ConfigManager.River = {
+    Day = {
+        MinRows = 1,
+        MaxRows = 3,
+        LogsPerRow = 5,
+        MaxInitialLogsPerRow = 4,
+        MinSpawnDelay = 1.5,
+        MaxSpawnDelay = 4.5,
+        MinLogGap = 0.8,
+        MinSpeed = 4.5,
+        MaxSpeed = 12.0,
+        MinLogHalfLength = 1.25,
+        MaxLogHalfLength = 4.0,
+        PlayerHalfWidth = 0.7,
+    },
+    Night = {
+        MinRows = 1,
+        MaxRows = 4,
+        LogsPerRow = 4,
+        MaxInitialLogsPerRow = 3,
+        MinSpawnDelay = 1.5,
+        MaxSpawnDelay = 4.5,
+        MinLogGap = 0.8,
+        MinSpeed = 5.5,
+        MaxSpeed = 18.0,
+        MinLogHalfLength = 1.25,
+        MaxLogHalfLength = 3.0,
+        PlayerHalfWidth = 0.7,
+    },
     -- 물 에셋이 작은 타일이면 "Tile",
     -- 가로 폭 전체를 덮는 메시라면 "Row"
     WaterMeshMode = "Tile",
@@ -289,25 +317,13 @@ ConfigManager.River = {
     LogMeshPath = "Models/Crossy/River/log.obj",
 
     -- 물이 작은 타일인 경우 각 타일의 크기 조절
-    WaterTileScale = { X = 3.0, Y = 3.0, Z = 1.0 },
+    WaterTileScale = { X = 3.0, Y = 3.0, Z = 0.01 },
 
     -- 물이 전체 강 행 메시인 경우 크기 조절
     WaterRowScale = { X = 1.0, Y = 1.0, Z = 1.0 },
 
-    WaterZ = 0.02,
-
-    -- 연속된 강물 행 개수
-    MinRows = 1,
-    MaxRows = 3,
-
-    -- 통나무 설정
-    LogsPerRow = 5,
-    MaxInitialLogsPerRow = 4,
-    MinSpawnDelay = 1.5,
-    MaxSpawnDelay = 5.5,
-    MinLogGap = 0.8,
-    MinSpeed = 3.5,
-    MaxSpeed = 9.0,
+    -- 잔디 배경 윗면(-0.07)보다 약 0.01 높여 깊이 충돌을 완화한다.
+    WaterZ = -0.06,
 
     -- 실제 모델 크기에 맞춰 설정
     LogScale = { X = 5.0, Y = 5.0, Z = 6.0 },
@@ -322,13 +338,6 @@ ConfigManager.River = {
 
     -- 플레이어가 올라탔을 때 가라앉는 거리
     LogSinkOffset = 0.15,
-
-    -- 월드 좌표 기준의 랜덤 반길이 범위 (전체 길이 2.5~6.0)
-    MinLogHalfLength = 1.25,
-    MaxLogHalfLength = 4.0,
-
-    -- 플레이어 중심에서 좌우로 인정할 너비
-    PlayerHalfWidth = 0.7,
 
     -- 통나무 메시 원점에서 플레이어 발 높이까지의 거리
     LogTopOffset = 0.55
