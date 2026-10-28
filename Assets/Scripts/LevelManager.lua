@@ -1,10 +1,58 @@
 -- 맵·교통·기차의 생성·회수 순서 및 게임 매니저 연결 관리
-local Config = {
-    CellSize = 3.0, RowsBehind = 10, RowsAhead = 30, DeathRowsBehind = 6,
-    HalfWidth = 24.0, BoundaryWidth = 0.3, RoadHalfWidth = 34.0, InitialSeed = 20261026
-}
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Level
 State = { HighestRow = 0, Seed = Config.InitialSeed, TrafficRandomState = 1, RailSlots = {} }
-Refs = {}
+State.LightingProfile = Config.NightMode and "Night" or "Day"
+Refs = { Lights = { Sky = {}, Sun = {}, Car = {}, Train = {} } }
+
+local function ApplyLight(Light, Settings)
+    local Color = Settings.Color
+    if Settings.AttenuationRadius then Light:SetAttenuationRadius(Settings.AttenuationRadius) end
+    Light:SetIntensity(Settings.Intensity)
+    Light:SetLightColor(FColor.new(Color[1], Color[2], Color[3], Color[4] or 255))
+end
+
+-- 동적으로 생성한 차량 조명도 같은 설정을 적용하도록 등록한다.
+function RegisterLight(Kind, Light)
+    local Lights = assert(Refs.Lights[Kind], "Unknown light kind: " .. tostring(Kind))
+    for _, Existing in ipairs(Lights) do if Existing == Light then return end end
+    Lights[#Lights + 1] = Light
+    if Kind == "Car" or Kind == "Train" then
+        local Settings = Config.Spotlight
+        Light:SetShadowSlopeBias(Settings.ShadowSlopeBias)
+        Light:SetInnerConeAngle(Settings.InnerConeAngle)
+        Light:SetOuterConeAngle(Settings.OuterConeAngle)
+    end
+    ApplyLight(Light, Config.Lighting[State.LightingProfile][Kind])
+end
+
+-- 조명만 전환하며 교통 난이도와 장애물의 표시 상태는 유지한다.
+function SetLightingProfile(Profile)
+    local Settings = assert(Config.Lighting[Profile], "Unknown lighting profile: " .. tostring(Profile))
+    State.LightingProfile = Profile
+    for Kind, Lights in pairs(Refs.Lights) do
+        for _, Light in ipairs(Lights) do ApplyLight(Light, Settings[Kind]) end
+    end
+end
+
+-- 현재 선택된 낮/밤 설정의 Intensity와 RGBA를 변경한다.
+function SetLighting(Kind, Intensity, Red, Green, Blue, Alpha)
+    assert(Config.Lighting[State.LightingProfile][Kind], "Unknown light kind: " .. tostring(Kind))
+    assert(Intensity >= 0, "Light intensity must be non-negative")
+    local Settings = { Intensity = Intensity, Color = { Red, Green, Blue, Alpha or 255 },
+        AttenuationRadius = Config.Lighting[State.LightingProfile][Kind].AttenuationRadius }
+    for _, Value in ipairs(Settings.Color) do
+        assert(Value >= 0 and Value <= 255, "Light color must be within 0..255")
+    end
+    Config.Lighting[State.LightingProfile][Kind] = Settings
+    for _, Light in ipairs(Refs.Lights[Kind]) do ApplyLight(Light, Settings) end
+end
+
+local function InitializeLighting()
+    for _, Light in ipairs(Actor:GetWorld():GetLightComponents()) do
+        if Light:GetLightType() == ELightType.Sky then RegisterLight("Sky", Light) end
+        if Light:GetLightType() == ELightType.Directional then RegisterLight("Sun", Light) end
+    end
+end
 
 local function AttachScript(Name, Path)
     local Script = ULuaComponent.Cast(Actor:FindComponentByName(Name))
@@ -177,6 +225,19 @@ function SpawnCar(Location, Direction, Speed, TravelDistance)
     return Refs.Traffic:Invoke("SpawnCar", Location, Direction, Speed, TravelDistance)
 end
 
+function GetMode()
+    return Refs.Layout.NightMode and "Night" or "Day"
+end
+
+-- 선택 화면에서 모드 변경 시 같은 시드로 교통을 다시 구성한다.
+function SetMode(Mode)
+    assert(Mode == "Day" or Mode == "Night", "Unknown mode: " .. tostring(Mode))
+    if GetMode() == Mode then return end
+    Refs.Layout.NightMode = Mode == "Night"
+    SetLightingProfile(Mode)
+    ResetLevel(false)
+end
+
 function EnableTraffic()
     Refs.Traffic:Invoke("EnableTraffic")
 end
@@ -199,6 +260,7 @@ local function PrintLevelState()
 end
 
 function BeginPlay(Self)
+    InitializeLighting()
     assert(Config.DeathRowsBehind > 0 and Config.DeathRowsBehind <= Config.RowsBehind, "Death boundary must be inside the retained map")
     assert(Config.HalfWidth >= Config.CellSize and Config.HalfWidth <= 33 and Config.BoundaryWidth > 0, "Invalid map width")
     Refs.Player = Actor:GetWorld():GetPlayerPawn()
@@ -209,7 +271,7 @@ function BeginPlay(Self)
 
     -- Layout은 공통 배치값 전달용. 각 시스템의 실행 상태는 별도 보관
     Refs.Layout = {
-        CellSize = Config.CellSize, RowsBehind = Config.RowsBehind, RowsAhead = Config.RowsAhead,
+        NightMode = Config.NightMode, CellSize = Config.CellSize, RowsBehind = Config.RowsBehind, RowsAhead = Config.RowsAhead,
         HalfWidth = Config.HalfWidth, BoundaryWidth = Config.BoundaryWidth, RoadHalfWidth = Config.RoadHalfWidth,
         Origin = HasMapPool and Actor:GetActorLocation() or FVector.new(6, 0, 0), HasMapPool = HasMapPool
     }
@@ -242,6 +304,8 @@ function BeginPlay(Self)
     }
 
     -- 전역 공개 정보는 매니저 연결 및 기존 콘솔 호출의 호환용으로만 사용
+    State.Info.SetLightingProfile = function(Profile) Self:Invoke("SetLightingProfile", Profile) end
+    State.Info.SetLighting = function(...) Self:Invoke("SetLighting", ...) end
     State.Info.Reset = function(NewSeed) Self:Invoke("ResetLevel", NewSeed) end
     State.Info.EnableTraffic = function() Self:Invoke("EnableTraffic") end
     State.Info.SetTrainSpeed = function(Speed, RowIndex) Self:Invoke("SetTrainSpeed", Speed, RowIndex) end

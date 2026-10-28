@@ -1,6 +1,6 @@
 -- 게임 규칙과 시스템 간 호출 순서 관리
 local GamePhase = { Selecting = "SelectingCharacter", Ready = "Ready", Playing = "Playing", Dead = "Dead", Clear = "Clear", Credits = "Credits" }
-local Config = { CellSize = 3.0, GoalRow = 150 }
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Game
 
 -- 전역 테이블은 기존 외부 호출과의 호환용. 게임 단계·점수 변경은 이 매니저 담당
 State = { Game = _G.CrossyGameState or { Phase = GamePhase.Ready, Score = 0, MaxRow = 0 } }
@@ -27,7 +27,7 @@ local function UpdateHUD()
     local Game = State.Game
     if Game.Phase == GamePhase.Selecting then
         local Name, Index, Count = Refs.Selection:Invoke("GetSelection")
-        Refs.HUD:Invoke("ShowSelection", Name, Index, Count, Game.HUDScale)
+        Refs.HUD:Invoke("ShowSelection", Name, Index, Count, Game.HUDScale, Game.Mode or Config.DefaultMode)
     elseif Game.Phase == GamePhase.Playing then
         Refs.HUD:Invoke("ShowScore", Game.Score, Game.HUDScale)
     elseif Game.Phase == GamePhase.Dead or Game.Phase == GamePhase.Clear then
@@ -47,6 +47,7 @@ end
 
 function BindLevel(LevelManager)
     Refs.Level = LevelManager
+    State.Game.Mode = LevelManager:Invoke("GetMode")
 end
 
 function GetPhase()
@@ -213,7 +214,7 @@ function BeginPlay(Self)
     State.Game.Phase, State.Game.Score, State.Game.MaxRow = GamePhase.Ready, 0, 0
     State.Game.GameOverRequested, State.Game.ClearRequested = false, false
     Refs.Selection:Invoke("CreatePreviews")
-    EnterSelectedCharacter()
+    ReturnToCharacterSelection()
 end
 
 function TickComponent(Self, DeltaSeconds)
@@ -413,6 +414,15 @@ function TickComponent(Self, DeltaSeconds)
     end
 
     if Game.Phase == GamePhase.Selecting then
+        if Refs.Level and (Input.IsKeyPressed(EKeyCode.Up) or Input.IsKeyPressed(EKeyCode.Down)) then
+            Game.Mode = Game.Mode == "Night" and "Day" or "Night"
+            Refs.Level:Invoke("SetMode", Game.Mode)
+            local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
+            if CameraManager then
+                local Shake = Config.ModeShake
+                CameraManager:StartCameraShake(Shake.Duration, Shake.Location, Shake.Rotation, Shake.Frequency)
+            end
+        end
         local Changed, Confirmed = Refs.Selection:Invoke("HandleInput")
         if Changed then
             Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")

@@ -1,7 +1,7 @@
 -- HUD에 표시할 값만 전달받아 사용. 게임 단계·캐릭터 목록의 직접 조회 제외
-local Config = { Scale = 1.0, Score = 0.105, Title = 0.032, Name = 0.052, Hint = 0.023 }
-local ScorePulse = { Duration = 0.20, Amount = 0.2, Elapsed = 0.20 }
-local GameOverSwing = { Period = 2.0, Angle = 7.0, Elapsed = 0, Active = false }
+local Config = dofile("Assets/Scripts/ConfigManager.lua").HUD
+local ScorePulse = { Duration = Config.ScorePulseDuration, Amount = Config.ScorePulseAmount, Elapsed = Config.ScorePulseDuration }
+local GameOverSwing = { Period = Config.GameOverSwingPeriod, Angle = Config.GameOverSwingAngle, Elapsed = 0, Active = false }
 Refs = {}
 
 function BeginPlay(Self)
@@ -74,7 +74,7 @@ local function BeginLayout(HUDScale, ViewCamera)
     return Place
 end
 
-function ShowSelection(Name, Index, Count, HUDScale)
+function ShowSelection(Name, Index, Count, HUDScale, Mode)
     GameOverSwing.Active = false
     ResetScorePulse()
     local Place = BeginLayout(HUDScale)
@@ -82,8 +82,8 @@ function ShowSelection(Name, Index, Count, HUDScale)
 
     Place(Refs.HUDTitle, "CHOOSE YOUR CHARACTER", Config.Title, 0.5, 0.88)
     Place(Refs.ScoreText, "<  " .. Name:upper() .. "  >", Config.Name, 0.5, 0.25)
-    Place(Refs.HUDDetail, string.format("%02d / %02d", Index, Count), Config.Hint, 0.5, 0.18)
-    Place(Refs.HUDHint, "LEFT / RIGHT : SELECT     ENTER : PLAY", Config.Hint, 0.5, 0.09)
+    Place(Refs.HUDDetail, string.format("%02d / %02d     |     %s MODE", Index, Count, (Mode or Config.DefaultMode):upper()), Config.Hint, 0.5, 0.18)
+    Place(Refs.HUDHint, "LEFT / RIGHT : CHARACTER     UP / DOWN : MODE     ENTER : PLAY", Config.Hint, 0.5, 0.09)
 end
 
 function ShowScore(Score, HUDScale)

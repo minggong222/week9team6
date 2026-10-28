@@ -9,14 +9,9 @@
 
 void LuaRegisterComponentLight(sol::state& State)
 {
-    // 현재 Lua 스크립트에서 사용하지 않는 열거형입니다.
-    // State.new_enum("ELightType",
-        // "Directional", ELightType::Directional,
-        // "Point", ELightType::Point,
-        // "Spot", ELightType::Spot,
-        // "Rect", ELightType::Rect,
-        // "Fireball", ELightType::Fireball,
-        // "Sky", ELightType::Sky);
+    State.new_enum("ELightType",
+        "Directional", ELightType::Directional,
+        "Sky", ELightType::Sky);
 
     State.new_usertype<ULightComponentBase>("ULightComponentBase", sol::no_constructor,
         sol::base_classes, sol::bases<USceneComponent, UActorComponent, UObject>(),
@@ -35,14 +30,15 @@ void LuaRegisterComponentLight(sol::state& State)
         sol::base_classes, sol::bases<ULightComponentBase, USceneComponent, UActorComponent, UObject>(),
         // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "StaticClass", &ULightComponent::StaticClass,
-        "Cast", &Cast<ULightComponent>
+        "GetLightType", &ULightComponent::GetLightType,
+        "Cast", &Cast<ULightComponent>,
+        "SetShadowSlopeBias", &ULightComponent::SetShadowSlopeBias
         // "GetShadowResolutionScale", &ULightComponent::GetShadowResolutionScale,
         // "GetShadowBias", &ULightComponent::GetShadowBias,
         // "GetShadowSlopeBias", &ULightComponent::GetShadowSlopeBias,
         // "GetShadowSharpen", &ULightComponent::GetShadowSharpen,
         // "SetShadowResolutionScale", &ULightComponent::SetShadowResolutionScale,
         // "SetShadowBias", &ULightComponent::SetShadowBias,
-        // "SetShadowSlopeBias", &ULightComponent::SetShadowSlopeBias,
         // "SetShadowSharpen", &ULightComponent::SetShadowSharpen,
         // "GetLightType", &ULightComponent::GetLightType
     );
@@ -71,11 +67,11 @@ void LuaRegisterComponentLight(sol::state& State)
         sol::base_classes, sol::bases<UPointLightComponent, ULocalLightComponent, ULightComponent, ULightComponentBase, USceneComponent, UActorComponent, UObject>(),
         // 현재 Lua 스크립트에서 참조하지 않는 멤버는 등록하지 않습니다.
         "StaticClass", &USpotLightComponent::StaticClass,
-        "Cast", &Cast<USpotLightComponent>
+        "Cast", &Cast<USpotLightComponent>,
+        "SetInnerConeAngle", &USpotLightComponent::SetInnerConeAngle,
+        "SetOuterConeAngle", &USpotLightComponent::SetOuterConeAngle
         // "GetInnerConeAngle", &USpotLightComponent::GetInnerConeAngle,
-        // "SetInnerConeAngle", &USpotLightComponent::SetInnerConeAngle,
         // "GetOuterConeAngle", &USpotLightComponent::GetOuterConeAngle,
-        // "SetOuterConeAngle", &USpotLightComponent::SetOuterConeAngle
     );
 
     State.new_usertype<UDirectionalLightComponent>("UDirectionalLightComponent", sol::no_constructor,

@@ -1,16 +1,5 @@
 -- 레일별 기차·경고등 상태 소유. 지형·차량 시스템의 직접 호출 제외
-local Config = {
-    Speed = 50.0, WaitMin = 3.0, WaitMax = 6.0, WarningTime = 1.0,
-    BlinkDuration = 1.0, BlinkInterval = 0.25,
-    SignalSpacing = 12.0, SignalOffsetX = -1.4, SignalIntensity = 6.0,
-    PassSoundRange = 18.0, PassSoundLead = 30.0, PassSoundVolume = 0.70,
-    WarningSoundVolume = 0.50,
-    Types = {
-        { Name = "bullet", Path = "Models/Crossy/Trains/crossy-train-long.obj" },
-        { Name = "city", Path = "Models/Crossy/Trains/crossy-train-city.obj" },
-        { Name = "freight", Path = "Models/Crossy/Trains/crossy-train-freight.obj" }
-    }
-}
+local Config = dofile("Assets/Scripts/ConfigManager.lua").Train
 State = { Slots = {}, RandomState = 1, ActiveCount = 0 }
 Refs = {}
 
@@ -108,13 +97,34 @@ local function SpawnTrain(Row)
     Row.Train:SetRelativeRotation(FRotator.new(0, 0, 0))
     local Bounds = Row.Train:CalcBounds()
     Row.TrainHalfLength = (Bounds.Max.Y - Bounds.Min.Y) / 2
-    Row.Speed, Row.TrainActive = (State.SpeedOverride or Config.Speed), false
+    Row.Speed, Row.TrainActive = (State.SpeedOverride or Config.Speed * (Refs.Layout.NightMode and Config.NightSpeedMultiplier or 1)), false
     Row.TrainWait = math.max(Config.WarningTime, 1 + TrafficRandom() * 3)
     Row.WarningElapsed, Row.TrainWarning = 0, false
     local Sign = Row.Direction and 1 or -1
     Row.Train:SetRelativeRotation(FRotator.new(0, Row.Direction and 0 or 180, 0))
     Row.Train:SetRelativeLocation(FVector.new(Row.Index * Refs.Layout.CellSize,
         -Sign * (Refs.Layout.RoadHalfWidth + Row.TrainHalfLength + Refs.Layout.CellSize), 0))
+    do -- 낮에도 조명을 생성해 모드 전환 시 재사용한다.
+        Row.Headlights = Row.Headlights or {}
+        for Index, Side in ipairs({ -1, 1 }) do
+            local Light = Row.Headlights[Index]
+            if not Light then
+                Light = USpotLightComponent.Cast(Actor:AddComponent(UClass.Find("USpotLightComponent"),
+                    "NightTrainLight_" .. Row.Slot .. "_" .. Index))
+                assert(Light, "Could not create train headlight")
+                Light:SetupAttachment(Row.Train)
+                Light:SetRelativeRotation(FRotator.new(Config.Headlight.Pitch, Config.Headlight.Yaw, 0))
+                Refs.Level:Invoke("RegisterLight", "Train", Light)
+                Light:SetAttenuationRadius(Config.Headlight.Radius)
+                Light:SetCastShadows(Config.Headlight.CastShadows)
+                Row.Headlights[Index] = Light
+            end
+            -- 열차 종류가 바뀌어도 선두의 좌우에 대칭으로 배치한다.
+            Light:SetRelativeLocation(FVector.new(Side * (Bounds.Max.X - Bounds.Min.X) * Config.Headlight.SideOffsetRatio,
+                Row.TrainHalfLength, Config.Headlight.Height))
+            Light:SetVisibility(false)
+        end
+    end
     PlaceRailSignals(Row)
 end
 
@@ -151,6 +161,7 @@ function Update(DeltaSeconds)
                     Step, Row.TrainActive = -Row.TrainWait, true
                     Row.PassSoundPlayed = false
                     Row.Train:SetVisibility(true, true)
+                    for _, Light in ipairs(Row.Headlights or {}) do Light:SetVisibility(true) end
                 end
             else
                 Row.WarningElapsed = Row.WarningElapsed + DeltaSeconds
@@ -199,7 +210,8 @@ function Update(DeltaSeconds)
                     Position.Y = -Sign * Limit
                     Row.Train:SetRelativeLocation(Position)
                     Row.TrainWait = math.max(Config.WarningTime,
-                        Config.WaitMin + TrafficRandom() * (Config.WaitMax - Config.WaitMin))
+                        (Config.WaitMin + TrafficRandom() * (Config.WaitMax - Config.WaitMin))
+                            * (Refs.Layout.NightMode and Config.NightWaitMultiplier or 1))
                     Row.WarningElapsed = 0
                 else
                     ActiveCount = ActiveCount + 1
