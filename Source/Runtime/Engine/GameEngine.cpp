@@ -1,5 +1,6 @@
 #include "EnginePCH.h"
 #include "GameEngine.h"
+#include "Core/EngineTimer.h"
 
 #include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
@@ -102,7 +103,7 @@ void UGameEngine::Tick(float DeltaTime)
 		return;
 	}
 	TickGameInput(DeltaTime);
-	GameContext->World()->Tick(DeltaTime);
+	GameContext->World()->Tick(DeltaTime, EngineTimer::GetRealDeltaTime());
 
 	RenderGameFrame();
 }
@@ -121,6 +122,10 @@ void UGameEngine::PreExit()
 		GameContext = nullptr;
 		return;
 	}
+
+	// 레벨 밖의 카메라도 삭제 전에 컴포넌트 등록을 해제한다.
+	if (ACameraActor* Camera = GameWorld->GetMainCamera())
+		Camera->UnregisterAllComponents();
 
 	GameWorld->ClearWorld();
 

@@ -280,7 +280,7 @@ function TickComponent(Component, DeltaSeconds)
             State.bIsJumping = true
             State.LandingSquashRemaining = 0.0
             PublishJumping(true)
-            Audio.PlaySFX("Audio/Move.wav")
+            Audio.PlaySFX("Audio/Jump2.wav")
 
             if MeshComponent ~= nil then
                 local Yaw = GetYawFromDirection(MoveDirection)

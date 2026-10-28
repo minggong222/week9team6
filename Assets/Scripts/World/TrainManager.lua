@@ -3,6 +3,7 @@ local Config = {
     Speed = 50.0, WaitMin = 3.0, WaitMax = 6.0, WarningTime = 1.0,
     BlinkDuration = 1.0, BlinkInterval = 0.25,
     SignalSpacing = 12.0, SignalOffsetX = -1.4, SignalIntensity = 6.0,
+    PassSoundRange = 18.0, PassSoundLead = 6.0, PassSoundVolume = 0.75,
     Types = {
         { Name = "bullet", Path = "Models/Crossy/Trains/crossy-train-long.obj" },
         { Name = "city", Path = "Models/Crossy/Trains/crossy-train-city.obj" },
@@ -147,6 +148,7 @@ function Update(DeltaSeconds)
                 if Row.TrainWait <= 0 then
                     -- 출발 대기 시간을 초과한 만큼만 이번 프레임의 이동에 반영
                     Step, Row.TrainActive = -Row.TrainWait, true
+                    Row.PassSoundPlayed = false
                     Row.Train:SetVisibility(true, true)
                 end
             else
@@ -158,6 +160,18 @@ function Update(DeltaSeconds)
                 local Position = Row.Train:GetRelativeLocation()
                 local NextY = math.max(-Limit, math.min(Limit, Position.Y + Sign * Row.Speed * Step))
                 local Bounds, DeltaY = Row.Train:CalcBounds(), NextY - Position.Y
+                local PlayerLocation = Refs.Player:GetActorLocation()
+                -- 플레이어 근처를 지나는 순간만 재생. 빠른 이동은 이번 프레임의 이동 구간으로 확인한다.
+                if not Row.PassSoundPlayed
+                    and math.min(Bounds.Min.Y, Bounds.Min.Y + DeltaY) <= PlayerLocation.Y + Config.PassSoundLead
+                    and math.max(Bounds.Max.Y, Bounds.Max.Y + DeltaY) >= PlayerLocation.Y - Config.PassSoundLead then
+                    Row.PassSoundPlayed = true
+                    local Distance = math.abs((Bounds.Min.X + Bounds.Max.X) * 0.5 - PlayerLocation.X)
+                    if Distance < Config.PassSoundRange then
+                        local Attenuation = 1 - Distance / Config.PassSoundRange
+                        Audio.PlaySFX("Audio/Train_pass.wav", Config.PassSoundVolume * Attenuation * Attenuation)
+                    end
+                end
                 -- 시각적인 메시 압축·확대와 무관하게 자동차와 같은 몸통 Hitbox를 사용한다.
                 local Hitbox = UBoxComponent.Cast(Refs.Player:FindComponentByName("PlayerTreeHitbox"))
                 local HasBounds, PlayerBounds

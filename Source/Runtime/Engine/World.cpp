@@ -123,11 +123,12 @@ AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transf
 	return NewActor;
 }
 
-void UWorld::Tick(float DeltaTime)
+void UWorld::Tick(float DeltaTime, float RealDeltaTime)
 {
-	RealDeltaSeconds = DeltaTime;
-	// 에디터 프리뷰에는 게임 시간 배율을 적용하지 않는다.
-	DeltaSeconds = WorldType == EWorldType::Editor ? DeltaTime : DeltaTime * GlobalTimeDilation;
+	const bool bEditorWorld = WorldType == EWorldType::Editor;
+	const bool bUpdateTimeEffects = !bEditorWorld && bBegunPlay && !bIsEndingPlay && !bIsClearingWorld && !bIsPaused;
+	TimeManager.Tick(DeltaTime, RealDeltaTime < 0.0f ? DeltaTime : RealDeltaTime, bUpdateTimeEffects, !bEditorWorld);
+	const float DeltaSeconds = GetDeltaSeconds();
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UpdateAllTransforms);
@@ -148,7 +149,7 @@ void UWorld::Tick(float DeltaTime)
 			if (Comp->GetParticlesForView().IsEmpty())
 				Comp->SetParticles(10);
 
-			Comp->DispatchTickComponent(RealDeltaSeconds);
+			Comp->DispatchTickComponent(DeltaSeconds);
 		}
 
 		ProcessPendingComponentDestructions();
@@ -1190,24 +1191,12 @@ void UWorld::EndPlay()
 	PlayerController = nullptr;
 	PlayerPawn = nullptr;
 	bIsPaused = false;
-	GlobalTimeDilation = 1.0f;
-	DeltaSeconds = 0.0f;
-	RealDeltaSeconds = 0.0f;
+	TimeManager.Reset();
 	bIsEndingPlay = false;
 	if (!bIsClearingWorld)
 	{
 		ProcessPendingDestroyActors();
 	}
-}
-
-bool UWorld::SetGlobalTimeDilation(float Value)
-{
-	// 역방향 시간과 NaN/무한대는 허용하지 않는다. 0은 시간 진행 정지에 사용한다.
-	if (!std::isfinite(Value) || Value < 0.0f)
-		return false;
-
-	GlobalTimeDilation = std::clamp(Value, 0.01f, 10.0f);
-	return true;
 }
 
 void UWorld::SetPaused(bool bPaused)
