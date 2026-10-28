@@ -196,7 +196,7 @@ ConfigManager.Characters = {
 ConfigManager.HitReaction = {
     SquashRatio = 0.05,
     SquashDuration = 0.12,
-    KnockbackDuration = 1.0
+    KnockbackDuration = 0.75
 }
 
 ConfigManager.Player = {
@@ -242,8 +242,8 @@ ConfigManager.Cinematics = {
     },
     HitStop = {
         Scale = 0,
-        Hold = 0.5,
-        Recovery = 1.5
+        Hold = 0.75,
+        Recovery = 1
     }
 }
 
