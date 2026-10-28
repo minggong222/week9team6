@@ -35,7 +35,9 @@ namespace
 
 		Result.OrthoWidth = From.OrthoWidth + (To.OrthoWidth - From.OrthoWidth) * Alpha;
 
-		Result.bIsPerspective = From.bIsPerspective;
+		Result.PerspectiveBlend = From.PerspectiveBlend + (To.PerspectiveBlend - From.PerspectiveBlend) * Alpha;
+
+		Result.bIsPerspective = Result.PerspectiveBlend >= 0.5f;
 
 		return Result;
 	}

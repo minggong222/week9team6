@@ -51,7 +51,7 @@ public:
 	bool GetCameraPOV(FCameraPOV& OutPOV) const;
 	const FViewTarget& GetViewTarget() const { return ViewTarget; }
 	APlayerController* GetPlayerController() const { return PlayerController; }
-	bool EvaluateCamera(float DeltaTime);
+	bool EvaluateCamera(float DeltaTime, float ModifierDeltaTime = -1.0f);
 
 	// 투명도 0은 원래 화면, 1은 지정 색상. 완료 후 끝 값을 유지한다.
 	bool StartCameraFade(float FromAlpha, float ToAlpha, float Duration, const FColor& Color);

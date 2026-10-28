@@ -168,7 +168,9 @@ void APlayerCameraManager::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
     UpdateCameraEffects(DeltaTime);
-    EvaluateCamera(DeltaTime);
+    const UWorld* World = GetWorld();
+    const float RealDeltaTime = World ? World->GetRealDeltaSeconds() : DeltaTime;
+    EvaluateCamera(DeltaTime, RealDeltaTime);
 }
 
 void APlayerCameraManager::EndPlay()
@@ -323,7 +325,7 @@ bool APlayerCameraManager::GetCameraPOV(FCameraPOV& OutPOV) const
     return true;
 }
 
-bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
+bool APlayerCameraManager::EvaluateCamera(float DeltaTime, float ModifierDeltaTime)
 {
     if (!RefreshViewTarget())
     {
@@ -378,7 +380,7 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
     {
         FinalPOV = TargetPOV;
     }
-
+    const float SafeModifierDeltaTime = std::isfinite(ModifierDeltaTime) && ModifierDeltaTime >= 0.0f ? ModifierDeltaTime : DeltaTime;
     for (auto It = CameraModifiers.begin(); It != CameraModifiers.end();)
     {
         if (!(*It))
@@ -388,7 +390,7 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime)
         }
         FCameraModifier* Modifier = It->get();
 
-        Modifier->ApplyCamera(DeltaTime, FinalPOV);
+        Modifier->ApplyCamera(SafeModifierDeltaTime, FinalPOV);
 
         if (Modifier->IsFinished())
         {
