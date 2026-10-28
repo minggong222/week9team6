@@ -5,6 +5,7 @@
 #include <objbase.h>
 #include <xaudio2.h>
 
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -86,8 +87,11 @@ namespace
             return true;
         }
 
-        bool PlaySFX(const FString& Path)
+        bool PlaySFX(const FString& Path, float Volume)
         {
+            if (!std::isfinite(Volume) || Volume < 0.0f || Volume > 1.0f)
+                return false;
+
             if (!Initialize())
                 return false;
 
@@ -101,6 +105,12 @@ namespace
 
             if (FAILED(Engine->CreateSourceVoice(&Voice, &Clip->Format)))
                 return false;
+
+            if (FAILED(Voice->SetVolume(Volume)))
+            {
+                Voice->DestroyVoice();
+                return false;
+            }
 
             XAUDIO2_BUFFER Buffer{};
             Buffer.AudioBytes = static_cast<UINT32>(Clip->Data.size());
@@ -345,9 +355,9 @@ namespace
         GetAudioSystem().StopBGM();
     }
 
-    bool PlaySFX(const FString& Path)
+    bool PlaySFX(const FString& Path, sol::optional<float> Volume)
     {
-        return GetAudioSystem().PlaySFX(Path);
+        return GetAudioSystem().PlaySFX(Path, Volume.value_or(1.0f));
     }
 
     void StopSFX()
