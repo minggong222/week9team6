@@ -1,0 +1,63 @@
+{
+  "duration": 10.0,
+  "frames_per_second": 30.0,
+  "playback_end": 2.6666667461395264,
+  "playback_start": 0.0,
+  "tracks": [
+    {
+      "keys": [
+        {
+          "time": 0.46666666865348816,
+          "value": 0.0
+        },
+        {
+          "time": 1.229852557182312,
+          "value": 1.0
+        },
+        {
+          "time": 1.9666666984558105,
+          "value": 0.0
+        }
+      ],
+      "name": "Fade",
+      "type": "Fade"
+    },
+    {
+      "camera_actor": "$MainCamera",
+      "camera_component": "CameraComponent",
+      "keys": [
+        {
+          "fov": 45.400001525878906,
+          "location": [
+            -5.0,
+            -10.0,
+            10.0
+          ],
+          "rotation": [
+            28.0,
+            20.0,
+            0.0
+          ],
+          "time": 0.7144857048988342
+        },
+        {
+          "fov": 95.80000305175781,
+          "location": [
+            3.799999952316284,
+            1.7000000476837158,
+            10.100000381469727
+          ],
+          "rotation": [
+            72.5,
+            0.0,
+            0.0
+          ],
+          "time": 2.3999996185302734
+        }
+      ],
+      "name": "Camera",
+      "type": "Camera"
+    }
+  ],
+  "version": 1
+}

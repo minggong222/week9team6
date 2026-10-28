@@ -178,6 +178,8 @@ project "HitoriEditor"
 		"Source/Editor/**.cpp",
 		"Source/ThirdParty/ImSequencer/ImSequencer.h",
 		"Source/ThirdParty/ImSequencer/ImSequencer.cpp",
+		"Source/ThirdParty/ImCurveEdit/ImCurveEdit.h",
+		"Source/ThirdParty/ImCurveEdit/ImCurveEdit.cpp",
 		"Source/Programs/**.h",
 		"Source/Programs/**.cpp",
 		"Source/Editor/**.rc",   -- 창·exe 아이콘
@@ -207,6 +209,8 @@ project "HitoriEditor"
 	}
 
 	filter "files:Source/ThirdParty/ImSequencer/**.cpp"
+		enablepch "Off"
+	filter "files:Source/ThirdParty/ImCurveEdit/**.cpp"
 		enablepch "Off"
 	filter {}
 

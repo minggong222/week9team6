@@ -28,6 +28,20 @@ void FSequencePlayer::Evaluate()
     for (std::size_t Index = 0; Index < Sequence->Tracks.size(); ++Index)
     {
         const auto& Track = Sequence->Tracks[Index];
+        if (Track.Type == ESequenceTrackType::Camera)
+        {
+            for (std::size_t S = Track.Sections.size(); S > 0; --S)
+            {
+                FSequenceCameraValue Camera;
+                if (!Track.Sections[S - 1].EvaluateCamera(CurrentTime, Camera)) continue;
+                FSequenceEvaluatedValue Result;
+                Result.TrackIndex = Index; Result.SectionIndex = S - 1; Result.Type = Track.Type;
+                Result.Camera = Camera; Result.CameraActor = Track.CameraActor; Result.CameraComponent = Track.CameraComponent;
+                EvaluatedValues.push_back(std::move(Result));
+                break;
+            }
+            continue;
+        }
         float Value;
         std::size_t SectionIndex;
         if (Track.Evaluate(CurrentTime, Value, SectionIndex))
@@ -38,12 +52,22 @@ void FSequencePlayer::Evaluate()
 
 void FSequencePlayer::Apply()
 {
-    if (!FadeApplyCallback) return;
     std::optional<float> Fade;
+    std::optional<FSequenceEvaluatedValue> Camera;
     // Multiple Fade tracks use the last active track's value.
     for (const auto& Result : EvaluatedValues)
+    {
         if (Result.Type == ESequenceTrackType::Fade) Fade = std::clamp(Result.Value, 0.0f, 1.0f);
-    FadeApplyCallback(Fade);
+        if (Result.Type == ESequenceTrackType::Camera) Camera = Result;
+    }
+    if (FadeApplyCallback) FadeApplyCallback(Fade);
+    if (CameraApplyCallback) CameraApplyCallback(Camera);
+}
+
+void FSequencePlayer::SetCameraApplyCallback(std::function<void(std::optional<FSequenceEvaluatedValue>)> Callback)
+{
+    if (CameraApplyCallback) CameraApplyCallback(std::nullopt);
+    CameraApplyCallback = std::move(Callback);
 }
 
 void FSequencePlayer::SetFadeApplyCallback(std::function<void(std::optional<float>)> Callback)
@@ -55,6 +79,7 @@ void FSequencePlayer::SetFadeApplyCallback(std::function<void(std::optional<floa
 void FSequencePlayer::ReleaseAppliedValues()
 {
     if (FadeApplyCallback) FadeApplyCallback(std::nullopt);
+    if (CameraApplyCallback) CameraApplyCallback(std::nullopt);
 }
 
 void FSequencePlayer::Tick(float DeltaTime)

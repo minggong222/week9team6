@@ -11,9 +11,65 @@
 
 FEditorViewportClient::FEditorViewportClient() {}
 
+void FEditorViewportClient::ClearSequencePreview()
+{
+  SetSequencePreview(std::nullopt);
+  SetSequencePilot(false);
+  SequencePreviewReleased = nullptr;
+  SequenceFade.reset();
+}
+
+void FEditorViewportClient::SetSequencePilot(bool Enabled, std::function<void(const FCameraPOV&)> OnEdited)
+{
+  bSequencePilot = Enabled;
+  SequenceCameraEdited = Enabled ? std::move(OnEdited) : nullptr;
+}
+
+void FEditorViewportClient::SetSequenceFade(std::optional<float> Amount)
+{
+  if (Amount && !std::isfinite(*Amount)) return;
+  SequenceFade = Amount ? std::optional<float>(std::clamp(*Amount, 0.0f, 1.0f)) : std::nullopt;
+}
+
+void FEditorViewportClient::SetSequencePreview(std::optional<FCameraPOV> POV)
+{
+  if (POV && !POV->IsValid()) return;
+  if (POV && !PreSequenceView)
+  {
+    FCameraPOV Saved;
+    Saved.Location = ViewLocation; Saved.Rotation = ViewRotation; Saved.FieldOfView = ViewFOV;
+    Saved.bIsPerspective = bIsPerspective; Saved.OrthoWidth = OrthoWidth;
+    Saved.NearClip = NearClip; Saved.FarClip = FarClip;
+    PreSequenceView = Saved;
+  }
+  if (!POV)
+  {
+    SetSequencePilot(false);
+    if (!PreSequenceView) return;
+    POV = PreSequenceView;
+    PreSequenceView.reset();
+  }
+  ViewLocation = POV->Location; ViewRotation = POV->Rotation; ViewFOV = POV->FieldOfView;
+  bIsPerspective = POV->bIsPerspective; OrthoWidth = POV->OrthoWidth;
+  NearClip = POV->NearClip; FarClip = POV->FarClip;
+}
+
 void FEditorViewportClient::TickInput(float DeltaTime, bool bCaptured,
                                       bool bHovered, int32 WheelDelta,
                                       float MoveSpeed, float MouseSensitivity) {
+
+  if (PreSequenceView && !bSequencePilot)
+  {
+    if (!bCaptured && !(bHovered && WheelDelta != 0)) return;
+    // Explicit navigation leaves preview; the panel must also stop reapplying it.
+    auto OnReleased = SequencePreviewReleased;
+    SetSequencePreview(std::nullopt);
+    if (OnReleased) OnReleased();
+  }
+
+  const FVector PreviousLocation = ViewLocation;
+  const FRotator PreviousRotation = ViewRotation;
+  const float PreviousOrthoWidth = OrthoWidth;
 
   FViewportCameraInput Input;
   Input.bCaptured = bCaptured;
@@ -33,6 +89,18 @@ void FEditorViewportClient::TickInput(float DeltaTime, bool bCaptured,
   ViewLocation = Camera.Location;
   ViewRotation = Camera.Rotation;
   OrthoWidth = Camera.OrthoWidth;
+  const bool Changed = ViewLocation.X != PreviousLocation.X || ViewLocation.Y != PreviousLocation.Y ||
+      ViewLocation.Z != PreviousLocation.Z || ViewRotation.Pitch != PreviousRotation.Pitch ||
+      ViewRotation.Yaw != PreviousRotation.Yaw || ViewRotation.Roll != PreviousRotation.Roll || OrthoWidth != PreviousOrthoWidth;
+  if (PreSequenceView && bSequencePilot && Changed && SequenceCameraEdited)
+  {
+    FCameraPOV POV;
+    POV.Location = ViewLocation; POV.Rotation = ViewRotation; POV.FieldOfView = ViewFOV;
+    POV.bIsPerspective = bIsPerspective; POV.PerspectiveBlend = bIsPerspective ? 1.0f : 0.0f;
+    POV.OrthoWidth = OrthoWidth; POV.AspectRatio = AspectRatio;
+    POV.NearClip = NearClip; POV.FarClip = FarClip;
+    SequenceCameraEdited(POV);
+  }
 }
 
 // 기즈모 조작 및 액터 피킹 갱신
@@ -144,6 +212,7 @@ FVector FEditorViewportClient::GetViewForward() const {
 FSceneView FEditorViewportClient::CalcSceneView(const FRect &InViewRect) const {
     FSceneView OutView;
     OutView.ViewIndex = ViewIndex;
+    OutView.SequenceFade = SequenceFade;
     OutView.ViewLocation = ViewLocation;
     OutView.ViewRotation = ViewRotation;
     OutView.ViewForward = GetViewForward();

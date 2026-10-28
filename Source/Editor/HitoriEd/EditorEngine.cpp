@@ -154,6 +154,29 @@ bool UEditorEngine::Init()
 	ViewportsPanel = EditorUI->AddEditorPanel<FViewportsPanel>();
 	ContentDrawerPanel = EditorUI->AddEditorPanel<FContentDrawerPanel>();
 	auto* SequencerPanel = EditorUI->AddEditorPanel<FSequencerPanel>();
+	Sequencer = SequencerPanel;
+	SequencerPanel->SetWorldProvider([this]() { return GetActiveWorld(); });
+	SequencerPanel->SetFadePreviewCallback([this](std::optional<float> Amount)
+	{
+		const int32 Active = ViewportsPanel ? ViewportsPanel->GetActiveViewIndex() : -1;
+		for (int32 Index = 0; Index < AllViewportClients.Num(); ++Index)
+			if (auto* Client = AllViewportClients[Index])
+				Client->SetSequenceFade(!PlayWorld && Index == Active ? Amount : std::nullopt);
+	});
+	SequencerPanel->SetCameraPreviewCallback([this, SequencerPanel](std::optional<FCameraPOV> POV)
+	{
+		const int32 Active = ViewportsPanel ? ViewportsPanel->GetActiveViewIndex() : -1;
+		for (int32 Index = 0; Index < AllViewportClients.Num(); ++Index)
+			if (auto* Client = AllViewportClients[Index])
+			{
+				const bool Preview = !PlayWorld && Index == Active && POV.has_value();
+				Client->SetSequencePreview(Preview ? POV : std::nullopt);
+				Client->SetSequencePreviewExitCallback(Preview ? std::function<void()>([SequencerPanel]()
+					{ SequencerPanel->ReleaseEditorCameraPreview(); }) : nullptr);
+				Client->SetSequencePilot(Preview && SequencerPanel->IsCameraPilotEnabled(),
+					[SequencerPanel](const FCameraPOV& Edited) { SequencerPanel->OnCameraViewEdited(Edited); });
+			}
+	});
 	SequencerPanel->SetCameraManagerProvider([this]() -> APlayerCameraManager*
 	{
 		UWorld* World = GetActiveWorld();
@@ -473,9 +496,9 @@ void UEditorEngine::UpdateViewportState(const float DeltaTime)
 
 	// 활성 뷰포트 시점 동기화
 	const int32 ActiveIndex = ViewportsPanel->GetActiveViewIndex();
-	if (FEditorViewportClient* ActiveClient = ViewportsPanel->GetViewportClient(ActiveIndex))
+	if (FEditorViewportClient* ActiveClient = !PlayWorld ? ViewportsPanel->GetViewportClient(ActiveIndex) : nullptr)
 	{
-		if (ACameraActor* MainCam = GetActiveWorld()->GetMainCamera())
+		if (ACameraActor* MainCam = !ActiveClient->IsSequencePreviewActive() ? EditorWorld->GetMainCamera() : nullptr)
 		{
 			if (UCameraComponent* CamCom = MainCam->GetCameraComponent())
 			{
@@ -1271,6 +1294,7 @@ void UEditorEngine::DrawPIEWindows()
 // ImGui를 정리한다. UObject 일괄 삭제와 공용 자원·Device 정리는 FEngineLoop가 이어서 한다.
 void UEditorEngine::PreExit()
 {
+	ResetSequencePreview();
 	EndPlayMap();
 	if (EditorWorld)
 	{
@@ -1317,6 +1341,7 @@ void UEditorEngine::DeleteComponent(UActorComponent* Component)
 
 void UEditorEngine::StartPlayInEditorSession()
 {
+	ResetSequencePreview();
 	// 별도 창 모드면 패널 View는 모두 에디터 월드로 두고 창 하나에만 PIE 월드를 그린다.
 	// 창을 만들지 못하면 선택한 View에서 실행한다.
 	const bool bNewWindow = (PlayMode == EPlayModeType::InEditorFloating);
@@ -1379,6 +1404,13 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext& PIEContext, UW
 	return NewPIEWorld;
 }
 
+void UEditorEngine::ResetSequencePreview()
+{
+	if (Sequencer) Sequencer->ReleasePreview();
+	for (FEditorViewportClient* Client : AllViewportClients)
+		if (Client) Client->ClearSequencePreview();
+}
+
 void UEditorEngine::OnActiveWorldChanged()
 {
 	ResetSceneSelection();
@@ -1394,6 +1426,7 @@ void UEditorEngine::EndPlayMap()
 {
 	if (!PlayWorld)
 		return;
+	ResetSequencePreview();
 	bIsPaused = false;
 	bStepRequested = false;
 
@@ -1527,6 +1560,7 @@ void UEditorEngine::CreateNewScene()
 		HTR_LOG(Warning, "Cannot create a new scene during PIE. Stop the play session first.");
 		return;
 	}
+	ResetSequencePreview();
 	if (!FEditorFileUtils::NewScene(EditorWorld))
 		return;
 
@@ -1541,6 +1575,7 @@ void UEditorEngine::OpenScene()
 		HTR_LOG(Warning, "Cannot open a scene during PIE. Stop the play session first.");
 		return;
 	}
+	ResetSequencePreview();
 	if (!FEditorFileUtils::LoadScene(EditorWorld))
 		return;
 

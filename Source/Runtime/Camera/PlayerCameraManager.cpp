@@ -176,6 +176,8 @@ void APlayerCameraManager::Tick(float DeltaTime)
 
 void APlayerCameraManager::EndPlay()
 {
+    SequenceCameraOwner = nullptr;
+    SequenceViewTarget.Reset();
     SequenceFadeOwner = nullptr;
     StopCameraFade();
     StopLetterBox();
@@ -309,6 +311,8 @@ bool APlayerCameraManager::RefreshViewTarget()
 
 UCameraComponent* APlayerCameraManager::GetViewTargetCamera() const
 {
+    if (SequenceCameraOwner && SequenceViewTarget.IsValidForWorld(GetWorld()))
+        return SequenceViewTarget.TargetCamera;
     if (!ViewTarget.IsValidForWorld(GetWorld()))
     {
         return nullptr;
@@ -329,7 +333,12 @@ bool APlayerCameraManager::GetCameraPOV(FCameraPOV& OutPOV) const
 
 bool APlayerCameraManager::EvaluateCamera(float DeltaTime, float ModifierDeltaTime)
 {
-    if (!RefreshViewTarget())
+    if (SequenceCameraOwner && !SequenceViewTarget.IsValidForWorld(GetWorld()))
+    {
+        SequenceCameraOwner = nullptr;
+        SequenceViewTarget.Reset();
+    }
+    if (!SequenceCameraOwner && !RefreshViewTarget())
     {
         FinalPOV = FCameraPOV{};
         bHasFinalPOV = false;
@@ -337,7 +346,7 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime, float ModifierDeltaTi
         return false;
     }
 
-    UCameraComponent* Camera = ViewTarget.TargetCamera;
+    UCameraComponent* Camera = SequenceCameraOwner ? SequenceViewTarget.TargetCamera : ViewTarget.TargetCamera;
 
     if (!Camera)
     {
@@ -347,12 +356,12 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime, float ModifierDeltaTi
         return false;
     }
 
-    if (USpringArmComponent* SpringArm = Cast<USpringArmComponent>(Camera->GetAttachParent()))
+    if (USpringArmComponent* SpringArm = !SequenceCameraOwner ? Cast<USpringArmComponent>(Camera->GetAttachParent()) : nullptr)
     {
         SpringArm->UpdateSpringArm(DeltaTime, Camera);
     }
 
-    const FCameraPOV TargetPOV = Camera->GetCameraPOV();
+    const FCameraPOV TargetPOV = SequenceCameraOwner ? SequenceViewTarget.POV : Camera->GetCameraPOV();
 
     if (!TargetPOV.IsValid())
     {
@@ -362,9 +371,9 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime, float ModifierDeltaTi
         return false;
     }
 
-    ViewTarget.POV = TargetPOV;
+    if (!SequenceCameraOwner) ViewTarget.POV = TargetPOV;
 
-    if (bIsTransitioning && TransitionDuration > 0.0f)
+    if (!SequenceCameraOwner && bIsTransitioning && TransitionDuration > 0.0f)
     {
         const float SafeDeltaTime = (std::isfinite(DeltaTime) && DeltaTime > 0.0f) ? DeltaTime : 0.0f;
         TransitionElapsed = std::min(TransitionElapsed + SafeDeltaTime, TransitionDuration);
@@ -409,6 +418,25 @@ bool APlayerCameraManager::EvaluateCamera(float DeltaTime, float ModifierDeltaTi
     bHasFinalPOV = FinalPOV.IsValid();
 
     return bHasFinalPOV;
+}
+
+bool APlayerCameraManager::SetSequenceCamera(const void* Owner, UCameraComponent* Camera, const FCameraPOV& POV)
+{
+    if (!Owner || !POV.IsValid() || (SequenceCameraOwner && SequenceCameraOwner != Owner)) return false;
+    FViewTarget Target;
+    if (!Target.SetTarget(Camera) || !Target.IsValidForWorld(GetWorld())) return false;
+    Target.POV = POV;
+    SequenceViewTarget = Target;
+    SequenceCameraOwner = Owner;
+    return EvaluateCamera(0.0f, 0.0f);
+}
+
+void APlayerCameraManager::ReleaseSequenceCamera(const void* Owner)
+{
+    if (SequenceCameraOwner != Owner) return;
+    SequenceCameraOwner = nullptr;
+    SequenceViewTarget.Reset();
+    EvaluateCamera(0.0f, 0.0f);
 }
 
 bool APlayerCameraManager::StartCameraFade(float FromAlpha, float ToAlpha, float Duration, const FColor& Color)

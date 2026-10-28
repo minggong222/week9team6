@@ -606,15 +606,20 @@ bool FSceneRenderer::AddCameraOverlayPass(FRenderGraphBuilder& Graph, FRenderer*
 {
 	APlayerController* Controller = World ? World->GetPlayerController() : nullptr;
 	APlayerCameraManager* CameraManager = Controller ? Controller->GetPlayerCameraManager() : nullptr;
-	if (!CameraManager)
+	if (!CameraManager && !View.SequenceFade)
 	{
 		return true;
 	}
 
 	FCameraOverlayConstants Constants{};
-	Constants.FadeColor = CameraManager->GetFadeColor().ToVector4();
-	Constants.FadeColor.W *= CameraManager->GetFadeAmount();
-	Constants.LetterBoxHeight = CameraManager->GetLetterBoxHeight();
+	if (CameraManager)
+	{
+		Constants.FadeColor = CameraManager->GetFadeColor().ToVector4();
+		Constants.FadeColor.W *= CameraManager->GetFadeAmount();
+		Constants.LetterBoxHeight = CameraManager->GetLetterBoxHeight();
+	}
+	if (View.SequenceFade)
+		Constants.FadeColor = FVector4(0, 0, 0, *View.SequenceFade);
 	if (Constants.FadeColor.W <= 0.0f && Constants.LetterBoxHeight <= 0.0f)
 	{
 		return true;
