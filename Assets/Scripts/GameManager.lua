@@ -218,7 +218,7 @@ end
 
 function TickComponent(Self, DeltaSeconds)
     local Game = State.Game
-    Refs.HitReaction:Invoke("Update", DeltaSeconds)
+    Refs.HitReaction:Invoke("Update", Actor:GetWorld():GetRealDeltaSeconds())
     -- 암전 중에는 재입력을 막고, 초기화는 화면이 가려진 뒤 실행한다.
     if State.Restarting then
         State.RestartRemaining = State.RestartRemaining - DeltaSeconds
