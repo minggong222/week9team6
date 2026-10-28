@@ -298,6 +298,8 @@ function TickComponent(Component, DeltaSeconds)
                     MeshComponent:SetRelativeRotation(FRotator.new(0.0, Yaw, 0.0))
                 end
             end
+        else
+            Audio.PlaySFX("Audio/Boing2.wav")
         end
     end
 
@@ -334,6 +336,7 @@ function TickComponent(Component, DeltaSeconds)
                     State.LandingSquashRemaining = LandingSquashDuration
                 end
             else
+                Audio.PlaySFX("Audio/Boing2.wav")
                 State.bIsReturning, State.ReturnElapsed = true, 0.0
                 State.ReturnStartLocation = RootComponent:GetWorldLocation()
                 State.ReturnStartHeight = State.CurrentJumpHeight
