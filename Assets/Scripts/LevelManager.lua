@@ -110,6 +110,28 @@ end
 function GetMovementBounds()
     return State.Info.MinY, State.Info.MaxY
 end
+
+-- 강에서 다른 지형으로 이동할 때 목표 Y 좌표를 계산한다.
+-- 강에서 강으로 이동할 때는 좌표를 보정하지 않는다.
+function GetRiverExitTargetY(CurrentX, TargetX, CurrentY)
+    if not Refs.Layout or not Refs.Layout.HasMapPool or not Refs.Map then return nil end
+    local CellSize = Refs.Layout.CellSize
+    local Origin = Refs.Layout.Origin
+    local CurrentIndex = math.floor((CurrentX - Origin.X) / CellSize + 0.0001)
+    local TargetIndex = math.floor((TargetX - Origin.X) / CellSize + 0.0001)
+    local CurrentKind = nil
+    local TargetKind = nil
+    for _, Row in ipairs(Refs.Map:Invoke("GetRows")) do
+        if Row.Active then
+            if Row.Index == CurrentIndex then CurrentKind = Row.Kind end
+            if Row.Index == TargetIndex then TargetKind = Row.Kind end
+            if CurrentKind ~= nil and TargetKind ~= nil then break end
+        end
+    end
+    if CurrentKind ~= "river" or TargetKind == nil or TargetKind == "river" then return nil end
+    return Origin.Y + math.floor((CurrentY - Origin.Y) / CellSize + 0.5) * CellSize
+end
+
 function GetGroundZ()
     return State.StartPosition.Z
 end

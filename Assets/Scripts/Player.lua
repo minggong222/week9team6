@@ -14,6 +14,7 @@ State.JumpElapsed = 0.0
 State.ReturnElapsed, State.CurrentJumpHeight, State.ReturnStartHeight = 0.0, 0.0, 0.0
 State.ReturnStartLocation = FVector.new(0.0, 0.0, 0.0)
 State.JumpStartLocation = FVector.new(0.0, 0.0, 0.0)
+State.JumpTargetLocation = FVector.new(0.0, 0.0, 0.0)
 State.JumpDirection = FVector.new(0.0, 0.0, 0.0)
 State.MeshBaseLocation = nil
 State.MeshBaseRotation = nil
@@ -66,7 +67,19 @@ end
 local function GetYawFromDirection(Direction)
     local X = Direction.X
     local Y = Direction.Y
+    if X ~= 0.0 and Y ~= 0.0 then
+        local Angle = math.deg(math.atan(Y / X))
 
+        if X < 0.0 then
+            if Y >= 0.0 then
+                Angle = Angle + 180.0
+            else
+                Angle = Angle - 180.0
+            end
+        end
+
+        return Angle
+    end
     -- 직선 방향만 사용
     if X > 0 then
         return 0.0
@@ -261,17 +274,21 @@ function TickComponent(Component, DeltaSeconds)
     if ReleasedMoveDirection ~= nil then
         local MoveDirection = ReleasedMoveDirection
         local CurrentLocation = RootComponent:GetWorldLocation()
-        local bWithinBounds = true
-
-        if MoveDirection.Y ~= 0.0 then
-            local TargetY = CurrentLocation.Y + MoveDirection.Y * Config.MoveDistance
-            local AllowedMinY, AllowedMaxY = Config.MinY, Config.MaxY
-            if Refs.Level then AllowedMinY, AllowedMaxY = Refs.Level:Invoke("GetMovementBounds") end
-            bWithinBounds = TargetY >= AllowedMinY and TargetY <= AllowedMaxY
+        local TargetX = CurrentLocation.X + MoveDirection.X * Config.MoveDistance
+        local TargetY = CurrentLocation.Y + MoveDirection.Y * Config.MoveDistance
+        if Refs.Level then 
+            local RiverExitTargetY = Refs.Level:Invoke("GetRiverExitTargetY", CurrentLocation.X, TargetX, CurrentLocation.Y)
+            if RiverExitTargetY ~= nil then TargetY = RiverExitTargetY end
         end
+        local TargetLocation = FVector.new(TargetX, TargetY, CurrentLocation.Z)
+        local AllowedMinY, AllowedMaxY = Config.MinY, Config.MaxY
+        if Refs.Level then AllowedMinY, AllowedMaxY = Refs.Level:Invoke("GetMovementBounds") end
+
+        local bWithinBounds = TargetY >= AllowedMinY and TargetY <= AllowedMaxY
 
         if bWithinBounds then
-            State.JumpStartLocation = RootComponent:GetWorldLocation()
+            State.JumpStartLocation = CurrentLocation
+            State.JumpTargetLocation = TargetLocation
             State.JumpDirection = MoveDirection
             State.JumpElapsed = 0.0
             State.bIsJumping = true
@@ -280,7 +297,8 @@ function TickComponent(Component, DeltaSeconds)
             Audio.PlaySFX("Audio/Jump2.wav")
 
             if MeshComponent ~= nil then
-                local Yaw = GetYawFromDirection(MoveDirection)
+                local FacingDirection = FVector.new(TargetLocation.X - CurrentLocation.X, TargetLocation.Y - CurrentLocation.Y, 0.0)
+                local Yaw = GetYawFromDirection(FacingDirection)
 
                 if Yaw ~= nil then
                     Yaw = Yaw + Config.YawOffset
@@ -323,7 +341,7 @@ function TickComponent(Component, DeltaSeconds)
             State.JumpElapsed = State.JumpElapsed + Step
             local Alpha = math.min(1.0, State.JumpElapsed / Config.JumpDuration)
             if Alpha > 1.0 - 0.000001 then Alpha = 1.0 end
-            local Location = State.JumpStartLocation + State.JumpDirection * (Config.MoveDistance * Alpha)
+            local Location = State.JumpStartLocation + (State.JumpTargetLocation - State.JumpStartLocation) * Alpha
             local Moved, BlockingComponent = RootComponent:TryMoveWithBlocking(
                 Location - RootComponent:GetWorldLocation(), RootComponent:GetWorldRotation())
             if Moved then

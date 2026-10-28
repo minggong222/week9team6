@@ -309,6 +309,15 @@ ConfigManager.River = {
     LogYaw = 90.0,
     LogCenterZ = -0.8,
 
+    -- 통나무가 물 위에서 위아래로 움직이는 정도
+    LogFloatAmplitude = 0.08,
+
+    -- 통나무가 위아래로 움직이는 속도
+    LogFloatSpeed = 1.8,
+
+    -- 플레이어가 올라탔을 때 가라앉는 거리
+    LogSinkOffset = 0.15,
+
     -- 월드 좌표 기준의 통나무 반길이
     LogHalfLength = 2.0,
 

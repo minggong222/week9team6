@@ -5,7 +5,8 @@ State = {
     Slots = {},
     LanesByIndex = {},
     RandomState = 1,
-    RidingLog = nil
+    RidingLog = nil,
+    ElapsedTime = 0
 }
 
 Refs = {}
@@ -178,6 +179,7 @@ function SpawnRow(Id, Index)
 
         Log.Active = true
         Log.DeltaY = 0
+        Log.FloatPhase = RiverRandom() * math.pi * 2
 
         Log.Component:SetRelativeLocation(FVector.new(
             Index * Refs.Layout.CellSize,
@@ -244,9 +246,14 @@ function ResolveLanding(Position)
     if not Lane or not Lane.Active then
         State.RidingLog = nil
 
+        -- 강이 아닌 지형에 착지하면 Y 좌표를 격자에 맞춘다.
+        local CellSize = Refs.Layout.CellSize
+        local AlignedY =
+            math.floor(Position.Y / CellSize + 0.5) * CellSize
+
         Root:SetWorldLocation(FVector.new(
             Position.X,
-            Position.Y,
+            AlignedY,
             GroundZ
         ), false)
 
@@ -302,7 +309,7 @@ function Update(DeltaSeconds)
     if not Refs.Layout or not Refs.Layout.HasMapPool then
         return
     end
-
+    State.ElapsedTime = State.ElapsedTime + DeltaSeconds
     local Phase = Refs.Level:Invoke("GetPhase")
 
     for _, Lane in ipairs(State.Slots) do
@@ -350,17 +357,31 @@ function Update(DeltaSeconds)
                         end
                     end
 
-                    Log.Component:SetRelativeLocation(
-                        FVector.new(
-                            Current.X,
-                            NextY,
-                            Current.Z
-                        )
-                    )
+                   -- 시간에 따라 통나무가 물 위에서 부드럽게 움직이도록 한다.
+                   local FloatOffset = math.sin(
+                       State.ElapsedTime * Config.LogFloatSpeed
+                       + (Log.FloatPhase or 0)
+                   ) * Config.LogFloatAmplitude
+
+                   -- 플레이어가 올라탄 통나무는 조금 가라앉는다.
+                   local SinkOffset = State.RidingLog == Log
+                       and Config.LogSinkOffset
+                       or 0
+
+                   local NextZ = Config.LogCenterZ
+                       + FloatOffset
+                       - SinkOffset
+
+                   Log.Component:SetRelativeLocation(
+                       FVector.new(
+                           Current.X,
+                           NextY,
+                           NextZ
+                       )
+                   )
 
                     -- 탑승한 플레이어도 통나무와 함께 이동한다.
                     if State.RidingLog == Log
-                        and DeltaY ~= 0
                         and Phase == "Playing" then
 
                         local Root =
@@ -371,6 +392,10 @@ function Update(DeltaSeconds)
 
                         local NextPlayerY =
                             PlayerPosition.Y + DeltaY
+
+                        local NextPlayerZ =
+                            Log.Component:GetWorldLocation().Z
+                            + Config.LogTopOffset
 
                         local MinY, MaxY =
                             Refs.Level:Invoke("GetMovementBounds")
@@ -388,7 +413,7 @@ function Update(DeltaSeconds)
                             Root:SetWorldLocation(FVector.new(
                                 PlayerPosition.X,
                                 NextPlayerY,
-                                PlayerPosition.Z
+                                NextPlayerZ
                             ), false)
                         end
                     end
