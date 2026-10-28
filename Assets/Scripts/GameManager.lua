@@ -446,10 +446,12 @@ function TickComponent(Self, DeltaSeconds)
     end
 
     if Game.Phase == GamePhase.Selecting then
+        local ModeChanged = false
         if Refs.Level and (Input.IsKeyPressed(EKeyCode.Up) or Input.IsKeyPressed(EKeyCode.Down)
             or Input.IsKeyPressed(EKeyCode.W) or Input.IsKeyPressed(EKeyCode.S)) then
             Game.Mode = Game.Mode == "Night" and "Day" or "Night"
             Refs.Level:Invoke("SetMode", Game.Mode)
+            ModeChanged = true
             Refs.Camera:Invoke("SetModeGamma", Game.Mode)
             local CameraManager = Actor:GetWorld():GetPlayerCameraManager()
             if CameraManager then
@@ -462,6 +464,7 @@ function TickComponent(Self, DeltaSeconds)
             Game.PreviewCharacter = Refs.Selection:Invoke("GetSelection")
             UpdateScreen()
         end
+        if Changed or ModeChanged then Audio.PlaySFX("Audio/Jump2.wav") end
         if Confirmed then
             EnterSelectedCharacter()
             return

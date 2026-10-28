@@ -189,7 +189,7 @@ ConfigManager.Selection = {
     },
     Background = {
         Mesh = "Models/Crossy/Selection/background.obj", Distance = 40, SizeMargin = 1.5,
-        Day = { Color = { 180, 210, 230 } }, Night = { Color = { 20, 25, 50 } }
+        Day = { Color = { 170, 225, 255 } }, Night = { Color = { 20, 25, 50 } }
     },
     RowX = -200.0,
     Spacing = 5.0,
@@ -270,8 +270,8 @@ ConfigManager.Cinematics = {
     ModeShake = {
         Duration = 0.25,
         Location = 0.15,
-        Rotation = 0.8,
-        Frequency = 18
+        Rotation = 0,
+        Frequency = 6
     },
     HitStop = {
         Scale = 0,
