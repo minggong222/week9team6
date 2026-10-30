@@ -256,12 +256,14 @@ namespace ImCurveEdit
 
          for (size_t p = 0; p < ptCount - 1; p++)
          {
+            curveType = delegate.GetSegmentType(c, p);
             const ImVec2 p1 = pointToRange(pts[p]);
             const ImVec2 p2 = pointToRange(pts[p + 1]);
 
-            if (curveType == CurveSmooth || curveType == CurveLinear)
+            if (curveType == CurveSmooth || curveType == CurveLinear ||
+                curveType == CurveEaseIn || curveType == CurveEaseOut)
             {
-               size_t subStepCount = (curveType == CurveSmooth) ? 20 : 2;
+               size_t subStepCount = curveType == CurveLinear ? 2 : 20;
                float step = 1.f / float(subStepCount - 1);
                for (size_t substep = 0; substep < subStepCount - 1; substep++)
                {
@@ -270,8 +272,15 @@ namespace ImCurveEdit
                   const ImVec2 sp1 = ImLerp(p1, p2, t);
                   const ImVec2 sp2 = ImLerp(p1, p2, t + step);
 
-                  const float rt1 = smoothstep(p1.x, p2.x, sp1.x);
-                  const float rt2 = smoothstep(p1.x, p2.x, sp2.x);
+                  // 런타임과 같은 구간 비율로 가속·감속 곡선을 표시합니다.
+                  const auto Ease = [curveType](float Alpha) {
+                     if (curveType == CurveEaseIn) return Alpha * Alpha;
+                     if (curveType == CurveEaseOut) return Alpha * (2.f - Alpha);
+                     if (curveType == CurveSmooth) return smoothstep(0.f, 1.f, Alpha);
+                     return Alpha;
+                  };
+                  const float rt1 = Ease(t);
+                  const float rt2 = Ease(t + step);
 
                   const ImVec2 pos1 = ImVec2(sp1.x, ImLerp(p1.y, p2.y, rt1)) * viewSize + offset;
                   const ImVec2 pos2 = ImVec2(sp2.x, ImLerp(p1.y, p2.y, rt2)) * viewSize + offset;

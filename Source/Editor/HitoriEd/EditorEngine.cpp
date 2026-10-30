@@ -41,6 +41,7 @@
 #include "Render/RenderCommand.h"
 #include "Editor/Outliner/OutlinerPanel.h"
 #include "Editor/Sequencer/SequencerPanel.h"
+#include "Camera/ViewportCameraMovement.h"
 #include "Editor/HitoriEd/EditorFileUtils.h"
 #include "Editor/Viewports/EditorViewportClient.h"
 #include "UObject/UObjectIterator.h"
@@ -478,6 +479,8 @@ void UEditorEngine::UpdateViewportState(const float DeltaTime)
 	}
 
 	const int32 WheelDelta = FInputSystem::GetWheelDelta();
+	// 휠은 읽으면 소모되므로 같은 프레임의 PIE Pilot에도 이 값을 전달합니다.
+	FrameMouseWheelDelta = WheelDelta;
 	const float MoveSpeed = 10.0f * SettingsPanel->GetSettings().CameraSpeed;
 	const float MouseSens = 0.2f * SettingsPanel->GetSettings().MouseSensitivity;
 
@@ -524,6 +527,8 @@ void UEditorEngine::TickWorldAndEditor(const float DeltaTime)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_WorldTick);
 		UWorld* ActiveWorld = GetActiveWorld();
+		FInputSystem::FScopedInputBlock PilotInputBlock(
+			PlayWorld && Sequencer && Sequencer->IsCameraPilotEnabled(), EKeyCode::R);
 
 		if (bStepRequested && bIsPaused && ActiveWorld)
 		{
@@ -705,6 +710,8 @@ void UEditorEngine::TickPIEInput(float DeltaTime)
 	FWorldContext* Context = GetPIEWorldContext();
 	if (!Context || !Context->GameViewport) return;
 	FGameViewportClient& GameViewport = *Context->GameViewport;
+	const bool bSequencePilot = Sequencer && Sequencer->IsCameraPilotEnabled();
+	if (bSequencePilot && GameViewport.IsSIEMode()) GameViewport.EndSIEMode();
 	const FVector2 Mouse = ViewportsPanel->GetLocalMousePosition();
 	const int32 InputViewIndex = IsPIEInWindow() && GameViewport.IsSIEMode()
 		? PIEStartEditorViewIndex : PIEViewIndex;
@@ -732,7 +739,7 @@ void UEditorEngine::TickPIEInput(float DeltaTime)
 		return;
 	}
 
-	if (FInputSystem::IsKeyPressed(EKeyCode::F8))
+	if (!bSequencePilot && FInputSystem::IsKeyPressed(EKeyCode::F8))
 		GameViewport.InputKey(nullptr, static_cast<int32>(EKeyCode::F8), true);
 	if (GameViewport.ConsumeSIERequest())
 	{
@@ -747,6 +754,31 @@ void UEditorEngine::TickPIEInput(float DeltaTime)
 		RequestEndPlayMap();
 		return;
 	}
+
+	// Pilot 중에는 게임 입력 대신 임시 촬영 시점을 조작합니다.
+	if (bSequencePilot)
+	{
+		GameViewport.LostFocus();
+		FViewportCameraInput Input;
+		Input.bCaptured = FInputSystem::IsMouseDown(EMouseButton::Right);
+		Input.bAllowWheel = true;
+		Input.MouseX = static_cast<float>(FInputSystem::GetMouseDeltaX());
+		Input.MouseY = static_cast<float>(FInputSystem::GetMouseDeltaY());
+		Input.Wheel = static_cast<float>(FrameMouseWheelDelta);
+		Input.bForward = FInputSystem::IsKeyDown(EKeyCode::W);
+		Input.bBackward = FInputSystem::IsKeyDown(EKeyCode::S);
+		Input.bRight = FInputSystem::IsKeyDown(EKeyCode::D);
+		Input.bLeft = FInputSystem::IsKeyDown(EKeyCode::A);
+		Input.bUp = FInputSystem::IsKeyDown(EKeyCode::E);
+		Input.bDown = FInputSystem::IsKeyDown(EKeyCode::Q);
+		if (Input.bCaptured || Input.Wheel != 0.0f)
+			Sequencer->TickPIECameraPilot(Input, EngineTimer::GetRealDeltaTime(),
+				10.0f * SettingsPanel->GetSettings().CameraSpeed,
+				0.2f * SettingsPanel->GetSettings().MouseSensitivity,
+				static_cast<float>(GameViewport.GetWidth()));
+		return;
+	}
+
 	constexpr EKeyCode Keys[] = { EKeyCode::W, EKeyCode::A, EKeyCode::S, EKeyCode::D,
 		EKeyCode::Space, EKeyCode::Shift };
 	for (EKeyCode Key : Keys)
@@ -1421,6 +1453,8 @@ void UEditorEngine::ResetSequencePreview()
 
 void UEditorEngine::OnActiveWorldChanged()
 {
+	if (PlayWorld)
+		PlayWorld->SetSequenceStartCallback([this]() { if (Sequencer) Sequencer->ReleasePreview(); });
 	ResetSceneSelection();
 	UWorld* UIWorld = PlayWorld ? PlayWorld : EditorWorld;
 	if (OutlinerPanel) OutlinerPanel->SetWorld(UIWorld);

@@ -26,8 +26,18 @@ namespace
         uint32_t GetCurveColor(size_t) override { return IM_COL32(235, 145, 75, 255); }
         ImCurveEdit::CurveType GetCurveType(size_t) const override
         {
-            if (Mode() == ESequenceInterpolation::Smooth) return ImCurveEdit::CurveSmooth;
-            if (Mode() == ESequenceInterpolation::Constant) return ImCurveEdit::CurveDiscrete;
+            return CurveType(Mode());
+        }
+        ImCurveEdit::CurveType GetSegmentType(size_t, size_t PointIndex) const override
+        {
+            return CurveType(GetKeys()[PointIndex].Interpolation.value_or(Mode()));
+        }
+        static ImCurveEdit::CurveType CurveType(ESequenceInterpolation Mode)
+        {
+            if (Mode == ESequenceInterpolation::EaseIn) return ImCurveEdit::CurveEaseIn;
+            if (Mode == ESequenceInterpolation::EaseOut) return ImCurveEdit::CurveEaseOut;
+            if (Mode == ESequenceInterpolation::EaseInOut) return ImCurveEdit::CurveSmooth;
+            if (Mode == ESequenceInterpolation::Constant) return ImCurveEdit::CurveDiscrete;
             return ImCurveEdit::CurveLinear;
         }
 
@@ -78,7 +88,7 @@ namespace
             if (Camera)
             {
                 FSequenceKeyframe Key; Key.Camera = Base;
-                Low = High = Channel < 3 ? Base.Location[Channel] : Channel < 6 ? Base.Rotation[Channel - 3] : Base.FieldOfView;
+                Low = High = Base.GetChannelValue(Channel);
                 for (const auto& Point : Points) { Low = std::min(Low, Point.y); High = std::max(High, Point.y); }
             }
             const float Margin = std::max(0.1f, (High - Low) * 0.1f);
@@ -136,12 +146,12 @@ namespace
         }
         void SetChannel(FSequenceKeyframe& Key, float Value) const
         {
-            Key.Value = !Camera ? std::clamp(Value, 0.0f, 1.0f) : Channel == 6 ? std::clamp(Value, 1.0f, 179.0f) : Value;
+            Key.Value = !Camera ? std::clamp(Value, 0.0f, 1.0f) : FSequenceCameraValue::ClampChannelValue(Channel, Value);
         }
         void Insert(FSequenceSection& Target, const FSequenceKeyframe& Key) const
         {
-            if (Camera) Target.CameraChannels[Channel].AddKey(Key.Time, Key.Value);
-            else Target.AddKey(Key.Time, Key.Value);
+            if (Camera) Target.CameraChannels[Channel].AddKey(Key.Time, Key.Value, Key.Interpolation);
+            else Target.AddKey(Key.Time, Key.Value, Key.Interpolation);
         }
         const std::vector<FSequenceKeyframe>& GetKeys() const { return Camera ? Section.CameraChannels[Channel].GetKeys() : Section.GetKeys(); }
         ESequenceInterpolation Mode() const { return Camera ? Section.CameraChannels[Channel].Interpolation : Section.Interpolation; }
@@ -173,13 +183,15 @@ void FSequencerPanel::DrawCurveEditor()
     if (Camera)
     {
         ImGui::SameLine(); ImGui::SetNextItemWidth(150);
-        if (ImGui::Combo("##Channel", &CurveChannel, "Location X\0Location Y\0Location Z\0Pitch\0Yaw\0Roll\0FOV\0"))
+        if (ImGui::Combo("##Channel", &CurveChannel, "Location X\0Location Y\0Location Z\0Pitch\0Yaw\0Roll\0FOV\0Projection\0Ortho Width\0"))
         { SelectCameraChannel(CurveChannel); Fit = true; ++CurveEditorSerial; }
     }
     ImGui::SameLine(); ImGui::SetNextItemWidth(110);
     auto& Interpolation = Camera ? Section->CameraChannels[CurveChannel].Interpolation : Section->Interpolation;
+    ImGui::TextUnformatted("Default");
+    ImGui::SameLine();
     int Mode = static_cast<int>(Interpolation);
-    if (ImGui::Combo("##Interpolation", &Mode, "Linear\0Smooth\0Constant\0"))
+    if (ImGui::Combo("##Interpolation", &Mode, "Linear\0Ease In Out\0Step\0Ease In\0Ease Out\0"))
     { Interpolation = static_cast<ESequenceInterpolation>(Mode); NotifySequenceEdited(); }
     ImGui::SameLine(); if (ImGui::Button("Fit")) Fit = true;
     ImGui::SameLine(); if (ImGui::Button("+ Key")) { if (Camera) SelectCameraChannel(CurveChannel); Player.Pause(); AddKey(Player.GetCurrentTime()); }
@@ -208,6 +220,8 @@ void FSequencerPanel::DrawCurveEditor()
             }
         }
     }
+    DrawSelectedKeyInterpolation();
+    ImGui::TextDisabled("Key -> next sets the outgoing segment. Parent rows include child keys at the same time.");
     ImGui::TextDisabled("Double-click: add key | Drag: edit | Wheel: value zoom | Shift+wheel: time zoom | Middle-drag: pan values");
     FSequenceCurveAdapter Adapter(*Section, Camera, CurveChannel, FPS, PreviewSequence->Duration, Base, CurveMin, CurveMax, Changed);
     if (Fit || CurveMax.y <= CurveMin.y || CurveMax.x - CurveMin.x + 1 <= 0) Adapter.Fit();
@@ -251,7 +265,11 @@ void FSequencerPanel::DrawCurveEditor()
     if (!Selection.empty() && Plot.Contains(IO.MousePos) && ImGui::IsMouseClicked(0))
     {
         const int Index = Selection.back().pointIndex;
-        if (Index >= 0 && Index < static_cast<int>((Camera ? Section->CameraChannels[CurveChannel].GetKeys() : Section->GetKeys()).size())) SelectedKeyTime = (Camera ? Section->CameraChannels[CurveChannel].GetKeys() : Section->GetKeys())[Index].Time;
+        if (Index >= 0 && Index < static_cast<int>((Camera ? Section->CameraChannels[CurveChannel].GetKeys() : Section->GetKeys()).size()))
+        {
+            if (Camera) SelectCameraChannel(CurveChannel);
+            SelectedKeyTime = (Camera ? Section->CameraChannels[CurveChannel].GetKeys() : Section->GetKeys())[Index].Time;
+        }
     }
     if (Adapter.focused && !IO.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Delete) && SelectedKeyTime)
     { const auto Time = SelectedKeyTime; if (Camera) SelectCameraChannel(CurveChannel); SelectedKeyTime = Time; DeleteSelectedKey(); }

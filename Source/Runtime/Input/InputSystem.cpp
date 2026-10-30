@@ -3,36 +3,36 @@
 
 bool FInputSystem::IsMouseDown(EMouseButton MouseCode)
 {
-    return bMouseStates[static_cast<int>(MouseCode)];
+    return !bInputBlocked && bMouseStates[static_cast<int>(MouseCode)];
 }
 
 bool FInputSystem::IsMousePressed(EMouseButton MouseCode)
 {
     unsigned int Index = static_cast<unsigned int>(MouseCode);
-    return bMouseStates[Index] && !bPrevMouseStates[Index];
+    return !bInputBlocked && bMouseStates[Index] && !bPrevMouseStates[Index];
 }
 
 bool FInputSystem::IsMouseReleased(EMouseButton MouseCode)
 {
     unsigned int Index = static_cast<unsigned int>(MouseCode);
-    return !bMouseStates[Index] && bPrevMouseStates[Index];
+    return !bInputBlocked && !bMouseStates[Index] && bPrevMouseStates[Index];
 }
 
 bool FInputSystem::IsKeyDown(EKeyCode KeyCode)
 {
-    return bKeyStates[static_cast<int>(KeyCode)];
+    return (!bInputBlocked || UnblockedKey == KeyCode) && bKeyStates[static_cast<int>(KeyCode)];
 }
 
 bool FInputSystem::IsKeyPressed(EKeyCode KeyCode)
 {
     unsigned int Index = static_cast<unsigned int>(KeyCode);
-    return bKeyStates[Index] && !bPrevKeyStates[Index];
+    return (!bInputBlocked || UnblockedKey == KeyCode) && bKeyStates[Index] && !bPrevKeyStates[Index];
 }
 
 bool FInputSystem::IsKeyReleased(EKeyCode KeyCode)
 {
     unsigned int Index = static_cast<unsigned int>(KeyCode);
-    return !bKeyStates[Index] && bPrevKeyStates[Index];
+    return (!bInputBlocked || UnblockedKey == KeyCode) && !bKeyStates[Index] && bPrevKeyStates[Index];
 }
 
 void FInputSystem::OnKeyUp(int VirtualKey)

@@ -6,11 +6,13 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <array>
 #include "Camera/CameraViewInfo.h"
 
 class APlayerCameraManager;
 class UWorld;
 class UCameraComponent;
+struct FViewportCameraInput;
 
 struct FSequencerTimeTransform
 {
@@ -34,8 +36,8 @@ struct FSequencerPreviewData : ImSequencer::SequenceInterface
         int TrackIndex = -1; // Editor metadata index; points to the source track.
         int SectionIndex = -1;
         int TrackId = 0;
-        int Channel = -1; // Camera: XYZ, Pitch/Yaw/Roll, FOV.
-        int Group = 0; // 1: Location, 2: Rotation.
+        int Channel = -1; // Camera: XYZ, Pitch/Yaw/Roll, FOV, Projection, OrthoWidth.
+        int Group = 0; // 1: Location, 2: Rotation, 3: Camera.
     };
     std::vector<FItem> Items;
     int FirstFrame = -15;
@@ -72,6 +74,8 @@ public:
     void SetFadePreviewCallback(std::function<void(std::optional<float>)> Callback) { FadePreviewCallback = std::move(Callback); }
     bool IsCameraPilotEnabled() const;
     void OnCameraViewEdited(const FCameraPOV& POV);
+    void TickPIECameraPilot(const FViewportCameraInput& Input, float DeltaTime,
+        float MoveSpeed, float MouseSensitivity, float ViewWidth);
     void ReleaseEditorCameraPreview();
     void ReleasePreview();
     void Tick(float DeltaTime) override;
@@ -83,6 +87,7 @@ private:
     void NewSequence();
     void ResetEditorState(float FPS);
     void OpenSequenceDialog(bool bSave);
+    void DrawSequenceFileDialog();
     bool SaveSequenceJson(const std::filesystem::path& Path);
     bool LoadSequenceJson(const std::filesystem::path& Path);
 
@@ -126,6 +131,8 @@ private:
 
     void AddKey(float Time);
     void DeleteSelectedKey();
+    void DrawSelectedKeyInterpolation();
+    void SetSelectedKeyInterpolation(std::optional<ESequenceInterpolation> Mode);
     void EditSelectedKey(float Time, float Value);
     void SetCurrentFadeValue(float Value);
     std::optional<float> FindAdjacentKey(int Direction);
@@ -171,6 +178,10 @@ private:
     float CachedFrameRate = 0.0f;
     std::filesystem::path SequencePath;
     std::string FileError;
+    std::array<char, 1024> SequenceFileName{};
+    std::vector<std::filesystem::path> SequenceFileChoices;
+    bool bSaveSequenceDialog = false;
+    bool bConfirmSequenceOverwrite = false;
 
     // Selection and context menu.
     int SelectedTrack = -1;
@@ -182,6 +193,7 @@ private:
     // Timeline layout and drag state.
     FSequencerTimeTransform TimeTransform;
     float TrackListWidth = 410.0f;
+    bool bCameraExpanded = true;
     bool bCameraLocationExpanded = true;
     bool bCameraRotationExpanded = true;
     bool bDraggingTrackBoundary = false;

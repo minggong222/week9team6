@@ -3,12 +3,34 @@
 #include "KeyCode.h"
 #include "MouseButton.h"
 #include "Core/Types.h"
+#include <optional>
 
 enum class EGameInputAxis : uint8 { MouseX, MouseY, MouseWheel };
 
 class FInputSystem
 {
 public:
+    // 월드 Tick 동안만 게임 입력을 막고, 에디터의 카메라 입력은 유지합니다.
+    class FScopedInputBlock
+    {
+    public:
+        explicit FScopedInputBlock(bool Block, std::optional<EKeyCode> AllowedKey = std::nullopt)
+            : bPrevious(bInputBlocked), PreviousAllowedKey(UnblockedKey)
+        {
+            if (Block)
+            {
+                bInputBlocked = true;
+                UnblockedKey = AllowedKey;
+            }
+        }
+        ~FScopedInputBlock() { bInputBlocked = bPrevious; UnblockedKey = PreviousAllowedKey; }
+        FScopedInputBlock(const FScopedInputBlock&) = delete;
+        FScopedInputBlock& operator=(const FScopedInputBlock&) = delete;
+    private:
+        bool bPrevious;
+        std::optional<EKeyCode> PreviousAllowedKey;
+    };
+
     static bool IsKeyPressed(EKeyCode KeyCode);
     static bool IsKeyReleased(EKeyCode KeyCode);
     static bool IsKeyDown(EKeyCode KeyCode);
@@ -43,6 +65,8 @@ public:
 
 private:
     FInputSystem() = delete;
+    static inline bool bInputBlocked = false;
+    static inline std::optional<EKeyCode> UnblockedKey;
 
     static inline bool bMouseStates[5] = {};
     static inline bool bPrevMouseStates[5] = {};

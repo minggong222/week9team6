@@ -11,9 +11,33 @@
 #pragma comment(lib, "d3dcompiler.lib")
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
+// 현재 DX11 백엔드가 제공하는 분리 창 스왑체인 설정 API입니다.
+extern IMGUI_IMPL_API void ImGui_ImplDX11_SetSwapChainDescs(const DXGI_SWAP_CHAIN_DESC*, int);
 
 namespace
 {
+	void ConfigurePlatformSwapChains(ID3D11Device* Device)
+	{
+		// 메인 창과 분리 창의 Flip/Blt 모델 혼용은 일부 드라이버에서 Present를 멈춥니다.
+		DXGI_SWAP_CHAIN_DESC Desc{};
+		Desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		Desc.SampleDesc.Count = 1;
+		Desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+		Desc.BufferCount = 2;
+		Desc.Windowed = TRUE;
+		Desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+		ImGui_ImplDX11_SetSwapChainDescs(&Desc, 1);
+
+		// 한 장치에서 여러 창을 매 프레임 Present하므로 기본 대기 한도 3을 사용합니다.
+		// 단독 게임 실행의 낮은 지연 설정은 유지하고 에디터 장치에만 적용합니다.
+		ComPtr<IDXGIDevice1> DXGIDevice;
+		if (SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(DXGIDevice.GetAddressOf()))))
+		{
+			const HRESULT Status = DXGIDevice->SetMaximumFrameLatency(3);
+			if (FAILED(Status)) HTR_LOG(Warning, "Could not configure multi-window frame latency.");
+		}
+	}
+
 	// FWindow가 ImGui를 직접 알지 않도록 메시지 처리기를 훅으로 등록한다.
 	bool ImGuiWndProcHook(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
@@ -239,6 +263,7 @@ bool FImGuiRenderer::Init(HWND WindowHandle, ID3D11Device* Device, ID3D11DeviceC
         ImGui::DestroyContext();
         return false;
     }
+	ConfigurePlatformSwapChains(Device);
 	// Reuse ImGui's vertex shader and draw commands; only array-depth sampling differs.
 	ComPtr<ID3DBlob> Bytecode;
 	ComPtr<ID3DBlob> Errors;

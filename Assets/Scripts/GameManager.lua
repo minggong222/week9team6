@@ -1,5 +1,5 @@
 -- 게임 규칙과 시스템 간 호출 순서 관리
-local GamePhase = { Selecting = "SelectingCharacter", Ready = "Ready", Playing = "Playing", Dead = "Dead", Clear = "Clear", Credits = "Credits" }
+local GamePhase = { Selecting = "SelectingCharacter", Ready = "Ready", Intro = "Intro", Playing = "Playing", Dead = "Dead", Clear = "Clear", Credits = "Credits" }
 local Config = dofile("Assets/Scripts/ConfigManager.lua").Game
 
 -- 전역 테이블은 기존 외부 호출과의 호환용. 게임 단계·점수 변경은 이 매니저 담당
@@ -46,7 +46,7 @@ local function UpdateHUD()
     if Game.Phase == GamePhase.Selecting then
         local Name, Index, Count = Refs.Selection:Invoke("GetSelection")
         Refs.HUD:Invoke("ShowSelection", Name, Index, Count, Game.HUDScale, Game.Mode or Config.DefaultMode)
-    elseif Game.Phase == GamePhase.Playing then
+    elseif Game.Phase == GamePhase.Playing or Game.Phase == GamePhase.Intro then
         Refs.HUD:Invoke("ShowScore", Game.Score, Game.HUDScale, HiScore, Game.NewRecord)
     elseif Game.Phase == GamePhase.Dead or Game.Phase == GamePhase.Clear then
         Refs.HUD:Invoke("ShowResult", Game.Phase, Game.Score, Game.HUDScale, HiScore, Game.NewRecord)
@@ -92,6 +92,18 @@ end
 
 function StartGame()
     local Game = State.Game
+    -- 재시작·캐릭터 재선택에서는 반복하지 않고 세션 첫 플레이 진입 때만 재생합니다.
+    if not Game.OpeningCutscenePlayed then
+        Game.OpeningCutscenePlayed = true
+        Refs.Cinematics:Invoke("StopEffects")
+        if Actor:GetWorld():PlaySequence("Assets/Sequences/cutscene.json") then
+            Game.Phase = GamePhase.Intro
+            if Refs.PlayerScript then Refs.PlayerScript:Invoke("StopMovement") end
+            UpdateHUD()
+            return
+        end
+        print("[GameManager] Opening cutscene unavailable; starting gameplay.")
+    end
     Game.Phase = GamePhase.Playing
     Game.Score, Game.MaxRow, Game.NewRecord = 0, 0, false
     Game.GameOverRequested, Game.ClearRequested = false, false
@@ -258,9 +270,29 @@ function TickComponent(Self, DeltaSeconds)
         if State.RestartRemaining <= 0 then
             ResetRun()
             State.Restarting = false
+            Refs.Selection:Invoke("HidePreviews")
+            Refs.Camera:Invoke("ApplyGameplayCamera")
             StartGame()
             RequestPlayerReset(true)
         end
+        return
+    end
+
+    -- 이동 입력 제한과 게임 단계에 관계없이 재시작 명령은 처리합니다.
+    if Input.IsKeyPressed(EKeyCode.R) then
+        if Game.Phase == GamePhase.Intro then Actor:GetWorld():StopSequence() end
+        if Game.Phase == GamePhase.Credits then
+            Refs.Camera:Invoke("StopCreditsCamera")
+            State.CreditsCamera = nil
+            State.CreditsReturnPhase = nil
+        end
+        Restart()
+        return
+    end
+
+    if Game.Phase == GamePhase.Intro then
+        if not Actor:GetWorld():IsSequencePlaying() then StartGame() end
+        UpdateHUD()
         return
     end
 
@@ -482,10 +514,6 @@ function TickComponent(Self, DeltaSeconds)
         Game.GameOverRequested = false
         GameOver()
     end
-    if Input.IsKeyPressed(EKeyCode.R) then
-        Restart()
-        return
-    end
 
     if Game.Phase == GamePhase.Playing and Refs.Player and State.StartPosition then
         local Position = Refs.Player:GetActorLocation()
@@ -514,6 +542,7 @@ function TickComponent(Self, DeltaSeconds)
 end
 
 function EndPlay(Self)
+    Actor:GetWorld():StopSequence()
     Refs.Camera:Invoke("StopCreditsCamera")
     Refs.Cinematics:Invoke("StopCinematics")
     if Refs.PlayerHitbox and State.BeginOverlapHandle then

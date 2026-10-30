@@ -1,5 +1,8 @@
 local Config = dofile("Assets/Scripts/ConfigManager.lua").Player
 
+-- 일반 플레이 이동은 허용하며, 컷신 중에는 Intro 단계 검사에서 차단합니다.
+local bMovementInputEnabled = true
+
 -- 이동 상태와 연결 참조는 이 스크립트 소유. HotReload 시 유지
 State = { ResetRequested = false }
 Refs = {}
@@ -197,6 +200,12 @@ function TickComponent(Component, DeltaSeconds)
     State.bWasSDown = bSDown
     State.bWasADown = bADown
     State.bWasDDown = bDDown
+
+    if not bMovementInputEnabled then
+        bWPressed, bSPressed, bAPressed, bDPressed = false, false, false, false
+        State.MoveQueue = {}
+        State.JumpSquashElapsed = 0.0
+    end
 
     local Manager = Refs.Game or Refs.Level
     local Phase = Manager and Manager:Invoke("GetPhase")

@@ -50,6 +50,7 @@ void FEditorViewportClient::SetSequencePreview(std::optional<FCameraPOV> POV)
     PreSequenceView.reset();
   }
   ViewLocation = POV->Location; ViewRotation = POV->Rotation; ViewFOV = POV->FieldOfView;
+  SequencePerspectiveBlend = PreSequenceView ? std::optional<float>(POV->PerspectiveBlend) : std::nullopt;
   bIsPerspective = POV->bIsPerspective; OrthoWidth = POV->OrthoWidth;
   NearClip = POV->NearClip; FarClip = POV->FarClip;
 }
@@ -96,7 +97,8 @@ void FEditorViewportClient::TickInput(float DeltaTime, bool bCaptured,
   {
     FCameraPOV POV;
     POV.Location = ViewLocation; POV.Rotation = ViewRotation; POV.FieldOfView = ViewFOV;
-    POV.bIsPerspective = bIsPerspective; POV.PerspectiveBlend = bIsPerspective ? 1.0f : 0.0f;
+    POV.bIsPerspective = bIsPerspective;
+    POV.PerspectiveBlend = SequencePerspectiveBlend.value_or(bIsPerspective ? 1.0f : 0.0f);
     POV.OrthoWidth = OrthoWidth; POV.AspectRatio = AspectRatio;
     POV.NearClip = NearClip; POV.FarClip = FarClip;
     SequenceCameraEdited(POV);
@@ -191,6 +193,17 @@ FMatrix FEditorViewportClient::GetOrthogonalMatrix() const {
 
 // 투영 행렬
 FMatrix FEditorViewportClient::GetProjectionMatrix() const {
+  if (SequencePerspectiveBlend) {
+    // PIE와 동일한 카메라 투영 혼합을 에디터 미리보기에도 적용합니다.
+    FCameraPOV POV;
+    POV.FieldOfView = ViewFOV;
+    POV.AspectRatio = AspectRatio;
+    POV.NearClip = NearClip;
+    POV.FarClip = FarClip;
+    POV.OrthoWidth = OrthoWidth;
+    POV.PerspectiveBlend = *SequencePerspectiveBlend;
+    return POV.GetProjectionMatrix();
+  }
   if (bIsPerspective) {
     return GetPerspectiveMatrix();
   }
@@ -227,7 +240,7 @@ FSceneView FEditorViewportClient::CalcSceneView(const FRect &InViewRect) const {
     OutView.NearClip = NearClip;
     OutView.FarClip = FarClip;
     OutView.OrthoWidth = OrthoWidth;
-    OutView.PerspectiveBlend = bIsPerspective ? 1.0f : 0.0f;
+    OutView.PerspectiveBlend = SequencePerspectiveBlend.value_or(bIsPerspective ? 1.0f : 0.0f);
     OutView.bIsPerspective = bIsPerspective;
     OutView.bIsWireframe = ViewportMode == EViewportMode::Wireframe;
     return OutView;

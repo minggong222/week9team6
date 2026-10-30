@@ -6,14 +6,26 @@
 #include "Camera/CameraComponent.h"
 #include "Engine/World.h"
 #include "Engine/Level.h"
+#include "Camera/ViewportCameraMovement.h"
 
 #include <algorithm>
 #include <cmath>
 #include <fstream>
-#include "Editor/HitoriEd/EditorAssetFileDialog.h"
 
 namespace
 {
+    const char* InterpolationName(ESequenceInterpolation Mode)
+    {
+        switch (Mode)
+        {
+        case ESequenceInterpolation::EaseIn: return "EaseIn";
+        case ESequenceInterpolation::EaseOut: return "EaseOut";
+        case ESequenceInterpolation::EaseInOut: return "EaseInOut";
+        case ESequenceInterpolation::Constant: return "Constant";
+        default: return "Linear";
+        }
+    }
+
     constexpr float TimelineMarkerRowHeight = 24.0f;
     constexpr float TimelinePrerollSeconds = 0.5f;
 
@@ -139,7 +151,7 @@ void FSequencerPanel::ResetEditorState(float FPS)
     ContextTime = 0;
     bCameraPreviewEnabled = false;
     bCameraPilotEnabled = false;
-    bCameraLocationExpanded = bCameraRotationExpanded = true;
+    bCameraExpanded = bCameraLocationExpanded = bCameraRotationExpanded = true;
     CurveTrackId = -1;
     CurvePointCount = -1;
     ++CurveEditorSerial;
@@ -223,6 +235,10 @@ void FSequencerPanel::RebuildItemsFromSequence(int TrackId, int SectionId)
             if (Track.Type != 1) PreviewData.Items.push_back(Row);
             if (Track.Type == 1)
             {
+                Row.Group = 3;
+                PreviewData.Items.push_back(Row);
+                if (!bCameraExpanded) continue;
+
                 const auto Parent = Row;
                 const auto Child = [&](const char* Name, int Channel, int Group, int Offset) {
                     auto Item = Parent;
@@ -241,6 +257,8 @@ void FSequencerPanel::RebuildItemsFromSequence(int TrackId, int SectionId)
                     Child("Roll", 5, 0, 6); Child("Pitch", 3, 0, 7); Child("Yaw", 4, 0, 8);
                 }
                 Child("FOV", 6, 0, 9);
+                Child("Projection", 7, 0, 10);
+                Child("Ortho Width", 8, 0, 11);
             }
         }
     }
@@ -250,6 +268,12 @@ void FSequencerPanel::RebuildItemsFromSequence(int TrackId, int SectionId)
         const auto& Row = PreviewData.Items[Index];
         if (Row.TrackId == TrackId && (SelectedTrack < 0 || Row.Id == SectionId)) SelectedTrack = Index;
         if (Row.TrackId == TrackId && Row.Id == SectionId) break;
+    }
+    // 접힌 하위 행의 선택이 상위 그룹 전체 선택으로 바뀌지 않도록 합니다.
+    if (SelectedTrack < 0 || PreviewData.Items[SelectedTrack].Id != SectionId)
+    {
+        SelectedKeyTime.reset();
+        bDraggingKey = false;
     }
     CachedFrameRate = FPS;
     PreviewData.Rows.clear();
@@ -319,6 +343,7 @@ std::vector<int> FSequencerPanel::GetRowChannels(int RowIndex) const
     if (Item.Channel >= 0) return {Item.Channel};
     if (Item.Group == 1) return {0, 1, 2};
     if (Item.Group == 2) return {3, 4, 5};
+    if (Item.Group == 3) return {0, 1, 2, 3, 4, 5, 6, 7, 8};
     return {};
 }
 
@@ -342,11 +367,12 @@ std::vector<FSequenceKeyframe> FSequencerPanel::GetRowKeys(int RowIndex) const
 void FSequencerPanel::SelectCameraChannel(int Channel)
 {
     const int TrackIndex = GetSelectedTrackIndex();
-    if (TrackIndex < 0 || EditorTracks[TrackIndex].Type != 1 || Channel < 0 || Channel > 6) return;
+    if (TrackIndex < 0 || EditorTracks[TrackIndex].Type != 1 || Channel < 0 || Channel > 8) return;
     const int TrackId = EditorTracks[TrackIndex].Id;
-    if ((Channel < 3 && !bCameraLocationExpanded) ||
+    if (!bCameraExpanded || (Channel < 3 && !bCameraLocationExpanded) ||
         (Channel >= 3 && Channel < 6 && !bCameraRotationExpanded))
     {
+        bCameraExpanded = true;
         if (Channel < 3) bCameraLocationExpanded = true;
         if (Channel >= 3 && Channel < 6) bCameraRotationExpanded = true;
         RebuildItemsFromSequence(TrackId, 0);
@@ -366,7 +392,7 @@ void FSequencerPanel::AddKey(float Time)
         const auto Pose = IsCameraPilotEnabled() && PilotCameraValue && Time == PilotCameraTime ? *PilotCameraValue : GetCameraKeyValue(Time);
         if (!Section->HasCameraKeys()) Section->CameraDefaults = GetCameraKeyValue(Time);
         for (int Channel : GetRowChannels(SelectedTrack))
-            Section->CameraChannels[Channel].AddKey(Time, Channel < 3 ? Pose.Location[Channel] : Channel < 6 ? Pose.Rotation[Channel - 3] : Pose.FieldOfView);
+            Section->CameraChannels[Channel].AddKey(Time, Pose.GetChannelValue(Channel));
     }
     else
     {
@@ -376,6 +402,59 @@ void FSequencerPanel::AddKey(float Time)
     }
     SelectedKeyTime = Time;
     NotifySequenceEdited();
+}
+
+void FSequencerPanel::SetSelectedKeyInterpolation(std::optional<ESequenceInterpolation> Mode)
+{
+    auto* Section = GetSelectedSection();
+    if (!Section || !SelectedKeyTime) return;
+    bool Changed = false;
+    if (EditorTracks[GetSelectedTrackIndex()].Type == 1)
+    {
+        for (int Channel : GetRowChannels(SelectedTrack))
+            Changed |= Section->CameraChannels[Channel].SetKeyInterpolation(*SelectedKeyTime, Mode);
+    }
+    else Changed = Section->SetKeyInterpolation(*SelectedKeyTime, Mode);
+    if (Changed) NotifySequenceEdited();
+}
+
+void FSequencerPanel::DrawSelectedKeyInterpolation()
+{
+    auto* Section = GetSelectedSection();
+    if (!Section || !SelectedKeyTime) return;
+    int Selection = -2;
+    const auto Observe = [&](const std::vector<FSequenceKeyframe>& Keys) {
+        const auto Found = std::find_if(Keys.begin(), Keys.end(),
+            [this](const auto& Key) { return Key.Time == *SelectedKeyTime; });
+        if (Found == Keys.end()) return;
+        const int Mode = Found->Interpolation ? static_cast<int>(*Found->Interpolation) + 1 : 0;
+        Selection = Selection == -2 ? Mode : Selection == Mode ? Selection : -1;
+    };
+    const bool Camera = EditorTracks[GetSelectedTrackIndex()].Type == 1;
+    if (Camera)
+    {
+        for (int Channel : GetRowChannels(SelectedTrack)) Observe(Section->CameraChannels[Channel].GetKeys());
+    }
+    else Observe(Section->GetKeys());
+    if (Selection == -2) return;
+
+    const bool Children = Camera && PreviewData.Items[SelectedTrack].Group != 0;
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(Children ? "Key + children -> next" : "Key -> next");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(130);
+    const char* Names[] = {"Use default", "Linear", "Ease In Out", "Step", "Ease In", "Ease Out"};
+    if (ImGui::BeginCombo("##KeyInterpolation", Selection < 0 ? "Mixed" : Names[Selection]))
+    {
+        for (int Index = 0; Index < 6; ++Index)
+            if (ImGui::Selectable(Names[Index], Selection == Index))
+                SetSelectedKeyInterpolation(Index == 0 ? std::nullopt :
+                    std::optional<ESequenceInterpolation>(static_cast<ESequenceInterpolation>(Index - 1)));
+        ImGui::EndCombo();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Apply from the selected key (%.3fs) to the next key. %s", *SelectedKeyTime,
+            Children ? "Includes existing child keys at the same time." : "Only this key is changed.");
 }
 
 void FSequencerPanel::DeleteSelectedKey()
@@ -397,7 +476,7 @@ void FSequencerPanel::DeleteSelectedKey()
         if (Key.Time != *SelectedKeyTime)
         {
             if (EditorTracks[GetSelectedTrackIndex()].Type == 1) Updated.AddCameraKey(Key.Time, Key.Camera);
-            else Updated.AddKey(Key.Time, Key.Value);
+            else Updated.AddKey(Key.Time, Key.Value, Key.Interpolation);
         }
     *Section = std::move(Updated);
     SelectedKeyTime.reset();
@@ -419,7 +498,7 @@ void FSequencerPanel::EditSelectedKey(float Time, float Value)
             const auto Keys = Curve.GetKeys();
             const auto Found = std::find_if(Keys.begin(), Keys.end(), [this](const auto& Key) { return Key.Time == *SelectedKeyTime; });
             if (Found == Keys.end()) continue;
-            const float NewValue = Leaf ? (Channel == 6 ? std::clamp(Value, 1.0f, 179.0f) : Value) : Found->Value;
+            const float NewValue = Leaf ? FSequenceCameraValue::ClampChannelValue(Channel, Value) : Found->Value;
             Curve.EditKey(*SelectedKeyTime, Time, NewValue);
         }
         SelectedKeyTime = Time;
@@ -431,10 +510,13 @@ void FSequencerPanel::EditSelectedKey(float Time, float Value)
     Updated.StartTime = Section->StartTime;
     Updated.EndTime = Section->EndTime;
     Updated.Interpolation = Section->Interpolation;
+    std::optional<ESequenceInterpolation> Mode;
     for (const auto& Key : Section->GetKeys())
-        if (Key.Time != *SelectedKeyTime) Updated.AddKey(Key.Time, Key.Value);
+        if (Key.Time != *SelectedKeyTime) Updated.AddKey(Key.Time, Key.Value, Key.Interpolation);
+        else Mode = Key.Interpolation;
     // Moving onto an existing key replaces its value.
     Updated.AddKey(Time, std::clamp(Value, 0.0f, 1.0f));
+    Updated.SetKeyInterpolation(Time, Mode);
     *Section = std::move(Updated);
     SelectedKeyTime = Time;
     NotifySequenceEdited();
@@ -538,6 +620,14 @@ void FSequencerPanel::OnRender()
         if (!FileError.empty()) ImGui::TextWrapped("%s", FileError.c_str());
         ImGui::Separator();
         DrawTimeline();
+        DrawSequenceFileDialog();
+
+        // 숫자나 텍스트를 편집 중일 때는 입력 위젯이 Delete 키를 처리합니다.
+        if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+            !ImGui::GetIO().WantTextInput && !ImGui::IsAnyItemActive() &&
+            !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId) &&
+            ImGui::IsKeyPressed(ImGuiKey_Delete, false))
+            DeleteSelectedKey();
     }
     ImGui::End();
     if (!bOpen) ReleasePreview();
@@ -549,7 +639,12 @@ bool FSequencerPanel::SaveSequenceJson(const std::filesystem::path& Path)
     const auto Temporary = std::filesystem::path(Path.wstring() + L".tmp");
     try
     {
-        json Document = { {"version", 2}, {"duration", PreviewSequence->Duration},
+        const auto SerializeKey = [](const FSequenceKeyframe& Key) {
+            json Data = {{"time", Key.Time}, {"value", Key.Value}};
+            if (Key.Interpolation) Data["interpolation"] = InterpolationName(*Key.Interpolation);
+            return Data;
+        };
+        json Document = { {"version", 5}, {"duration", PreviewSequence->Duration},
             {"playback_start", Player.GetPlaybackStart()}, {"playback_end", Player.GetPlaybackEnd()},
             {"frames_per_second", Player.GetFramesPerSecond()}, {"tracks", json::array()} };
         for (const auto& Track : EditorTracks)
@@ -560,29 +655,31 @@ bool FSequencerPanel::SaveSequenceJson(const std::filesystem::path& Path)
             for (const auto& Section : RuntimeTrack.Sections)
                 for (const auto& Key : Section.GetKeys())
                 {
-                    if (Track.Type == 0) Keys.push_back({{"time", Key.Time}, {"value", Key.Value}});
+                    if (Track.Type == 0) Keys.push_back(SerializeKey(Key));
                     else Keys.push_back({{"time", Key.Time}, {"location", Key.Camera.Location},
                         {"rotation", Key.Camera.Rotation}, {"fov", Key.Camera.FieldOfView}});
                 }
             json Data = {{"type", Track.Type == 0 ? "Fade" : "Camera"}, {"name", Track.Name}, {"keys", std::move(Keys)}};
             const auto Mode = RuntimeTrack.Sections.empty() ? ESequenceInterpolation::Linear : RuntimeTrack.Sections.front().Interpolation;
-            Data["interpolation"] = Mode == ESequenceInterpolation::Smooth ? "Smooth" : Mode == ESequenceInterpolation::Constant ? "Constant" : "Linear";
+            Data["interpolation"] = InterpolationName(Mode);
             if (Track.Type == 1)
             {
                 Data["camera_actor"] = RuntimeTrack.CameraActor;
                 Data["camera_component"] = RuntimeTrack.CameraComponent;
                 const auto& Section = RuntimeTrack.Sections.front();
-                Data["defaults"] = {{"location", Section.CameraDefaults.Location}, {"rotation", Section.CameraDefaults.Rotation}, {"fov", Section.CameraDefaults.FieldOfView}};
+                Data["defaults"] = {{"location", Section.CameraDefaults.Location},
+                    {"rotation", Section.CameraDefaults.Rotation}, {"fov", Section.CameraDefaults.FieldOfView},
+                    {"projection", Section.CameraDefaults.Projection}, {"ortho_width", Section.CameraDefaults.OrthoWidth}};
                 Data["channels"] = json::array();
-                const char* Names[] = {"Location.X", "Location.Y", "Location.Z", "Pitch", "Yaw", "Roll", "FOV"};
-                for (int Channel = 0; Channel < 7; ++Channel)
+                const char* Names[] = {"Location.X", "Location.Y", "Location.Z", "Pitch", "Yaw", "Roll", "FOV", "Projection", "OrthoWidth"};
+                for (int Channel = 0; Channel < 9; ++Channel)
                 {
                     const auto& Curve = Section.CameraChannels[Channel];
                     json ChannelKeys = json::array();
-                    for (const auto& Key : Curve.GetKeys()) ChannelKeys.push_back({{"time", Key.Time}, {"value", Key.Value}});
+                    for (const auto& Key : Curve.GetKeys()) ChannelKeys.push_back(SerializeKey(Key));
                     const auto Interp = Curve.Interpolation;
                     Data["channels"].push_back({{"name", Names[Channel]}, {"keys", std::move(ChannelKeys)},
-                        {"interpolation", Interp == ESequenceInterpolation::Smooth ? "Smooth" : Interp == ESequenceInterpolation::Constant ? "Constant" : "Linear"}});
+                        {"interpolation", InterpolationName(Interp)}});
                 }
             }
             Document["tracks"].push_back(std::move(Data));
@@ -610,153 +707,115 @@ bool FSequencerPanel::SaveSequenceJson(const std::filesystem::path& Path)
 
 bool FSequencerPanel::LoadSequenceJson(const std::filesystem::path& Path)
 {
-    try
+    FSequenceAsset Asset;
+    if (!LoadSequenceAsset(Path, Asset, FileError))
     {
-        std::ifstream File(Path, std::ios::binary);
-        if (!File) throw std::runtime_error("Could not open file.");
-        const json Document = json::parse(File);
-        if (!Document.at("version").is_number_integer() || (Document.at("version").get<int>() != 1 && Document.at("version").get<int>() != 2))
-            throw std::runtime_error("Unsupported Sequence version.");
-        const auto Number = [](const json& Value) {
-            if (!Value.is_number()) throw std::runtime_error("Expected a number.");
-            const float Result = Value.get<float>();
-            if (!std::isfinite(Result)) throw std::runtime_error("Invalid number.");
-            return Result;
-        };
-        auto Loaded = std::make_shared<FSequence>();
-        Loaded->Duration = Number(Document.at("duration"));
-        const float FPS = Number(Document.at("frames_per_second"));
-        if (Loaded->Duration < 0.1f || Loaded->Duration > 3600 || FPS < 1 || FPS > 1000)
-            throw std::runtime_error("Invalid duration or frame rate.");
-        float PlaybackStart = 0.0f;
-        float PlaybackEnd = Loaded->Duration;
-        if (Document.contains("playback_start") || Document.contains("playback_end"))
-        {
-            PlaybackStart = Number(Document.at("playback_start"));
-            PlaybackEnd = Number(Document.at("playback_end"));
-            if (PlaybackStart < 0 || PlaybackEnd <= PlaybackStart || PlaybackEnd > Loaded->Duration)
-                throw std::runtime_error("Invalid playback range.");
-        }
-        const auto& Tracks = Document.at("tracks");
-        if (!Tracks.is_array() || Tracks.size() > 2) throw std::runtime_error("At most one Fade and one Camera track are supported.");
-        std::vector<FEditorTrack> Metadata;
-        bool Seen[2] = {};
-        for (const auto& Data : Tracks)
-        {
-            const int Type = Data.at("type") == "Fade" ? 0 : Data.at("type") == "Camera" ? 1 : -1;
-            if (Type < 0 || Seen[Type]) throw std::runtime_error("Unsupported or duplicate track type.");
-            Seen[Type] = true;
-            FSequenceSection Section;
-            Section.StartTime = 0;
-            Section.EndTime = Loaded->Duration;
-            const std::string Mode = Data.value("interpolation", std::string("Linear"));
-            if (Mode != "Linear" && Mode != "Smooth" && Mode != "Constant") throw std::runtime_error("Invalid interpolation mode.");
-            Section.Interpolation = Mode == "Smooth" ? ESequenceInterpolation::Smooth : Mode == "Constant" ? ESequenceInterpolation::Constant : ESequenceInterpolation::Linear;
-            for (auto& Channel : Section.CameraChannels) Channel.Interpolation = Section.Interpolation;
-            const bool Independent = Type == 1 && Data.contains("channels");
-            if (Independent)
-            {
-                const auto& Defaults = Data.at("defaults");
-                const auto& Location = Defaults.at("location"); const auto& Rotation = Defaults.at("rotation");
-                if (!Location.is_array() || Location.size() != 3 || !Rotation.is_array() || Rotation.size() != 3)
-                    throw std::runtime_error("Invalid camera defaults.");
-                for (int I = 0; I < 3; ++I) { Section.CameraDefaults.Location[I] = Number(Location[I]); Section.CameraDefaults.Rotation[I] = Number(Rotation[I]); }
-                Section.CameraDefaults.FieldOfView = Number(Defaults.at("fov"));
-                if (!Section.CameraDefaults.IsValid()) throw std::runtime_error("Invalid camera defaults.");
-                const auto& Channels = Data.at("channels");
-                if (!Channels.is_array() || Channels.size() != 7) throw std::runtime_error("Invalid camera channels.");
-                const char* Names[] = {"Location.X", "Location.Y", "Location.Z", "Pitch", "Yaw", "Roll", "FOV"};
-                for (int I = 0; I < 7; ++I)
-                {
-                    const auto& Channel = Channels[I];
-                    if (Channel.at("name") != Names[I]) throw std::runtime_error("Invalid camera channel name.");
-                    const std::string Interp = Channel.value("interpolation", std::string("Linear"));
-                    if (Interp != "Linear" && Interp != "Smooth" && Interp != "Constant") throw std::runtime_error("Invalid channel interpolation.");
-                    auto& Curve = Section.CameraChannels[I];
-                    Curve.Interpolation = Interp == "Smooth" ? ESequenceInterpolation::Smooth : Interp == "Constant" ? ESequenceInterpolation::Constant : ESequenceInterpolation::Linear;
-                    if (!Channel.at("keys").is_array()) throw std::runtime_error("Invalid channel keys.");
-                    for (const auto& Key : Channel.at("keys"))
-                    {
-                        const float Time = Number(Key.at("time")), Value = Number(Key.at("value"));
-                        if ((I == 6 && (Value <= 0 || Value >= 180)) || !Curve.AddKey(Time, Value)) throw std::runtime_error("Invalid camera channel key.");
-                    }
-                }
-            }
-            const auto& Keys = Data.at("keys");
-            if (!Keys.is_array()) throw std::runtime_error("Invalid keys.");
-            for (const auto& Key : Keys)
-            {
-                if (Independent) break;
-                const float Time = Number(Key.at("time"));
-                if (Type == 0)
-                {
-                    const float Value = Number(Key.at("value"));
-                    if (Value < 0 || Value > 1 || !Section.AddKey(Time, Value)) throw std::runtime_error("Invalid Fade key.");
-                }
-                else
-                {
-                    FSequenceCameraValue Value;
-                    const auto& Location = Key.at("location"); const auto& Rotation = Key.at("rotation");
-                    if (!Location.is_array() || Location.size() != 3 || !Rotation.is_array() || Rotation.size() != 3)
-                        throw std::runtime_error("Invalid camera transform.");
-                    for (int I = 0; I < 3; ++I) { Value.Location[I] = Number(Location[I]); Value.Rotation[I] = Number(Rotation[I]); }
-                    Value.FieldOfView = Number(Key.at("fov"));
-                    if (!Section.AddCameraKey(Time, Value)) throw std::runtime_error("Invalid camera key.");
-                }
-            }
-            FSequenceTrack Track;
-            Track.Type = static_cast<ESequenceTrackType>(Type);
-            if (Type == 1)
-            {
-                Track.CameraActor = Data.at("camera_actor").get<std::string>();
-                Track.CameraComponent = Data.at("camera_component").get<std::string>();
-            }
-            Track.Sections.push_back(std::move(Section));
-            Loaded->Tracks.push_back(std::move(Track));
-            FEditorTrack Info;
-            Info.Id = static_cast<int>(Metadata.size()) * 2 + 1; Info.Type = Type;
-            Info.RuntimeTrackIndex = static_cast<int>(Metadata.size()); Info.SectionIds = {Info.Id + 1};
-            Info.Name = Data.at("name").get<std::string>();
-            Metadata.push_back(std::move(Info));
-        }
-        // Commit only after all parsing and validation succeed.
-        Player.ReleaseAppliedValues();
-        PreviewSequence = std::move(Loaded);
-        EditorTracks = std::move(Metadata);
-        ResetEditorState(FPS);
-        NextEditorId = static_cast<int>(EditorTracks.size()) * 2 + 1;
-        RebuildItemsFromSequence(EditorTracks.empty() ? 0 : EditorTracks.front().Id, 0);
-        Player.SetSequence(PreviewSequence);
-        Player.SetPlaybackRange(PlaybackStart, PlaybackEnd);
-        SequencePath = Path;
-        FileError.clear();
-        return true;
-    }
-    catch (const std::exception& Error)
-    {
-        FileError = std::string("Open failed: ") + Error.what();
+        FileError = "Open failed: " + FileError;
         return false;
     }
+    Player.ReleaseAppliedValues();
+    PreviewSequence = std::move(Asset.Sequence);
+    EditorTracks.clear();
+    for (int Index = 0; Index < static_cast<int>(PreviewSequence->Tracks.size()); ++Index)
+    {
+        FEditorTrack Track;
+        Track.Id = Index * 2 + 1;
+        Track.Type = static_cast<int>(PreviewSequence->Tracks[Index].Type);
+        Track.RuntimeTrackIndex = Index;
+        Track.SectionIds = {Track.Id + 1};
+        Track.Name = Asset.TrackNames[Index];
+        EditorTracks.push_back(std::move(Track));
+    }
+    ResetEditorState(Asset.FramesPerSecond);
+    NextEditorId = static_cast<int>(EditorTracks.size()) * 2 + 1;
+    RebuildItemsFromSequence(EditorTracks.empty() ? 0 : EditorTracks.front().Id, 0);
+    Player.SetSequence(PreviewSequence);
+    Player.SetPlaybackRange(Asset.PlaybackStart, Asset.PlaybackEnd);
+    SequencePath = Path;
+    FileError.clear();
+    return true;
 }
 
 void FSequencerPanel::OpenSequenceDialog(bool bSave)
 {
+    // OS 모달 창으로 렌더 루프를 막지 않고, ImGui 창에서 경로를 선택합니다.
     std::error_code Error;
-    const auto Folder = std::filesystem::absolute("Assets/Sequences");
+    const auto Folder = std::filesystem::absolute("Assets/Sequences", Error);
+    if (Error) { FileError = "Could not resolve Assets/Sequences."; return; }
     std::filesystem::create_directories(Folder, Error);
     if (Error) { FileError = "Could not create Assets/Sequences."; return; }
-    static std::filesystem::path LastSequenceFolder = Folder;
-    const auto FileName = SequencePath.empty() ? std::filesystem::path(L"Sequence.json") : SequencePath.filename();
-    std::filesystem::path Path;
-    const HRESULT Status = EditorAssetFileDialog::Show(bSave, EditorAssetFileDialog::SequenceId,
-        LastSequenceFolder, L"Sequence JSON (*.json)", L"*.json", L"json", FileName.c_str(), Path);
-    if (SUCCEEDED(Status))
+
+    bSaveSequenceDialog = bSave;
+    bConfirmSequenceOverwrite = false;
+    const auto FileName = SequencePath.empty() ? std::u8string(u8"Sequence.json") : SequencePath.u8string();
+    ImFormatString(SequenceFileName.data(), SequenceFileName.size(), "%s",
+        reinterpret_cast<const char*>(FileName.c_str()));
+    SequenceFileChoices.clear();
+    std::filesystem::directory_iterator It(Folder, Error), End;
+    for (; !Error && It != End; It.increment(Error))
     {
-        LastSequenceFolder = Path.parent_path();
-        if (bSave) SaveSequenceJson(Path);
-        else LoadSequenceJson(Path);
+        if (It->is_regular_file(Error) && It->path().extension() == L".json")
+            SequenceFileChoices.push_back(It->path());
     }
-    else if (Status != HRESULT_FROM_WIN32(ERROR_CANCELLED)) FileError = "Could not open the file dialog.";
+    std::sort(SequenceFileChoices.begin(), SequenceFileChoices.end());
+    FileError = Error ? "Could not list sequence files. Enter a file path below." : "";
+    ImGui::OpenPopup("Sequence File");
+}
+
+void FSequencerPanel::DrawSequenceFileDialog()
+{
+    ImGui::SetNextWindowSize(ImVec2(560, 360), ImGuiCond_FirstUseEver);
+    if (!ImGui::BeginPopupModal("Sequence File", nullptr, ImGuiWindowFlags_NoDocking)) return;
+
+    ImGui::TextUnformatted(bSaveSequenceDialog ? "Save Sequence" : "Open Sequence");
+    ImGui::TextDisabled("Folder: Assets/Sequences");
+    if (ImGui::BeginChild("SequenceFiles", ImVec2(0, 160), ImGuiChildFlags_Borders))
+    {
+        for (const auto& Path : SequenceFileChoices)
+        {
+            const auto Name = Path.filename().u8string();
+            if (ImGui::Selectable(reinterpret_cast<const char*>(Name.c_str())))
+            {
+                const auto FullPath = Path.u8string();
+                ImFormatString(SequenceFileName.data(), SequenceFileName.size(), "%s",
+                    reinterpret_cast<const char*>(FullPath.c_str()));
+                bConfirmSequenceOverwrite = false;
+            }
+        }
+    }
+    ImGui::EndChild();
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::InputText("##SequencePath", SequenceFileName.data(), SequenceFileName.size()))
+        bConfirmSequenceOverwrite = false;
+    ImGui::TextDisabled("File name or full path (.json)");
+    if (!FileError.empty()) ImGui::TextWrapped("%s", FileError.c_str());
+    if (bConfirmSequenceOverwrite) ImGui::TextUnformatted("File exists. Press Overwrite to replace it.");
+
+    const char* Action = !bSaveSequenceDialog ? "Open" : bConfirmSequenceOverwrite ? "Overwrite" : "Save";
+    ImGui::BeginDisabled(SequenceFileName[0] == '\0');
+    if (ImGui::Button(Action))
+    {
+        try
+        {
+            auto Path = std::filesystem::u8path(SequenceFileName.data());
+            if (Path.is_relative()) Path = std::filesystem::path("Assets/Sequences") / Path;
+            if (!Path.has_extension()) Path += L".json";
+            Path = std::filesystem::absolute(Path).lexically_normal();
+
+            if (bSaveSequenceDialog && !bConfirmSequenceOverwrite && std::filesystem::exists(Path))
+                bConfirmSequenceOverwrite = true;
+            else if (bSaveSequenceDialog ? SaveSequenceJson(Path) : LoadSequenceJson(Path))
+                ImGui::CloseCurrentPopup();
+        }
+        catch (const std::exception& Error)
+        {
+            FileError = std::string("Invalid file path: ") + Error.what();
+        }
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
 }
 
 void FSequencerPanel::DrawToolbar()
@@ -774,6 +833,8 @@ void FSequencerPanel::DrawToolbar()
     DrawTransportBar();
     DrawPlaybackSettings();
     DrawCameraSettings();
+    NextToolbarControl(260);
+    DrawSelectedKeyInterpolation();
 }
 
 void FSequencerPanel::DrawFileControls()
@@ -783,7 +844,13 @@ void FSequencerPanel::DrawFileControls()
     NextToolbarControl(55);
     if (ImGui::Button("Open")) OpenSequenceDialog(false);
     NextToolbarControl(55);
-    if (ImGui::Button("Save")) OpenSequenceDialog(true);
+    if (ImGui::Button("Save"))
+    {
+        if (SequencePath.empty()) OpenSequenceDialog(true);
+        else SaveSequenceJson(SequencePath);
+    }
+    NextToolbarControl(75);
+    if (ImGui::Button("Save As")) OpenSequenceDialog(true);
     const auto FileName = SequencePath.empty() ? std::u8string(u8"Untitled") : SequencePath.filename().u8string();
     const char* FileLabel = reinterpret_cast<const char*>(FileName.c_str());
     NextToolbarControl(ImGui::CalcTextSize(FileLabel).x);
@@ -890,14 +957,20 @@ void FSequencerPanel::ApplyCameraResult(std::optional<FSequenceEvaluatedValue> R
     POV.Location = FVector(Value.Location[0], Value.Location[1], Value.Location[2]);
     POV.Rotation = FRotator(Value.Rotation[0], Value.Rotation[1], Value.Rotation[2]);
     POV.FieldOfView = Value.FieldOfView;
-    if (Manager) Manager->SetSequenceCamera(&Player, Camera, POV);
+    POV.PerspectiveBlend = 1.0f - Value.Projection;
+    POV.bIsPerspective = POV.PerspectiveBlend >= 0.5f;
+    POV.OrthoWidth = Value.OrthoWidth;
     if (PilotCameraValue)
     {
         const auto& Draft = *PilotCameraValue;
         POV.Location = FVector(Draft.Location[0], Draft.Location[1], Draft.Location[2]);
         POV.Rotation = FRotator(Draft.Rotation[0], Draft.Rotation[1], Draft.Rotation[2]);
         POV.FieldOfView = Draft.FieldOfView;
+        POV.PerspectiveBlend = 1.0f - Draft.Projection;
+        POV.bIsPerspective = POV.PerspectiveBlend >= 0.5f;
+        POV.OrthoWidth = Draft.OrthoWidth;
     }
+    if (Manager) Manager->SetSequenceCamera(&Player, Camera, POV);
     if (CameraPreviewCallback) CameraPreviewCallback(bCameraPreviewEnabled ? std::optional<FCameraPOV>(POV) : std::nullopt);
 }
 
@@ -906,7 +979,9 @@ bool FSequencerPanel::IsCameraPilotEnabled() const
     UWorld* World = WorldProvider ? WorldProvider() : nullptr;
     const int Index = GetSelectedTrackIndex();
     return bCameraPilotEnabled && bCameraPreviewEnabled && !Player.IsPlaying() &&
-        World && !World->IsPlayInEditor() && Index >= 0 && EditorTracks[Index].Type == 1;
+        World && Index >= 0 && EditorTracks[Index].Type == 1 &&
+        ResolveCamera(PreviewSequence->Tracks[EditorTracks[Index].RuntimeTrackIndex].CameraActor,
+            PreviewSequence->Tracks[EditorTracks[Index].RuntimeTrackIndex].CameraComponent) != nullptr;
 }
 
 void FSequencerPanel::OnCameraViewEdited(const FCameraPOV& POV)
@@ -916,9 +991,38 @@ void FSequencerPanel::OnCameraViewEdited(const FCameraPOV& POV)
     Value.Location = {POV.Location.X, POV.Location.Y, POV.Location.Z};
     Value.Rotation = {POV.Rotation.Pitch, POV.Rotation.Yaw, POV.Rotation.Roll};
     Value.FieldOfView = POV.FieldOfView;
+    Value.Projection = 1.0f - POV.PerspectiveBlend;
+    Value.OrthoWidth = POV.OrthoWidth;
     PilotCameraValue = Value;
     PilotCameraTime = Player.GetCurrentTime();
     SelectedKeyTime.reset();
+}
+
+void FSequencerPanel::TickPIECameraPilot(const FViewportCameraInput& Input, float DeltaTime,
+    float MoveSpeed, float MouseSensitivity, float ViewWidth)
+{
+    if (!IsCameraPilotEnabled()) return;
+    const auto& Track = PreviewSequence->Tracks[EditorTracks[GetSelectedTrackIndex()].RuntimeTrackIndex];
+    auto* BoundCamera = ResolveCamera(Track.CameraActor, Track.CameraComponent);
+    if (!BoundCamera) return;
+
+    const auto Value = PilotCameraValue && PilotCameraTime == Player.GetCurrentTime()
+        ? *PilotCameraValue : GetCameraKeyValue(Player.GetCurrentTime());
+    FViewportCameraState Camera{
+        FVector(Value.Location[0], Value.Location[1], Value.Location[2]),
+        FRotator(Value.Rotation[0], Value.Rotation[1], Value.Rotation[2]),
+        Value.OrthoWidth, std::max(1.0f, ViewWidth), Value.Projection <= 0.5f};
+    ApplyViewportCameraMovement(Camera, Input, DeltaTime, MoveSpeed, MouseSensitivity);
+
+    FCameraPOV POV = BoundCamera->GetCameraPOV();
+    POV.Location = Camera.Location;
+    POV.Rotation = Camera.Rotation;
+    POV.FieldOfView = Value.FieldOfView;
+    POV.bIsPerspective = Camera.bPerspective;
+    POV.PerspectiveBlend = 1.0f - Value.Projection;
+    POV.OrthoWidth = Camera.OrthoWidth;
+    OnCameraViewEdited(POV);
+    Player.Apply();
 }
 
 FSequenceCameraValue FSequencerPanel::GetCameraKeyValue(float Time) const
@@ -938,6 +1042,8 @@ FSequenceCameraValue FSequencerPanel::GetCameraKeyValue(float Time) const
         Value.Location = {POV.Location.X, POV.Location.Y, POV.Location.Z};
         Value.Rotation = {POV.Rotation.Pitch, POV.Rotation.Yaw, POV.Rotation.Roll};
         Value.FieldOfView = POV.FieldOfView;
+        Value.Projection = 1.0f - POV.PerspectiveBlend;
+        Value.OrthoWidth = POV.OrthoWidth;
     }
     return Value;
 }
@@ -949,8 +1055,9 @@ void FSequencerPanel::EditSelectedCameraKey(float Time, const FSequenceCameraVal
     Time = std::clamp(Time, 0.0f, PreviewSequence->Duration);
     for (int Channel : GetRowChannels(SelectedTrack))
     {
-        if (SelectedKeyTime && *SelectedKeyTime != Time) Section->CameraChannels[Channel].RemoveKey(*SelectedKeyTime);
-        Section->CameraChannels[Channel].AddKey(Time, Channel < 3 ? Value.Location[Channel] : Channel < 6 ? Value.Rotation[Channel - 3] : Value.FieldOfView);
+        if (SelectedKeyTime && *SelectedKeyTime != Time &&
+            Section->CameraChannels[Channel].EditKey(*SelectedKeyTime, Time, Value.GetChannelValue(Channel))) continue;
+        Section->CameraChannels[Channel].AddKey(Time, Value.GetChannelValue(Channel));
     }
     SelectedKeyTime = Time;
     NotifySequenceEdited();
@@ -986,6 +1093,8 @@ void FSequencerPanel::DrawCameraSettings()
                 Defaults.Location = {POV.Location.X, POV.Location.Y, POV.Location.Z};
                 Defaults.Rotation = {POV.Rotation.Pitch, POV.Rotation.Yaw, POV.Rotation.Roll};
                 Defaults.FieldOfView = POV.FieldOfView;
+                Defaults.Projection = 1.0f - POV.PerspectiveBlend;
+                Defaults.OrthoWidth = POV.OrthoWidth;
                 NotifySequenceEdited();
             }
         }
@@ -994,9 +1103,9 @@ void FSequencerPanel::DrawCameraSettings()
     const bool Bound = ResolveCamera(Track.CameraActor, Track.CameraComponent) != nullptr;
     NextToolbarControl(130);
     if (ImGui::Checkbox("Preview", &bCameraPreviewEnabled)) NotifySequenceEdited();
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Editor viewport preview only. PIE camera playback is independent.");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Enable camera preview and Pilot to frame shots in the editor or PIE.");
     UWorld* World = WorldProvider ? WorldProvider() : nullptr;
-    const bool CanPilot = Bound && bCameraPreviewEnabled && World && !World->IsPlayInEditor();
+    const bool CanPilot = Bound && bCameraPreviewEnabled && World;
     NextToolbarControl(130);
     ImGui::BeginDisabled(!CanPilot);
     if (ImGui::Checkbox("Pilot", &bCameraPilotEnabled))
@@ -1010,8 +1119,8 @@ void FSequencerPanel::DrawCameraSettings()
         Player.Apply();
     }
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip(CanPilot ? "Move the camera with viewport controls, then press + Key to record." :
-            "Pilot requires editor mode, a bound camera and Preview enabled.");
+        ImGui::SetTooltip(CanPilot ? "Hold RMB and use WASD/QE to move, then Capture the complete camera pose." :
+            "Pilot requires a bound camera and Preview enabled. Pause Sequencer to move the camera.");
     ImGui::EndDisabled();
     if (!Bound) ImGui::TextDisabled("Camera not found in current world. Select a camera to preview.");
     ImGui::SameLine();
@@ -1027,12 +1136,32 @@ void FSequencerPanel::DrawCameraSettings()
         Value.Location = {POV.Location.X, POV.Location.Y, POV.Location.Z};
         Value.Rotation = {POV.Rotation.Pitch, POV.Rotation.Yaw, POV.Rotation.Roll};
         Value.FieldOfView = POV.FieldOfView;
+        Value.Projection = 1.0f - POV.PerspectiveBlend;
+        Value.OrthoWidth = POV.OrthoWidth;
         SelectedKeyTime = Player.GetCurrentTime();
+        if (IsCameraPilotEnabled())
+            Value = PilotCameraValue && PilotCameraTime == Player.GetCurrentTime()
+                ? *PilotCameraValue : GetCameraKeyValue(Player.GetCurrentTime());
         GetSelectedSection()->AddCameraKey(Player.GetCurrentTime(), Value);
         NotifySequenceEdited();
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Record the camera component's actual transform and FOV.");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Record the complete piloted pose, or the bound camera when not piloting.");
     ImGui::EndDisabled();
+
+    NextToolbarControl(200);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Projection Blend");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(100);
+    auto& ProjectionInterpolation = Track.Sections.front().CameraChannels[7].Interpolation;
+    int Mode = static_cast<int>(ProjectionInterpolation);
+    if (ImGui::Combo("##ProjectionBlend", &Mode, "Linear\0Ease In Out\0Step\0Ease In\0Ease Out\0"))
+    {
+        ProjectionInterpolation = static_cast<ESequenceInterpolation>(Mode);
+        NotifySequenceEdited();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Projection keys: 0 = perspective, 1 = orthographic. Blend between key times.");
 }
 void FSequencerPanel::DrawContextMenu()
 {
@@ -1046,6 +1175,7 @@ void FSequencerPanel::DrawContextMenu()
         if (ImGui::MenuItem("Add Key")) Action = 1;
         if (SelectedKeyTime)
         {
+            DrawSelectedKeyInterpolation();
             auto* Section = GetSelectedSection();
             if (Section)
             {
@@ -1290,11 +1420,13 @@ void FSequencerPanel::DrawTrackList(const ImVec2& Origin, const ImVec2& Size)
             if (Item.Type == 1)
             {
                 const bool Group = Item.Group != 0;
-                const float Indent = Item.Channel >= 0 && Item.Channel < 6 ? 20.0f : 0.0f;
+                const float Indent = Item.Group == 3 ? 0.0f :
+                    Item.Channel >= 0 && Item.Channel < 6 ? 40.0f : 20.0f;
                 LabelX += Indent;
                 if (Group)
                 {
-                    bool& Expanded = Item.Group == 1 ? bCameraLocationExpanded : bCameraRotationExpanded;
+                    bool& Expanded = Item.Group == 3 ? bCameraExpanded :
+                        Item.Group == 1 ? bCameraLocationExpanded : bCameraRotationExpanded;
                     const float X = LabelX + 5;
                     if (Expanded) Draw->AddTriangleFilled(ImVec2(X - 4, CenterY - 2), ImVec2(X + 4, CenterY - 2), ImVec2(X, CenterY + 3), IM_COL32(145, 148, 155, 255));
                     else Draw->AddTriangleFilled(ImVec2(X - 2, CenterY - 4), ImVec2(X - 2, CenterY + 4), ImVec2(X + 3, CenterY), IM_COL32(145, 148, 155, 255));
@@ -1395,10 +1527,33 @@ void FSequencerPanel::DrawTrackKeyControls(int RowIndex, float Left, float Right
             if (Section) Section->EvaluateCamera(Player.GetCurrentTime(), Pose);
             if (PilotCameraValue && PilotCameraTime == Player.GetCurrentTime()) Pose = *PilotCameraValue;
             float* Component = Item.Channel < 3 ? &Pose.Location[Item.Channel] :
-                Item.Channel < 6 ? &Pose.Rotation[Item.Channel - 3] : &Pose.FieldOfView;
+                Item.Channel < 6 ? &Pose.Rotation[Item.Channel - 3] :
+                Item.Channel == 6 ? &Pose.FieldOfView : Item.Channel == 7 ? &Pose.Projection : &Pose.OrthoWidth;
             const bool Lens = Item.Channel == 6;
-            if (ImGui::DragFloat("##CameraValue", Component, Lens ? 0.1f : 0.05f,
-                Lens ? 1.0f : 0.0f, Lens ? 179.0f : 0.0f, "%.3f"))
+            bool Changed = false;
+            if (Item.Channel == 7)
+            {
+                char Label[32];
+                if (Pose.Projection == 0.0f) ImFormatString(Label, sizeof(Label), "0: Persp");
+                else if (Pose.Projection == 1.0f) ImFormatString(Label, sizeof(Label), "1: Ortho");
+                else ImFormatString(Label, sizeof(Label), "%.3f", Pose.Projection);
+                if (ImGui::BeginCombo("##Projection", Label))
+                {
+                    for (int Projection = 0; Projection < 2; ++Projection)
+                        if (ImGui::Selectable(Projection == 0 ? "0: Perspective" : "1: Orthographic",
+                            Pose.Projection == static_cast<float>(Projection)))
+                        {
+                            Pose.Projection = static_cast<float>(Projection);
+                            Changed = true;
+                        }
+                    ImGui::EndCombo();
+                }
+            }
+            else
+                Changed = ImGui::DragFloat("##CameraValue", Component, Lens ? 0.1f : 0.05f,
+                    Lens ? 1.0f : Item.Channel == 8 ? 0.1f : 0.0f,
+                    Lens ? 179.0f : Item.Channel == 8 ? 100000.0f : 0.0f, "%.3f");
+            if (Changed)
             {
                 SelectedTrack = RowIndex;
                 SelectedKeyTime = Player.GetCurrentTime();
@@ -1506,7 +1661,6 @@ void FSequencerPanel::DrawTrackKeys(int RowIndex)
     // Replace the entire vendor row, including its section and selection colors.
     Draw->AddRectFilled(ImVec2(PreviewData.TimelineLeft, Row.Top),
         ImVec2(PreviewData.TimelineRight, Row.Bottom), IM_COL32(36, 36, 36, 255));
-    if (Item.Group != 0) { Draw->PopClipRect(); return; }
     const float Y = (Row.Top + Row.Bottom) * 0.5f;
     // Show the evaluated Fade as a grayscale strip: 0 = gray, 1 = black.
     const float Start = std::max(0.0f, TimeTransform.XToTime(PreviewData.TimelineLeft));
@@ -1520,12 +1674,16 @@ void FSequencerPanel::DrawTrackKeys(int RowIndex)
     };
     const auto Segment = [&](float A, float B) {
         if (B <= A) return;
-        const int Steps = Section->Interpolation == ESequenceInterpolation::Smooth ? 20 : 1;
+        auto Mode = Section->Interpolation;
+        for (const auto& Key : Keys)
+            if (Key.Time <= A) Mode = Key.Interpolation.value_or(Section->Interpolation);
+            else break;
+        const int Steps = Mode == ESequenceInterpolation::Linear || Mode == ESequenceInterpolation::Constant ? 1 : 20;
         for (int I = 0; I < Steps; ++I)
         {
             const float T0 = A + (B - A) * I / Steps;
             const float T1 = A + (B - A) * (I + 1) / Steps;
-            const ImU32 L = Shade(T0), R = Section->Interpolation == ESequenceInterpolation::Constant ? L : Shade(T1);
+            const ImU32 L = Shade(T0), R = Mode == ESequenceInterpolation::Constant ? L : Shade(T1);
             Draw->AddRectFilledMultiColor(ImVec2(TimeTransform.TimeToX(T0), Row.Top),
                 ImVec2(TimeTransform.TimeToX(T1), Row.Bottom), L, R, R, L);
         }

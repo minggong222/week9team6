@@ -149,6 +149,7 @@ public:
 
 protected:
   std::optional<FCameraPOV> PreSequenceView;
+  std::optional<float> SequencePerspectiveBlend;
   bool bSequencePilot = false;
   std::function<void(const FCameraPOV&)> SequenceCameraEdited;
   std::function<void()> SequencePreviewReleased;

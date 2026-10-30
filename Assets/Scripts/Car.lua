@@ -110,10 +110,10 @@ end
 function TickComponent(Self, DeltaSeconds)
     if not State.bActive or not Refs.Level then return end
     local Phase = Refs.Level:Invoke("GetPhase")
-    if Phase ~= "Playing" and Phase ~= "Dead" and Phase ~= "Credits" then return end
+    if Phase ~= "Playing" and Phase ~= "Intro" and Phase ~= "Dead" and Phase ~= "Credits" then return end
 
     local NextDistance = math.min(State.Distance + State.Speed * DeltaSeconds, State.TotalDistance)
-    -- 게임 오버·크레딧 화면에서는 이동만 유지하고 플레이어 충돌 판정 생략
+    -- 컷신·게임 오버·크레딧 화면에서는 이동만 유지하고 플레이어 충돌 판정 생략
     if Phase == "Playing" then
         CheckPlayerCollision(State.Direction * (NextDistance - State.Distance))
     end

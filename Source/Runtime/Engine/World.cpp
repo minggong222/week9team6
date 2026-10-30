@@ -43,6 +43,27 @@
 
 namespace
 {
+	UCameraComponent* FindSequenceCamera(UWorld& World, const std::string& ActorName, const std::string& ComponentName)
+	{
+		if (ActorName == "$MainCamera")
+		{
+			auto* Camera = World.GetMainCameraComponent();
+			return Camera && Camera->GetName() == ComponentName ? Camera : nullptr;
+		}
+		for (ULevel* Level : World.GetLevels())
+		{
+			if (!Level) continue;
+			for (AActor* Actor : Level->GetActors())
+			{
+				if (!Actor || Actor->GetName() != ActorName) continue;
+				for (UActorComponent* Component : Actor->GetComponents())
+					if (auto* Camera = Cast<UCameraComponent>(Component))
+						if (Camera->GetName() == ComponentName) return Camera;
+			}
+		}
+		return nullptr;
+	}
+
 	inline void WritePerObjectConstants(uint8* Dest, const FMatrix& LocalToWorld, const FMatrix& WorldToLocal)
 	{
 		FPerObjectConstants Constants{};
@@ -128,6 +149,64 @@ AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transf
 	return NewActor;
 }
 
+bool UWorld::PlaySequence(const FString& Path)
+{
+	if (!bBegunPlay || bIsEndingPlay || !GetPlayerCameraManager()) return false;
+	FSequenceAsset Asset;
+	std::string Error;
+	if (!LoadSequenceAsset(std::filesystem::u8path(Path), Asset, Error))
+	{
+		HTR_LOG(Error, "Could not load sequence {}: {}", Path, Error);
+		return false;
+	}
+	for (const auto& Track : Asset.Sequence->Tracks)
+		if (Track.Type == ESequenceTrackType::Camera &&
+			!FindSequenceCamera(*this, Track.CameraActor, Track.CameraComponent))
+		{
+			HTR_LOG(Error, "Sequence camera not found: {} / {}", Track.CameraActor, Track.CameraComponent);
+			return false;
+		}
+
+	// PIE에서 열려 있던 Sequencer 미리보기는 런타임 컷신에 제어권을 넘깁니다.
+	if (SequenceStartCallback) SequenceStartCallback();
+	StopSequence();
+	RuntimeSequencePlayer.SetFadeApplyCallback([this](std::optional<float> Value) {
+		if (auto* Manager = GetPlayerCameraManager())
+		{
+			if (Value) Manager->SetSequenceFade(&RuntimeSequencePlayer, *Value);
+			else Manager->ReleaseSequenceFade(&RuntimeSequencePlayer);
+		}
+	});
+	RuntimeSequencePlayer.SetCameraApplyCallback([this](std::optional<FSequenceEvaluatedValue> Result) {
+		auto* Manager = GetPlayerCameraManager();
+		if (!Manager) return;
+		auto* Camera = Result ? FindSequenceCamera(*this, Result->CameraActor, Result->CameraComponent) : nullptr;
+		if (!Camera) { Manager->ReleaseSequenceCamera(&RuntimeSequencePlayer); return; }
+		const auto& Value = Result->Camera;
+		FCameraPOV POV = Camera->GetCameraPOV();
+		POV.Location = FVector(Value.Location[0], Value.Location[1], Value.Location[2]);
+		POV.Rotation = FRotator(Value.Rotation[0], Value.Rotation[1], Value.Rotation[2]);
+		POV.FieldOfView = Value.FieldOfView;
+		POV.OrthoWidth = Value.OrthoWidth;
+		POV.PerspectiveBlend = 1.0f - Value.Projection;
+		POV.bIsPerspective = POV.PerspectiveBlend >= 0.5f;
+		Manager->SetSequenceCamera(&RuntimeSequencePlayer, Camera, POV);
+	});
+	RuntimeSequencePlayer.SetFramesPerSecond(Asset.FramesPerSecond);
+	RuntimeSequencePlayer.SetSequence(std::move(Asset.Sequence));
+	RuntimeSequencePlayer.SetPlaybackRange(Asset.PlaybackStart, Asset.PlaybackEnd);
+	RuntimeSequencePlayer.SetLoop(false);
+	RuntimeSequencePlayer.Play();
+	return true;
+}
+
+void UWorld::StopSequence()
+{
+	RuntimeSequencePlayer.Pause();
+	RuntimeSequencePlayer.ReleaseAppliedValues();
+	RuntimeSequencePlayer.SetSequence(nullptr);
+}
+
 void UWorld::Tick(float DeltaTime, float RealDeltaTime)
 {
 	const bool bEditorWorld = WorldType == EWorldType::Editor;
@@ -185,6 +264,11 @@ void UWorld::Tick(float DeltaTime, float RealDeltaTime)
 
 	ProcessPendingStarts();
 
+	if (!bIsPaused && RuntimeSequencePlayer.IsPlaying())
+	{
+		RuntimeSequencePlayer.Tick(GetRealDeltaSeconds());
+		if (!RuntimeSequencePlayer.IsPlaying()) StopSequence();
+	}
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_ActorTick);
@@ -1157,6 +1241,7 @@ void UWorld::EndPlay()
 	if (bIsEndingPlay)
 		return;
 	bIsEndingPlay = true;
+	StopSequence();
 	bBegunPlay = false;
 	PendingComponentStarts.Reset();
 

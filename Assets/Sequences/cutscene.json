@@ -1,0 +1,198 @@
+{
+  "duration": 6.0,
+  "frames_per_second": 30.0,
+  "playback_end": 6.0,
+  "playback_start": -0.0,
+  "tracks": [
+    {
+      "interpolation": "EaseInOut",
+      "keys": [
+        {
+          "time": 0.0,
+          "value": 1.0
+        },
+        {
+          "time": 2.0,
+          "value": 0.0
+        }
+      ],
+      "name": "Fade",
+      "type": "Fade"
+    },
+    {
+      "camera_actor": "Player",
+      "camera_component": "CameraComponent",
+      "channels": [
+        {
+          "interpolation": "EaseInOut",
+          "keys": [
+            {
+              "interpolation": "Linear",
+              "time": 0.0,
+              "value": 30.0
+            },
+            {
+              "interpolation": "EaseOut",
+              "time": 1.0,
+              "value": 17.0
+            },
+            {
+              "time": 6.0,
+              "value": -15.080224990844727
+            }
+          ],
+          "name": "Location.X"
+        },
+        {
+          "interpolation": "EaseInOut",
+          "keys": [
+            {
+              "time": 0.0,
+              "value": 0.0
+            },
+            {
+              "time": 0.9999998807907104,
+              "value": 0.0
+            },
+            {
+              "time": 6.0,
+              "value": 14.060319900512695
+            }
+          ],
+          "name": "Location.Y"
+        },
+        {
+          "interpolation": "EaseInOut",
+          "keys": [
+            {
+              "time": 0.0,
+              "value": 5.0
+            },
+            {
+              "time": 0.9999998807907104,
+              "value": 5.0
+            },
+            {
+              "time": 6.0,
+              "value": 20.569198608398438
+            }
+          ],
+          "name": "Location.Z"
+        },
+        {
+          "interpolation": "EaseInOut",
+          "keys": [
+            {
+              "time": 0.0,
+              "value": 25.0
+            },
+            {
+              "time": 0.9999998807907104,
+              "value": 25.0
+            },
+            {
+              "time": 6.0,
+              "value": 39.999996185302734
+            }
+          ],
+          "name": "Pitch"
+        },
+        {
+          "interpolation": "EaseInOut",
+          "keys": [
+            {
+              "time": 0.0,
+              "value": 0.0
+            },
+            {
+              "time": 0.9999998807907104,
+              "value": 0.0
+            },
+            {
+              "time": 6.0,
+              "value": -34.999996185302734
+            }
+          ],
+          "name": "Yaw"
+        },
+        {
+          "interpolation": "Linear",
+          "keys": [
+            {
+              "time": 0.0,
+              "value": 0.0
+            },
+            {
+              "time": 0.9999998807907104,
+              "value": 0.0
+            },
+            {
+              "time": 6.0,
+              "value": -1.1145224334541126e-06
+            }
+          ],
+          "name": "Roll"
+        },
+        {
+          "interpolation": "Linear",
+          "keys": [
+            {
+              "time": 6.0,
+              "value": 60.0
+            }
+          ],
+          "name": "FOV"
+        },
+        {
+          "interpolation": "EaseInOut",
+          "keys": [
+            {
+              "time": 0.0,
+              "value": 0.0
+            },
+            {
+              "interpolation": "EaseOut",
+              "time": 2.0,
+              "value": 0.0
+            },
+            {
+              "time": 6.0,
+              "value": 1.0
+            }
+          ],
+          "name": "Projection"
+        },
+        {
+          "interpolation": "Linear",
+          "keys": [
+            {
+              "time": 6.0,
+              "value": 36.0
+            }
+          ],
+          "name": "OrthoWidth"
+        }
+      ],
+      "defaults": {
+        "fov": 60.0,
+        "location": [
+          -15.080224990844727,
+          14.060319900512695,
+          20.569198608398438
+        ],
+        "ortho_width": 36.0,
+        "projection": 1.0,
+        "rotation": [
+          39.999996185302734,
+          -34.999996185302734,
+          -1.1145224334541126e-06
+        ]
+      },
+      "interpolation": "Linear",
+      "keys": [],
+      "name": "Camera",
+      "type": "Camera"
+    }
+  ],
+  "version": 5
+}

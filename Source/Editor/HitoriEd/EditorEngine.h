@@ -182,6 +182,7 @@ private:
 	UWorld* PlayWorld = nullptr;
 	// PIE 시작 시점의 편집 View. PIE가 아니면 InvalidViewIndex다.
 	int32 PIEViewIndex = -1;
+	int32 FrameMouseWheelDelta = 0;
 	int32 PIEStartEditorViewIndex = -1;
 	// 게임 카메라와 별도로 PIE 시작 전 편집 시점을 보관한다.
 	FSceneView PIEStartEditorView;

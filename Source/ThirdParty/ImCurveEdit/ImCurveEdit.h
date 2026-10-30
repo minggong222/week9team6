@@ -38,6 +38,8 @@ namespace ImCurveEdit
       CurveLinear,
       CurveSmooth,
       CurveBezier,
+      CurveEaseIn,
+      CurveEaseOut,
    };
 
    struct EditPoint
@@ -63,6 +65,8 @@ namespace ImCurveEdit
       virtual size_t GetCurveCount() = 0;
       virtual bool IsVisible(size_t /*curveIndex*/) { return true; }
       virtual CurveType GetCurveType(size_t /*curveIndex*/) const { return CurveLinear; }
+      // 구간별 보간을 제공하지 않는 기존 사용자는 곡선 기본값을 유지합니다.
+      virtual CurveType GetSegmentType(size_t curveIndex, size_t /*pointIndex*/) const { return GetCurveType(curveIndex); }
       virtual ImVec2& GetMin() = 0;
       virtual ImVec2& GetMax() = 0;
       virtual size_t GetPointCount(size_t curveIndex) = 0;

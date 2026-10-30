@@ -14,6 +14,7 @@
 #include "Engine/EngineTypes.h"
 #include "Engine/WorldTimeManager.h"
 #include "Render/RenderStats.h"
+#include "Sequencer/SequencePlayer.h"
 
 class ULevel;
 class UGameInstance;
@@ -46,6 +47,11 @@ public:
 	void BeginPlay();
 	void Tick(float DeltaTime, float RealDeltaTime = -1.0f);
 	void EndPlay();
+
+	bool PlaySequence(const FString& Path);
+	void StopSequence();
+	bool IsSequencePlaying() const { return RuntimeSequencePlayer.IsPlaying(); }
+	void SetSequenceStartCallback(std::function<void()> Callback) { SequenceStartCallback = std::move(Callback); }
 
 	bool HasBegunPlay() const { return bBegunPlay; }
 
@@ -255,6 +261,8 @@ private:
 
 	// 월드별 실행 상태이며, 플레이 종료 시 기본값으로 복원한다.
 	FWorldTimeManager TimeManager;
+	FSequencePlayer RuntimeSequencePlayer;
+	std::function<void()> SequenceStartCallback;
 
 	// 경로 추적
 	FPathTracker PathTracker;
